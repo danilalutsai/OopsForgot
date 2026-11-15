@@ -60,6 +60,10 @@ _Avoid_: Group, household, team
 A person with an account who belongs to a Family.
 _Avoid_: User, participant
 
+**Former member**:
+How a person whose account was deleted appears in a Family's Split Expenses and Balances. Their amounts stay, their name does not.
+_Avoid_: Deleted user, ex-member, unknown
+
 **Admin**:
 A Member who can manage the Family: remove Members, rename or delete it, and make other Members Admins. A Family has one or more Admins.
 _Avoid_: Owner, moderator, head
