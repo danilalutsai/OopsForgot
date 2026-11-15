@@ -44,6 +44,10 @@ _Avoid_: Notification, alarm, alert
 The state of an Item a person has already dealt with for its current Due date, such as a renewed passport or a cancelled trial. A Handled Item sends no more Reminders until its next Due date.
 _Avoid_: Done, completed, resolved
 
+**Calendar feed**:
+A private, self-updating calendar link for one person that shows the Due dates and Act-by dates of the Items they can see.
+_Avoid_: Calendar export, sync, iCal
+
 **Expense**:
 An amount of money spent, either created automatically on the Due date of an Item that has a price, or entered by hand.
 _Avoid_: Cost, payment, transaction, spending
