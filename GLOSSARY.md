@@ -47,3 +47,31 @@ _Avoid_: Done, completed, resolved
 **Expense**:
 An amount of money spent, either created automatically on the Due date of an Item that has a price, or entered by hand.
 _Avoid_: Cost, payment, transaction, spending
+
+**Family**:
+A group of people who share Items and bills. A person belongs to at most one Family, or to none.
+_Avoid_: Group, household, team
+
+**Member**:
+A person with an account who belongs to a Family.
+_Avoid_: User, participant
+
+**Admin**:
+A Member who can manage the Family: remove Members, rename or delete it, and make other Members Admins. A Family has one or more Admins.
+_Avoid_: Owner, moderator, head
+
+**Personal Item**:
+An Item only the person who added it can see.
+_Avoid_: Private Item
+
+**Shared Item**:
+An Item every Member of a Family can see.
+_Avoid_: Family Item, group Item
+
+**Owner**:
+A Member responsible for dealing with a Shared Item. A Shared Item has one or more Owners; a Personal Item's only Owner is the person who added it.
+_Avoid_: Assignee, creator, responsible
+
+**Dependent**:
+Someone in a Family without an account, such as a child, a pet or an elderly parent, whom Items can be for. A Dependent never owns Items or gets Reminders.
+_Avoid_: Child, profile, sub-account
