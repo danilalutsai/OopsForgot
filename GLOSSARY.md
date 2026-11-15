@@ -75,3 +75,23 @@ _Avoid_: Assignee, creator, responsible
 **Dependent**:
 Someone in a Family without an account, such as a child, a pet or an elderly parent, whom Items can be for. A Dependent never owns Items or gets Reminders.
 _Avoid_: Child, profile, sub-account
+
+**Split Expense**:
+An Expense whose cost is divided equally between chosen Members of a Family. It is Unpaid until someone records who paid it.
+_Avoid_: Shared bill, group expense
+
+**Share**:
+One person's equal part of a Split Expense. It is what counts in that person's monthly total.
+_Avoid_: Portion, cut
+
+**Payer**:
+The one Member who paid the full amount of a Split Expense.
+_Avoid_: Buyer, owner
+
+**Payback**:
+Money one Member gives another to lower what they owe, recorded by hand.
+_Avoid_: Settlement, transfer, refund
+
+**Balance**:
+How much one Member owes another, worked out from Split Expenses and Paybacks between those two people.
+_Avoid_: Debt, total
