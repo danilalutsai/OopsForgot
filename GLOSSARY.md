@@ -37,9 +37,13 @@ The state of an Item a person no longer tracks. It leaves the active list but ke
 _Avoid_: Deleted, inactive, cancelled
 
 **Reminder**:
-An alert sent to a person before a Due date or Act-by date.
+An alert sent to a person a set time before, or on, an Item's Due date or Act-by date. A repeating Item's Reminders repeat every time it comes due.
 _Avoid_: Notification, alarm, alert
 
+**Handled**:
+The state of an Item a person has already dealt with for its current Due date, such as a renewed passport or a cancelled trial. A Handled Item sends no more Reminders until its next Due date.
+_Avoid_: Done, completed, resolved
+
 **Expense**:
-An amount of money spent, either produced by an Item's payment or entered by hand.
+An amount of money spent, either created automatically on the Due date of an Item that has a price, or entered by hand.
 _Avoid_: Cost, payment, transaction, spending
