@@ -12,16 +12,8 @@ _Avoid_: Deadline, entry, record, thing
 The date an Item expires, renews or must be paid.
 _Avoid_: Deadline, expiry, end date
 
-**Act-by date**:
-The last day a person can still act on an Item in time, such as cancelling before renewal or starting a passport renewal. It falls on or before the Due date.
-_Avoid_: Deadline, notice date
-
-**Lead time**:
-How long before the Due date a person must act on an Item, such as a notice period or a processing time. The Act-by date is the Due date minus the Lead time.
-_Avoid_: Notice period, buffer, advance
-
 **Category**:
-One of a fixed set of kinds an Item belongs to (Documents, Cards, Subscriptions, Free trials, Vehicle, Home, Health, Purchases, Travel, Other). Each Category has default settings, such as a default Lead time.
+One of a fixed set of kinds an Item belongs to (Documents, Cards, Subscriptions, Free trials, Vehicle, Home, Health, Purchases, Travel, Other).
 _Avoid_: Type, tag, group
 
 **Recurrence**:
@@ -37,7 +29,7 @@ The state of an Item a person no longer tracks. It leaves the active list but ke
 _Avoid_: Deleted, inactive, cancelled
 
 **Reminder**:
-An alert sent to a person a set time before, or on, an Item's Due date or Act-by date. A repeating Item's Reminders repeat every time it comes due.
+An alert sent to a person a set time before, or on, an Item's Due date. An Item can have several: on the day, 30 minutes, 1, 2 or 4 hours before (only for Items with a time), or 1 day, 2 days or 1 week before. A repeating Item's Reminders repeat every time it comes due.
 _Avoid_: Notification, alarm, alert
 
 **Handled**:
@@ -45,7 +37,7 @@ The state of an Item a person has already dealt with for its current Due date, s
 _Avoid_: Done, completed, resolved
 
 **Calendar feed**:
-A private, self-updating calendar link for one person that shows the Due dates and Act-by dates of the Items they can see.
+A private, self-updating calendar link for one person that shows the Due dates of the Items they can see.
 _Avoid_: Calendar export, sync, iCal
 
 **Expense**:
