@@ -1,0 +1,626 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Answers: "What do the dashboard and add-Item flow look like?"
+  Three structurally different variants of the urgency dashboard + add-Item flow,
+  switchable with ?variant=A|B|C and the floating bar (or ← → keys).
+  "Phone / Computer" toggle in the bar: phone design first, then the computer layout built from it.
+  All data is fake and in memory; reload resets it. Open by double-clicking this file.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OopsProof prototype</title>
+<script src="https://cdn.tailwindcss.com/3.4.16?plugins=container-queries"></script>
+<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+<style>
+  body { background: #e5e7eb; }
+  .frame { transform: translateZ(0); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body class="font-sans text-slate-900">
+<div id="app"></div>
+
+<script>
+const { createApp, ref, reactive, computed, watch, onMounted, onUnmounted } = Vue;
+
+// ---------- fake data + rules (from map decisions) ----------
+const DAY = 86400000;
+const today = new Date(); today.setHours(0, 0, 0, 0);
+const plus = n => new Date(today.getTime() + n * DAY);
+const daysTo = d => Math.round((d - today) / DAY);
+
+const CATEGORIES = {
+  'Documents':     { lead: 30, color: 'bg-indigo-100 text-indigo-700',  icon: '📄' },
+  'Cards':         { lead: 14, color: 'bg-sky-100 text-sky-700',        icon: '💳' },
+  'Subscriptions': { lead: 3,  color: 'bg-violet-100 text-violet-700',  icon: '🔁' },
+  'Free trials':   { lead: 2,  color: 'bg-pink-100 text-pink-700',      icon: '🎁' },
+  'Vehicle':       { lead: 14, color: 'bg-amber-100 text-amber-700',    icon: '🚗' },
+  'Home':          { lead: 14, color: 'bg-emerald-100 text-emerald-700',icon: '🏠' },
+  'Health':        { lead: 7,  color: 'bg-rose-100 text-rose-700',      icon: '🩺' },
+  'Purchases':     { lead: 3,  color: 'bg-orange-100 text-orange-700',  icon: '🛍️' },
+  'Travel':        { lead: 7,  color: 'bg-cyan-100 text-cyan-700',      icon: '✈️' },
+  'Other':         { lead: 0,  color: 'bg-slate-100 text-slate-700',    icon: '•' },
+};
+const leadLabel = d => d === 0 ? 'no Lead time' : d % 30 === 0 ? `${d / 30} month${d > 30 ? 's' : ''}` : d % 7 === 0 ? `${d / 7} week${d > 7 ? 's' : ''}` : `${d} day${d > 1 ? 's' : ''}`;
+
+let nextId = 100;
+const seed = [
+  { name: 'Disney+ free trial', category: 'Free trials', due: 2, lead: 2, recur: null, price: 899, time: '23:59', reminders: ['1d', '4h'] },
+  { name: 'Car insurance', category: 'Vehicle', due: 16, lead: 14, recur: 'yearly', price: 48000, shared: true, owners: ['You', 'Anna'] },
+  { name: 'Passport', category: 'Documents', due: 40, lead: 30, recur: null },
+  { name: 'Gym class', category: 'Health', due: 0, lead: 0, recur: 'weekly', time: '18:30', reminders: ['2h', '30m'] },
+  { name: 'Netflix', category: 'Subscriptions', due: 5, lead: 3, recur: 'monthly', price: 1299, shared: true, owners: ['Anna'] },
+  { name: 'Rent', category: 'Home', due: 16, lead: 2, recur: 'monthly', price: 95000, shared: true, owners: ['You'] },
+  { name: 'Debit card •4821', category: 'Cards', due: 75, lead: 14, recur: null },
+  { name: 'Concert ticket refund', category: 'Purchases', due: -2, lead: 0, recur: null, price: 6500 },
+  { name: 'Dentist check-up', category: 'Health', due: 9, lead: 7, recur: 'yearly', for: 'Mia', shared: true, owners: ['Anna'] },
+  { name: 'Water bill', category: 'Home', due: 4, lead: 3, recur: 'monthly', price: 3400, shared: true, owners: ['Max'], handledBy: 'Anna' },
+  { name: 'Spotify', category: 'Subscriptions', due: 22, lead: 3, recur: 'monthly', price: 1199 },
+  { name: 'Rex vaccination', category: 'Health', due: 28, lead: 7, recur: 'yearly', for: 'Rex', shared: true, owners: ['You', 'Max'] },
+  { name: 'Travel insurance', category: 'Travel', due: 120, lead: 7, recur: 'yearly', price: 8900 },
+].map(i => ({ id: nextId++, shared: false, owners: ['You'], handledBy: null, time: null, reminders: ['day'], for: null, price: null, notes: '', ...i, due: plus(i.due) }));
+
+const store = reactive({ items: seed, filter: 'all' }); // filter: all | mine | family
+
+const actBy = i => new Date(i.due.getTime() - i.lead * DAY);
+function status(i) {
+  const d = daysTo(i.due), a = daysTo(actBy(i));
+  if (i.handledBy) return 'handled';
+  if (!i.recur && d < 0) return 'expired';
+  if (a <= 0) return 'now';
+  if (a <= 7) return 'soon';
+  return 'later';
+}
+const RANK = { expired: 0, now: 1, soon: 2, later: 3, handled: 4 };
+const nextDate = i => daysTo(actBy(i)) > 0 ? actBy(i) : i.due;
+const sorted = computed(() => store.items
+  .filter(i => store.filter === 'all' || (store.filter === 'mine' ? !i.shared : i.shared))
+  .slice().sort((x, y) => RANK[status(x)] - RANK[status(y)] || nextDate(x) - nextDate(y)));
+
+function countdown(i) {
+  const d = daysTo(i.due), a = daysTo(actBy(i)), s = status(i);
+  if (s === 'expired') return { big: `${-d}d`, small: 'Expired', text: `Expired ${-d} day${-d === 1 ? '' : 's'} ago` };
+  if (s === 'handled') return { big: '✓', small: 'Handled', text: `Handled by ${i.handledBy}` };
+  if (a > 0) return { big: `${a}d`, small: 'to act', text: `Act in ${a} day${a === 1 ? '' : 's'}` };
+  if (d === 0) return { big: 'Today', small: 'due', text: 'Due today' };
+  return { big: `${d}d`, small: 'to due', text: a === 0 ? `Act today · due in ${d}d` : `Due in ${d} day${d === 1 ? '' : 's'}` };
+}
+const STATUS_STYLE = {
+  expired: { dot: 'bg-slate-500', chip: 'bg-slate-800 text-white', label: 'Expired' },
+  now:     { dot: 'bg-red-500', chip: 'bg-red-600 text-white', label: 'Act now' },
+  soon:    { dot: 'bg-amber-400', chip: 'bg-amber-400 text-amber-950', label: 'This week' },
+  later:   { dot: 'bg-emerald-400', chip: 'bg-emerald-100 text-emerald-800', label: 'Later' },
+  handled: { dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500', label: 'Handled' },
+};
+const fmt = (d, o = { day: 'numeric', month: 'short' }) => d.toLocaleDateString(undefined, o);
+const money = c => c == null ? '' : (c / 100).toLocaleString(undefined, { style: 'currency', currency: 'EUR' });
+const actionWord = i => i.category === 'Free trials' ? 'Cancel or keep' : i.category === 'Documents' || i.category === 'Cards' ? 'Renew' : i.price ? 'Pay' : 'Deal with';
+const monthTotal = computed(() => store.items.filter(i => i.price && i.due.getMonth() === today.getMonth()).reduce((s, i) => s + i.price, 0));
+
+function markHandled(i) { i.handledBy = i.handledBy ? null : 'You'; }
+function addItem(f) {
+  store.items.push({ id: nextId++, name: f.name || 'Untitled', category: f.category, due: f.due ? new Date(f.due + 'T00:00') : plus(7),
+    lead: f.lead ?? CATEGORIES[f.category].lead, recur: f.recur || null, price: f.price ? Math.round(parseFloat(f.price) * 100) : null,
+    shared: !!f.shared, owners: ['You'], handledBy: null, for: null, notes: f.notes || '' });
+}
+const isoDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const blankForm = () => ({ name: '', category: 'Subscriptions', due: isoDate(plus(30)), lead: null, recur: '', price: '', shared: false, notes: '' });
+
+const helpers = { CATEGORIES, store, sorted, status, countdown, STATUS_STYLE, fmt, money, actBy, daysTo, markHandled, addItem, leadLabel, actionWord, monthTotal, blankForm, today };
+
+// ---------- shared bits ----------
+const CatBadge = { props: ['c', 'size'], setup: () => helpers,
+  template: `<span :class="[CATEGORIES[c].color, size==='lg' ? 'w-12 h-12 text-2xl' : 'w-9 h-9 text-lg']" class="rounded-xl grid place-items-center shrink-0">{{ CATEGORIES[c].icon }}</span>` };
+const Filter = { setup: () => helpers,
+  template: `<div class="inline-flex bg-slate-100 rounded-full p-1 text-sm">
+    <button v-for="f in [['all','All'],['mine','Personal'],['family','Shared']]" @click="store.filter=f[0]"
+      :class="store.filter===f[0] ? 'bg-white shadow text-slate-900' : 'text-slate-500'" class="px-3 py-1 rounded-full">{{ f[1] }}</button></div>` };
+
+// The add-Item form fields, reused where a variant uses a classic form.
+const ItemFormFields = { props: ['f'], setup: () => helpers,
+  template: `<div class="space-y-4">
+    <label class="block"><span class="text-sm text-slate-500">Name</span>
+      <input v-model="f.name" placeholder="e.g. Car insurance" class="mt-1 w-full border rounded-xl px-3 py-2.5 text-base" /></label>
+    <div><span class="text-sm text-slate-500">Category</span>
+      <div class="mt-1 flex flex-wrap gap-2">
+        <button v-for="(v,k) in CATEGORIES" @click="f.category=k; f.lead=null" :class="f.category===k ? 'ring-2 ring-slate-900 '+v.color : 'bg-slate-50 text-slate-600'" class="px-3 py-1.5 rounded-full text-sm">{{ v.icon }} {{ k }}</button>
+      </div></div>
+    <div class="grid grid-cols-2 gap-3">
+      <label class="block"><span class="text-sm text-slate-500">Due date</span>
+        <input type="date" v-model="f.due" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label>
+      <label class="block"><span class="text-sm text-slate-500">Repeats</span>
+        <select v-model="f.recur" class="mt-1 w-full border rounded-xl px-3 py-2.5 bg-white">
+          <option value="">Once</option><option value="weekly">Every week</option><option value="monthly">Every month</option><option value="yearly">Every year</option></select></label>
+    </div>
+    <div class="rounded-xl bg-slate-50 p-3 text-sm">
+      <div class="flex justify-between items-center"><span>Act-by: <b>{{ leadLabel(f.lead ?? CATEGORIES[f.category].lead) }}</b> before</span>
+        <select v-model.number="f.lead" class="border rounded-lg px-2 py-1 bg-white">
+          <option :value="null">{{ f.category }} default</option><option :value="0">None</option><option :value="3">3 days</option><option :value="7">1 week</option><option :value="14">2 weeks</option><option :value="30">1 month</option></select></div>
+      <div class="text-slate-500 mt-1">Reminders: on the Act-by date and on the Due date</div>
+    </div>
+    <details class="group"><summary class="text-sm text-slate-500 cursor-pointer">More: price, family, notes</summary>
+      <div class="space-y-3 mt-3">
+        <label class="block"><span class="text-sm text-slate-500">Price (optional)</span>
+          <input v-model="f.price" inputmode="decimal" placeholder="€ 0.00" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" v-model="f.shared" /> Shared with Family</label>
+        <textarea v-model="f.notes" placeholder="Notes" class="w-full border rounded-xl px-3 py-2"></textarea>
+      </div></details>
+  </div>` };
+
+// ---------- Variant A: grouped urgency list + bottom-sheet form ----------
+const VariantA = { name: 'Grouped list', components: { CatBadge, Filter, ItemFormFields },
+  setup() {
+    const open = ref(null), adding = ref(false), f = ref(blankForm());
+    const groups = computed(() => ['expired', 'now', 'soon', 'later', 'handled'].map(s => ({ s, items: sorted.value.filter(i => status(i) === s) })).filter(g => g.items.length));
+    const save = () => { addItem(f.value); adding.value = false; f.value = blankForm(); };
+    const startAdd = () => { open.value = null; adding.value = true; };
+    return { ...helpers, open, adding, f, groups, save, startAdd };
+  },
+  template: `<div class="h-full flex bg-white">
+    <!-- list column -->
+    <div class="flex-1 @3xl:max-w-md @3xl:border-r h-full overflow-y-auto pb-28">
+      <header class="sticky top-0 z-10 bg-white/90 backdrop-blur px-4 pt-5 pb-3 border-b">
+        <div class="flex justify-between items-center"><h1 class="text-2xl font-bold">OopsProof</h1>
+          <button @click="startAdd" class="hidden @3xl:block bg-slate-900 text-white rounded-full px-4 py-2 text-sm">+ Add Item</button></div>
+        <div class="mt-3"><Filter /></div>
+      </header>
+      <section v-for="g in groups" :key="g.s">
+        <h2 class="px-4 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide flex items-center gap-2"><span :class="STATUS_STYLE[g.s].dot" class="w-2 h-2 rounded-full"></span>{{ STATUS_STYLE[g.s].label }} <span class="text-slate-400">{{ g.items.length }}</span></h2>
+        <div v-for="i in g.items" :key="i.id">
+          <button @click="open = open===i ? null : i; adding=false" :class="open===i ? 'bg-slate-50' : ''" class="w-full flex items-center gap-3 px-4 py-3 text-left">
+            <CatBadge :c="i.category" />
+            <div class="flex-1 min-w-0">
+              <div class="font-medium truncate" :class="g.s==='handled' ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
+              <div class="text-xs text-slate-500 truncate">Act by {{ fmt(actBy(i)) }} · Due {{ fmt(i.due) }}<span v-if="i.shared"> · 👥 {{ i.owners.join(', ') }}</span><span v-if="i.for"> · for {{ i.for }}</span></div>
+            </div>
+            <div class="text-right shrink-0"><div class="font-bold text-lg leading-none" :class="g.s==='now'?'text-red-600':g.s==='expired'?'text-slate-700':''">{{ countdown(i).big }}</div><div class="text-[11px] text-slate-400">{{ countdown(i).small }}</div></div>
+          </button>
+          <!-- phone: inline expand; computer: shown in right panel -->
+          <div v-if="open===i" class="@3xl:hidden px-4 pb-3 bg-slate-50 flex gap-2">
+            <button @click="markHandled(i)" class="flex-1 bg-slate-900 text-white rounded-xl py-2 text-sm">{{ i.handledBy ? 'Undo Handled' : 'Mark Handled' }}</button>
+            <button class="flex-1 border rounded-xl py-2 text-sm bg-white">Edit</button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <!-- computer: right panel -->
+    <aside class="hidden @3xl:block flex-1 h-full overflow-y-auto bg-slate-50 p-8">
+      <div v-if="adding" class="max-w-lg bg-white rounded-2xl p-6 shadow-sm"><h2 class="text-xl font-semibold mb-4">New Item</h2><ItemFormFields :f="f" />
+        <div class="flex gap-2 mt-6"><button @click="save" class="bg-slate-900 text-white rounded-xl px-5 py-2.5">Save Item</button><button @click="adding=false" class="px-5 py-2.5">Cancel</button></div></div>
+      <div v-else-if="open" class="max-w-lg bg-white rounded-2xl p-6 shadow-sm space-y-4">
+        <div class="flex items-center gap-3"><CatBadge :c="open.category" size="lg" /><div><h2 class="text-xl font-semibold">{{ open.name }}</h2><div class="text-sm text-slate-500">{{ open.category }}<span v-if="open.recur"> · repeats {{ open.recur }}</span></div></div></div>
+        <div class="text-3xl font-bold">{{ countdown(open).text }}</div>
+        <dl class="grid grid-cols-2 gap-3 text-sm"><div><dt class="text-slate-500">Act-by date</dt><dd>{{ fmt(actBy(open), {weekday:'short',day:'numeric',month:'long'}) }}</dd></div><div><dt class="text-slate-500">Due date</dt><dd>{{ fmt(open.due, {weekday:'short',day:'numeric',month:'long'}) }}</dd></div>
+          <div v-if="open.price"><dt class="text-slate-500">Price</dt><dd>{{ money(open.price) }}</dd></div><div v-if="open.shared"><dt class="text-slate-500">Owners</dt><dd>{{ open.owners.join(', ') }}</dd></div></dl>
+        <button @click="markHandled(open)" class="bg-slate-900 text-white rounded-xl px-5 py-2.5">{{ open.handledBy ? 'Undo Handled' : 'Mark Handled' }}</button>
+      </div>
+      <div v-else class="h-full grid place-items-center text-slate-400">Pick an Item, or add one</div>
+    </aside>
+    <!-- phone: floating + and bottom sheet -->
+    <button @click="startAdd" class="@3xl:hidden fixed right-5 bottom-20 w-14 h-14 rounded-full bg-slate-900 text-white text-3xl shadow-lg">+</button>
+    <div v-if="adding" class="@3xl:hidden fixed inset-0 bg-black/40 z-20 flex items-end" @click.self="adding=false">
+      <div class="bg-white w-full rounded-t-3xl p-5 max-h-[90%] overflow-y-auto">
+        <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div>
+        <h2 class="text-xl font-semibold mb-4">New Item</h2><ItemFormFields :f="f" />
+        <button @click="save" class="w-full mt-5 bg-slate-900 text-white rounded-xl py-3 mb-12">Save Item</button>
+      </div></div>
+  </div>` };
+
+// ---------- Variant B: "Next up" focus card + tab bar + step-by-step wizard ----------
+const VariantB = { name: 'Focus card + wizard', components: { CatBadge, Filter },
+  setup() {
+    const wizard = ref(false), step = ref(1), f = ref(blankForm()), tab = ref('home');
+    const urgent = computed(() => sorted.value.filter(i => ['expired', 'now'].includes(status(i))));
+    const hero = computed(() => urgent.value[0] || sorted.value[0]);
+    const rest = computed(() => sorted.value.filter(i => i !== hero.value));
+    const windowPct = i => { const a = daysTo(actBy(i)); if (a <= 0) return 100; return Math.max(4, 100 - Math.min(a, 30) / 30 * 100); };
+    const start = () => { f.value = blankForm(); step.value = 1; wizard.value = true; };
+    const pick = k => { f.value.category = k; step.value = 2; };
+    const save = () => { addItem(f.value); wizard.value = false; };
+    return { ...helpers, wizard, step, f, tab, urgent, hero, rest, windowPct, start, pick, save };
+  },
+  template: `<div class="h-full flex bg-slate-100">
+    <!-- computer: left nav -->
+    <nav class="hidden @3xl:flex flex-col w-56 bg-white border-r p-5 gap-1">
+      <div class="text-xl font-bold mb-6">OopsProof</div>
+      <a v-for="t in ['Home','Calendar','Money','Family','Settings']" :class="t==='Home'?'bg-slate-100 font-medium':''" class="px-3 py-2 rounded-lg">{{ t }}</a>
+      <button @click="start" class="mt-auto bg-indigo-600 text-white rounded-xl py-3">+ Add Item</button>
+    </nav>
+    <main class="flex-1 h-full overflow-y-auto pb-36 @3xl:pb-8">
+      <div class="p-4 @3xl:p-8 @3xl:grid @3xl:grid-cols-[1fr_18rem] @3xl:gap-6 max-w-5xl">
+        <div>
+          <div class="flex justify-between items-center mb-4 @3xl:hidden"><h1 class="text-xl font-bold">Hi there</h1><Filter /></div>
+          <div class="hidden @3xl:flex justify-between items-center mb-4"><h1 class="text-2xl font-bold">Next up</h1><Filter /></div>
+          <!-- hero card -->
+          <div v-if="hero" class="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white p-6 shadow-lg">
+            <div class="flex items-center gap-2 text-indigo-100 text-sm"><span>{{ CATEGORIES[hero.category].icon }}</span>{{ hero.category }} <span v-if="urgent.length>1" class="ml-auto bg-white/20 rounded-full px-2 py-0.5">+{{ urgent.length-1 }} more urgent</span></div>
+            <div class="mt-3 text-sm text-indigo-100">{{ actionWord(hero) }}</div>
+            <div class="text-3xl font-bold">{{ hero.name }}</div>
+            <div class="mt-4 text-6xl font-black tracking-tight">{{ countdown(hero).big }}</div>
+            <div class="text-indigo-100">{{ countdown(hero).text }} · Due {{ fmt(hero.due, {weekday:'long', day:'numeric', month:'long'}) }}</div>
+            <div class="mt-5 flex gap-2"><button @click="markHandled(hero)" class="flex-1 bg-white text-indigo-700 font-semibold rounded-xl py-3">Handled ✓</button><button class="flex-1 bg-white/15 rounded-xl py-3">Open</button></div>
+          </div>
+          <h2 class="mt-6 mb-2 font-semibold text-slate-600">Coming up</h2>
+          <div class="space-y-2">
+            <div v-for="i in rest" :key="i.id" class="bg-white rounded-2xl p-3 flex items-center gap-3" :class="status(i)==='handled'?'opacity-50':''">
+              <CatBadge :c="i.category" />
+              <div class="flex-1 min-w-0">
+                <div class="flex justify-between gap-2"><span class="font-medium truncate">{{ i.name }}</span><span :class="STATUS_STYLE[status(i)].chip" class="text-xs rounded-full px-2 py-0.5 shrink-0">{{ countdown(i).text }}</span></div>
+                <!-- bar fills as the Act-by date gets closer -->
+                <div class="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div :class="STATUS_STYLE[status(i)].dot" class="h-full rounded-full" :style="{width: windowPct(i)+'%'}"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- side column: extras (money, family) — phone puts them below -->
+        <aside class="mt-6 @3xl:mt-14 space-y-4">
+          <div class="bg-white rounded-2xl p-4"><div class="text-sm text-slate-500">This month</div><div class="text-2xl font-bold">{{ money(monthTotal) }}</div><div class="text-xs text-slate-400">from priced Items</div></div>
+          <div class="bg-white rounded-2xl p-4 text-sm"><div class="text-slate-500 mb-2">Family</div><div>Anna owes you <b>€42.50</b></div><div>You owe Max <b>€12.00</b></div></div>
+        </aside>
+      </div>
+    </main>
+    <!-- phone: tab bar with centre add -->
+    <nav class="@3xl:hidden fixed bottom-14 inset-x-3 bg-white rounded-2xl shadow-lg flex justify-around items-center py-2 text-xs text-slate-500">
+      <span class="text-indigo-600 font-medium">Home</span><span>Calendar</span>
+      <button @click="start" class="-mt-8 w-14 h-14 rounded-full bg-indigo-600 text-white text-3xl shadow-lg">+</button>
+      <span>Money</span><span>Family</span>
+    </nav>
+    <!-- wizard: full screen on phone, centred dialog on computer -->
+    <div v-if="wizard" class="fixed inset-0 z-30 bg-white @3xl:bg-black/40 @3xl:grid @3xl:place-items-center">
+      <div class="bg-white h-full @3xl:h-auto @3xl:w-[32rem] @3xl:rounded-3xl p-5 flex flex-col">
+        <div class="flex items-center justify-between mb-6"><button @click="step>1 ? step-- : wizard=false" class="text-slate-500">{{ step>1 ? '← Back' : 'Cancel' }}</button>
+          <div class="flex gap-1"><span v-for="n in 3" :class="n<=step?'bg-indigo-600':'bg-slate-200'" class="w-8 h-1.5 rounded-full"></span></div><span class="w-12"></span></div>
+        <template v-if="step===1"><h2 class="text-2xl font-bold mb-4">What do you want to track?</h2>
+          <div class="grid grid-cols-2 @3xl:grid-cols-3 gap-3">
+            <button v-for="(v,k) in CATEGORIES" @click="pick(k)" :class="v.color" class="rounded-2xl p-4 text-left"><div class="text-2xl">{{ v.icon }}</div><div class="font-medium mt-1">{{ k }}</div><div class="text-xs opacity-70">act {{ leadLabel(v.lead) }} before</div></button>
+          </div></template>
+        <template v-if="step===2"><h2 class="text-2xl font-bold mb-4">{{ CATEGORIES[f.category].icon }} Name and date</h2>
+          <input v-model="f.name" autofocus placeholder="Name" class="text-xl border-b-2 border-indigo-600 py-2 outline-none" />
+          <label class="mt-6 text-sm text-slate-500">When does it expire, renew or need paying?</label>
+          <input type="date" v-model="f.due" class="mt-1 border rounded-xl px-3 py-3 text-lg" />
+          <div class="mt-4 flex flex-wrap gap-2"><button v-for="r in [['','Once'],['monthly','Every month'],['yearly','Every year']]" @click="f.recur=r[0]" :class="f.recur===r[0]?'bg-indigo-600 text-white':'bg-slate-100'" class="rounded-full px-4 py-2 text-sm">{{ r[1] }}</button></div>
+          <button @click="step=3" class="mt-auto @3xl:mt-8 bg-indigo-600 text-white rounded-xl py-3">Next</button></template>
+        <template v-if="step===3"><h2 class="text-2xl font-bold mb-1">Looks right?</h2><p class="text-slate-500 mb-4 text-sm">We filled in sensible defaults. Tap any to change.</p>
+          <div class="space-y-2 text-sm">
+            <div class="bg-slate-50 rounded-xl p-3 flex justify-between"><span>Act-by date</span><b>{{ leadLabel(f.lead ?? CATEGORIES[f.category].lead) }} before Due date</b></div>
+            <div class="bg-slate-50 rounded-xl p-3 flex justify-between"><span>Reminders</span><b>Act-by date + Due date, 09:00</b></div>
+            <div class="bg-slate-50 rounded-xl p-3 flex justify-between items-center"><span>Price</span><input v-model="f.price" placeholder="optional" class="text-right bg-transparent w-24" /></div>
+            <label class="bg-slate-50 rounded-xl p-3 flex justify-between"><span>Share with Family</span><input type="checkbox" v-model="f.shared" /></label>
+          </div>
+          <button @click="save" class="mt-auto @3xl:mt-8 bg-indigo-600 text-white rounded-xl py-3 mb-10 @3xl:mb-0">Save Item</button></template>
+      </div></div>
+  </div>` };
+
+// ---------- Variant C: timeline strip / agenda + one-line quick add ----------
+const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const KEYWORDS = { netflix: 'Subscriptions', spotify: 'Subscriptions', trial: 'Free trials', passport: 'Documents', id: 'Documents', licence: 'Documents', card: 'Cards', insurance: 'Vehicle', car: 'Vehicle', mot: 'Vehicle', rent: 'Home', bill: 'Home', dentist: 'Health', doctor: 'Health', flight: 'Travel', visa: 'Travel', warranty: 'Purchases', gym: 'Subscriptions' };
+function parseQuick(t) {
+  const out = { name: t, category: 'Other', due: null, recur: '', price: '' };
+  let s = ' ' + t + ' ';
+  const p = s.match(/€?\s?(\d+[.,]\d{2})/); if (p) { out.price = p[1].replace(',', '.'); s = s.replace(p[0], ' '); }
+  const r = s.match(/\b(weekly|monthly|yearly|every (week|month|year))\b/i); if (r) { out.recur = /week/i.test(r[0]) ? 'weekly' : /month/i.test(r[0]) ? 'monthly' : 'yearly'; s = s.replace(r[0], ' '); }
+  let m;
+  if ((m = s.match(/\b(on )?(\d{1,2}) (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*/i))) { const d = new Date(today.getFullYear(), MONTHS.indexOf(m[3].toLowerCase()), +m[2]); if (d < today) d.setFullYear(d.getFullYear() + 1); out.due = d; s = s.replace(m[0], ' '); }
+  else if ((m = s.match(/\bin (\d+) (day|week|month)s?\b/i))) { const n = +m[1] * (m[2] === 'day' ? 1 : m[2] === 'week' ? 7 : 30); out.due = plus(n); s = s.replace(m[0], ' '); }
+  else if ((m = s.match(/\btomorrow\b/i))) { out.due = plus(1); s = s.replace(m[0], ' '); }
+  out.name = s.replace(/\s+/g, ' ').trim();
+  for (const [k, c] of Object.entries(KEYWORDS)) if (new RegExp('\\b' + k + '\\b', 'i').test(out.name)) { out.category = c; break; }
+  return out;
+}
+const VariantC = { name: 'Timeline + quick add', components: { CatBadge, Filter, ItemFormFields },
+  setup() {
+    const q = ref(''), details = ref(false), f = ref(blankForm()), picked = ref(null);
+    const parsed = computed(() => q.value.trim() ? parseQuick(q.value) : null);
+    // each Item gives two events: its Act-by date and its Due date
+    const events = computed(() => sorted.value.flatMap(i => {
+      const a = actBy(i), list = [{ i, kind: 'Due', date: i.due }];
+      if (i.lead > 0) list.unshift({ i, kind: 'Act by', date: a });
+      return list;
+    }).filter(e => status(e.i) === 'expired' || daysTo(e.date) >= 0 || (e.kind === 'Due' && status(e.i) === 'now')).sort((x, y) => x.date - y.date));
+    const days = Array.from({ length: 60 }, (_, n) => plus(n));
+    const dayEvents = d => events.value.filter(e => daysTo(e.date) === daysTo(d));
+    const visible = computed(() => picked.value == null ? events.value : events.value.filter(e => daysTo(e.date) === picked.value));
+    const byDay = computed(() => { const g = []; for (const e of visible.value) { const k = daysTo(e.date) < 0 ? 'past' : daysTo(e.date); let x = g.find(y => y.k === k); if (!x) g.push(x = { k, date: e.date, items: [] }); x.items.push(e); } return g; });
+    const dayLabel = g => g.k === 'past' ? 'Expired' : g.k === 0 ? 'Today' : g.k === 1 ? 'Tomorrow' : fmt(g.date, { weekday: 'short', day: 'numeric', month: 'short' }) + ` · in ${g.k} days`;
+    const quickSave = () => { const p = parsed.value; if (!p) return; addItem({ ...p, due: p.due ? isoDate(p.due) : null }); q.value = ''; };
+    const openDetails = () => { const p = parsed.value; f.value = { ...blankForm(), ...(p ? { ...p, due: p.due ? isoDate(p.due) : blankForm().due } : {}) }; details.value = true; };
+    const save = () => { addItem(f.value); details.value = false; q.value = ''; };
+    // computer: month grid
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const gridDays = Array.from({ length: 42 }, (_, n) => new Date(monthStart.getFullYear(), monthStart.getMonth(), n - ((monthStart.getDay() + 6) % 7) + 1));
+    return { ...helpers, q, parsed, details, f, picked, days, dayEvents, byDay, dayLabel, quickSave, openDetails, save, gridDays, monthStart };
+  },
+  template: `<div class="h-full flex flex-col bg-stone-50">
+    <header class="px-4 pt-5 pb-2 flex justify-between items-center"><h1 class="text-xl font-bold">OopsProof</h1><Filter /></header>
+    <div class="flex-1 min-h-0 @3xl:grid @3xl:grid-cols-[1fr_24rem]">
+      <!-- computer: month calendar -->
+      <section class="hidden @3xl:block p-6 overflow-y-auto">
+        <h2 class="text-lg font-semibold mb-3">{{ fmt(monthStart, {month:'long', year:'numeric'}) }}</h2>
+        <div class="grid grid-cols-7 gap-px bg-stone-200 rounded-xl overflow-hidden text-xs">
+          <div v-for="w in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" class="bg-stone-100 p-2 text-stone-500">{{ w }}</div>
+          <div v-for="d in gridDays" @click="picked = daysTo(d)>=0 ? daysTo(d) : null" :class="[d.getMonth()!==monthStart.getMonth()?'text-stone-300':'', daysTo(d)===0?'ring-2 ring-inset ring-stone-900':'', picked===daysTo(d)?'bg-amber-50':'bg-white']" class="min-h-24 p-1.5 cursor-pointer">
+            <div class="font-medium mb-1">{{ d.getDate() }}</div>
+            <div v-for="e in dayEvents(d)" :class="e.kind==='Due' ? STATUS_STYLE[status(e.i)].chip : 'border border-dashed border-stone-400 text-stone-600'" class="rounded px-1 mb-0.5 truncate">{{ e.kind==='Act by' ? 'Act: ' : '' }}{{ e.i.name }}</div>
+          </div>
+        </div>
+      </section>
+      <!-- agenda (phone main view, computer right column) -->
+      <section class="h-full flex flex-col @3xl:border-l @3xl:bg-white min-h-0">
+        <!-- phone: 60-day strip -->
+        <div class="@3xl:hidden flex gap-1 overflow-x-auto no-scrollbar px-4 py-2">
+          <button v-for="(d,n) in days" @click="picked = picked===n ? null : n" :class="picked===n ? 'bg-stone-900 text-white' : n===0 ? 'bg-white ring-1 ring-stone-900' : 'bg-white'" class="shrink-0 w-11 rounded-xl py-1.5 text-center">
+            <div class="text-[10px] uppercase opacity-60">{{ fmt(d,{weekday:'short'}) }}</div><div class="font-semibold">{{ d.getDate() }}</div>
+            <div class="flex justify-center gap-0.5 h-1.5 mt-0.5"><span v-for="e in dayEvents(d).slice(0,3)" :class="e.kind==='Due' ? STATUS_STYLE[status(e.i)].dot : 'bg-stone-400'" class="w-1.5 h-1.5 rounded-full"></span></div>
+          </button>
+        </div>
+        <div v-if="picked!=null" class="px-4 text-sm"><button @click="picked=null" class="underline text-stone-500">Show all days</button></div>
+        <div class="flex-1 overflow-y-auto px-4 pb-40">
+          <div v-for="g in byDay" :key="g.k" class="mt-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">{{ dayLabel(g) }}</h3>
+            <div v-for="e in g.items" class="flex items-center gap-3 py-2 border-b border-stone-100">
+              <div :class="e.kind==='Due' ? STATUS_STYLE[status(e.i)].dot : 'bg-transparent border-2 border-stone-400'" class="w-2.5 h-2.5 rounded-full shrink-0"></div>
+              <div class="flex-1 min-w-0"><div class="truncate" :class="status(e.i)==='handled'?'line-through text-stone-400':''"><span class="text-stone-500 text-sm">{{ e.kind }}:</span> {{ e.i.name }}</div>
+                <div class="text-xs text-stone-400">{{ CATEGORIES[e.i.category].icon }} {{ e.i.category }}<span v-if="e.i.price"> · {{ money(e.i.price) }}</span><span v-if="e.i.shared"> · 👥 {{ e.i.owners.join(', ') }}</span></div></div>
+              <button @click="markHandled(e.i)" class="text-xs border rounded-full px-2.5 py-1 shrink-0">{{ e.i.handledBy ? 'Undo' : 'Handled' }}</button>
+            </div>
+          </div>
+        </div>
+        <!-- quick add bar -->
+        <div class="fixed @3xl:static bottom-12 inset-x-0 p-3 @3xl:border-t bg-stone-50/95 @3xl:bg-white">
+          <div v-if="parsed" class="mb-2 flex flex-wrap gap-1.5 text-xs">
+            <span class="bg-white border rounded-full px-2 py-1">{{ CATEGORIES[parsed.category].icon }} {{ parsed.category }}</span>
+            <span class="bg-white border rounded-full px-2 py-1">{{ parsed.name || 'name?' }}</span>
+            <span class="border rounded-full px-2 py-1" :class="parsed.due ? 'bg-white' : 'bg-amber-100 border-amber-300'">{{ parsed.due ? 'Due ' + fmt(parsed.due) : 'no date: in 7 days' }}</span>
+            <span v-if="parsed.recur" class="bg-white border rounded-full px-2 py-1">🔁 {{ parsed.recur }}</span>
+            <span v-if="parsed.price" class="bg-white border rounded-full px-2 py-1">€{{ parsed.price }}</span>
+          </div>
+          <div class="flex gap-2">
+            <input v-model="q" @keydown.enter="quickSave" placeholder="Try: Netflix 12.99 monthly on 20 Dec" class="flex-1 rounded-xl border px-3 py-3 bg-white" />
+            <button @click="openDetails" class="rounded-xl border px-3 bg-white text-sm">Details</button>
+            <button @click="quickSave" :disabled="!parsed" class="rounded-xl bg-stone-900 text-white px-4 disabled:opacity-30">Add</button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div v-if="details" class="fixed inset-0 z-30 bg-black/40 grid place-items-end @3xl:place-items-center" @click.self="details=false">
+      <div class="bg-white w-full @3xl:w-[32rem] rounded-t-3xl @3xl:rounded-3xl p-5 max-h-[90%] overflow-y-auto"><h2 class="text-xl font-semibold mb-4">New Item</h2><ItemFormFields :f="f" />
+        <button @click="save" class="w-full mt-5 bg-stone-900 text-white rounded-xl py-3 mb-10 @3xl:mb-0">Save Item</button></div></div>
+  </div>` };
+
+// ---------- Variant D: owner's mix (A's form, C's in-place Handled, Today/This week/Later, list ⇄ calendar) ----------
+const REMINDER_OPTS = [
+  { k: 'day', label: 'On the day' },
+  { k: '30m', label: '30 min before', time: true }, { k: '1h', label: '1 hour before', time: true },
+  { k: '2h', label: '2 hours before', time: true }, { k: '4h', label: '4 hours before', time: true },
+  { k: '1d', label: '1 day before' }, { k: '2d', label: '2 days before' }, { k: '1w', label: '1 week before' },
+];
+const remLabel = k => REMINDER_OPTS.find(o => o.k === k)?.label;
+// D has no Act-by date: everything counts from the Due date
+const dNext = i => ({ days: daysTo(i.due), kind: 'Due', date: i.due });
+const dGroup = i => dNext(i).days <= 0 ? 'today' : dNext(i).days <= 7 ? 'week' : 'later';
+// red = today (or past), yellow = within 7 days, green = later, grey = Handled
+const dayColor = (days, handled) => handled ? { dot: 'bg-slate-300', text: 'text-slate-400', bar: 'bg-slate-200', pill: 'bg-slate-100 text-slate-400 line-through' }
+  : days <= 0 ? { dot: 'bg-red-500', text: 'text-red-600', bar: 'bg-red-500', pill: 'bg-red-100 text-red-800' }
+  : days <= 7 ? { dot: 'bg-amber-400', text: 'text-amber-600', bar: 'bg-amber-400', pill: 'bg-amber-100 text-amber-900' }
+  : { dot: 'bg-emerald-500', text: 'text-emerald-600', bar: 'bg-emerald-500', pill: 'bg-emerald-100 text-emerald-800' };
+function dCountdown(i) {
+  const n = dNext(i);
+  if (n.days < 0) return `Expired ${-n.days}d ago`;
+  if (n.days === 0) return 'Due today';
+  return `Due in ${n.days}d`;
+}
+const blankFormD = () => ({ ...blankForm(), lead: 0, time: '', reminders: ['day'] });
+
+const ItemFormD = { props: ['f'], setup: () => ({ ...helpers, REMINDER_OPTS }),
+  template: `<div class="space-y-4">
+    <label class="block"><span class="text-sm text-slate-500">Name</span>
+      <input v-model="f.name" placeholder="e.g. Car insurance" class="mt-1 w-full border rounded-xl px-3 py-2.5 text-base" /></label>
+    <div><span class="text-sm text-slate-500">Category</span>
+      <div class="mt-1 flex flex-wrap gap-2">
+        <button v-for="(v,k) in CATEGORIES" @click="f.category=k; f.lead=0" :class="f.category===k ? 'ring-2 ring-slate-900 '+v.color : 'bg-slate-50 text-slate-600'" class="px-3 py-1.5 rounded-full text-sm">{{ v.icon }} {{ k }}</button>
+      </div></div>
+    <div class="grid grid-cols-2 gap-3">
+      <label class="block"><span class="text-sm text-slate-500">Due date</span>
+        <input type="date" v-model="f.due" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label>
+      <label class="block"><span class="text-sm text-slate-500">Time (optional)</span>
+        <input type="time" v-model="f.time" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label>
+    </div>
+    <label class="block"><span class="text-sm text-slate-500">Repeats</span>
+      <select v-model="f.recur" class="mt-1 w-full border rounded-xl px-3 py-2.5 bg-white">
+        <option value="">Once</option><option value="weekly">Every week</option><option value="monthly">Every month</option><option value="yearly">Every year</option></select></label>
+    <div><span class="text-sm text-slate-500">Reminders (pick any)</span>
+      <div class="mt-1 flex flex-wrap gap-2">
+        <button v-for="o in REMINDER_OPTS" :disabled="o.time && !f.time"
+          @click="f.reminders.includes(o.k) ? f.reminders.splice(f.reminders.indexOf(o.k),1) : f.reminders.push(o.k)"
+          :class="f.reminders.includes(o.k) && !(o.time && !f.time) ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600'"
+          class="px-3 py-1.5 rounded-full text-sm disabled:opacity-30">{{ f.reminders.includes(o.k) && !(o.time && !f.time) ? '✓ ' : '' }}{{ o.label }}</button>
+      </div>
+      <div v-if="!f.time" class="text-xs text-slate-400 mt-1">Hour options need a time</div></div>
+    <label class="block"><span class="text-sm text-slate-500">Price (optional)</span>
+      <input v-model="f.price" inputmode="decimal" placeholder="€ 0.00" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" v-model="f.shared" /> Shared with Family</label>
+    <textarea v-model="f.notes" placeholder="Notes" class="w-full border rounded-xl px-3 py-2"></textarea>
+  </div>` };
+
+const DRow = { props: ['i', 'selected'], emits: ['pick'], components: { CatBadge },
+  setup: () => ({ ...helpers, dNext, dayColor, dCountdown, remLabel }),
+  template: `<div>
+    <div @click="$emit('pick', i)" :class="selected ? 'bg-slate-50' : ''" class="flex items-center gap-3 pl-0 pr-4 py-2.5 cursor-pointer">
+      <span :class="dayColor(dNext(i).days, i.handledBy).bar" class="w-1.5 self-stretch rounded-r-full"></span>
+      <CatBadge :c="i.category" />
+      <div class="flex-1 min-w-0">
+        <div class="font-medium truncate" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
+        <div class="text-xs truncate" :class="i.handledBy ? 'text-slate-400' : dayColor(dNext(i).days).text">{{ i.handledBy ? 'Handled by ' + i.handledBy : dCountdown(i) }}<span class="text-slate-400"> · Due {{ fmt(i.due) }}<span v-if="i.time">{{ " " + i.time }}</span><span v-if="i.shared"> · 👥 {{ i.owners.join(', ') }}</span></span></div>
+      </div>
+      <button @click.stop="markHandled(i)" :class="i.handledBy ? 'bg-slate-100 text-slate-500' : 'border'" class="text-xs rounded-full px-2.5 py-1 shrink-0">{{ i.handledBy ? 'Undo' : 'Handled' }}</button>
+    </div>
+    <!-- phone: inline details -->
+    <div v-if="selected" class="@3xl:hidden bg-slate-50 pl-14 pr-4 pb-3 text-sm text-slate-600 space-y-1">
+      <div>Due {{ fmt(i.due, {weekday:'short', day:'numeric', month:'long'}) }}<span v-if="i.time">{{ ' ' + i.time }}</span></div>
+      <div>Reminders: {{ (i.reminders||[]).map(remLabel).join(', ') }}</div>
+      <div v-if="i.price">{{ money(i.price) }}<span v-if="i.recur"> · repeats {{ i.recur }}</span></div>
+      <button class="mt-1 border rounded-lg px-3 py-1 bg-white">Edit</button>
+    </div>
+  </div>` };
+
+const VariantD = { name: "Owner's mix", components: { CatBadge, ItemFormD, DRow },
+  setup() {
+    const qp = new URLSearchParams(location.search), view = ref(qp.get('view') || 'list'), calMode = ref(qp.get('cal') || 'week'), filterOpen = ref(false);
+    const open = ref(null), adding = ref(false), f = ref(blankFormD());
+    const cursor = ref(new Date(today)), pickedDay = ref(new Date(today));
+    const items = computed(() => store.items
+      .filter(i => store.filter === 'all' || (store.filter === 'mine' ? !i.shared : i.shared))
+      .slice().sort((x, y) => dNext(x).date - dNext(y).date)); // pure time order: Handled Items stay where they are
+    const groups = computed(() => [['today', 'Today', 'bg-red-500'], ['week', 'This week', 'bg-amber-400'], ['later', 'Later', 'bg-emerald-500']]
+      .map(([k, label, dot]) => ({ k, label, dot, items: items.value.filter(i => dGroup(i) === k) })));
+    // calendar events: one dot per Item, on its Due date
+    const events = computed(() => items.value.map(i => ({ i, kind: 'Due', date: i.due })));
+    const sameDay = (a, b) => a.toDateString() === b.toDateString();
+    const eventsOn = d => events.value.filter(e => sameDay(e.date, d));
+    const weekDays = computed(() => { const s = new Date(cursor.value); s.setDate(s.getDate() - (s.getDay() + 6) % 7); return Array.from({ length: 7 }, (_, n) => new Date(s.getFullYear(), s.getMonth(), s.getDate() + n)); });
+    const monthDays = computed(() => { const m = new Date(cursor.value.getFullYear(), cursor.value.getMonth(), 1); return Array.from({ length: 42 }, (_, n) => new Date(m.getFullYear(), m.getMonth(), n - (m.getDay() + 6) % 7 + 1)); });
+    const calTitle = computed(() => calMode.value === 'month' ? fmt(cursor.value, { month: 'long', year: 'numeric' })
+      : `${fmt(weekDays.value[0])} – ${fmt(weekDays.value[6])}`);
+    const move = n => { const c = new Date(cursor.value); calMode.value === 'month' ? c.setMonth(c.getMonth() + n, 1) : c.setDate(c.getDate() + 7 * n); cursor.value = c; };
+    const goToday = () => { cursor.value = new Date(today); pickedDay.value = new Date(today); };
+    const dayItems = computed(() => eventsOn(pickedDay.value));
+    const pick = i => { adding.value = false; open.value = open.value === i ? null : i; };
+    const startAdd = () => { open.value = null; f.value = blankFormD(); adding.value = true; };
+    const save = () => {
+      addItem(f.value);
+      Object.assign(store.items[store.items.length - 1], { time: f.value.time || null, reminders: f.value.reminders.filter(k => f.value.time || !REMINDER_OPTS.find(o => o.k === k).time) });
+      adding.value = false;
+    };
+    const FILTERS = { all: 'All', mine: 'Personal', family: 'Shared' };
+    return { ...helpers, view, calMode, filterOpen, open, adding, f, cursor, pickedDay, groups, eventsOn, weekDays, monthDays, calTitle, move, goToday, dayItems, pick, startAdd, save, FILTERS, sameDay, dayColor, remLabel, dCountdown };
+  },
+  template: `<div class="h-full flex bg-white">
+    <div class="flex-1 @3xl:max-w-xl @3xl:border-r h-full overflow-y-auto pb-28">
+      <header class="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 pt-5 pb-3 border-b">
+        <div class="flex justify-between items-center"><h1 class="text-2xl font-bold">OopsProof</h1>
+          <button @click="startAdd" class="hidden @3xl:block bg-slate-900 text-white rounded-full px-4 py-2 text-sm">+ Add Item</button></div>
+        <div class="mt-3 flex items-center gap-2">
+          <!-- pop-up filter -->
+          <div class="relative">
+            <button @click="filterOpen=!filterOpen" class="border rounded-full px-3 py-1.5 text-sm">{{ FILTERS[store.filter] }} ▾</button>
+            <div v-if="filterOpen" class="absolute left-0 mt-1 w-36 bg-white border rounded-xl shadow-lg py-1 z-20">
+              <button v-for="(label,k) in FILTERS" @click="store.filter=k; filterOpen=false" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50">{{ store.filter===k ? '✓ ' : '' }}{{ label }}</button>
+            </div>
+          </div>
+          <!-- list / calendar switch -->
+          <div class="inline-flex bg-slate-100 rounded-full p-1 text-sm ml-auto">
+            <button v-for="v in [['list','☰ List'],['calendar','▦ Calendar']]" @click="view=v[0]" :class="view===v[0] ? 'bg-white shadow' : 'text-slate-500'" class="px-3 py-1 rounded-full">{{ v[1] }}</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- LIST -->
+      <template v-if="view==='list'">
+        <section v-for="g in groups" :key="g.k">
+          <h2 class="px-4 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide flex items-center gap-2"><span :class="g.dot" class="w-2 h-2 rounded-full"></span>{{ g.label }} <span class="text-slate-400">{{ g.items.length }}</span></h2>
+          <div v-if="!g.items.length" class="px-4 py-2 text-sm text-slate-400">Nothing here</div>
+          <DRow v-for="i in g.items" :key="i.id" :i="i" :selected="open===i" @pick="pick" />
+        </section>
+      </template>
+
+      <!-- CALENDAR -->
+      <template v-else>
+        <div class="px-4 pt-3 flex items-center gap-2">
+          <button @click="move(-1)" class="w-8 h-8 rounded-full border">‹</button>
+          <div class="font-semibold flex-1 text-center">{{ calTitle }}</div>
+          <button @click="move(1)" class="w-8 h-8 rounded-full border">›</button>
+        </div>
+        <div class="px-4 pt-2 flex items-center justify-between text-sm">
+          <button @click="goToday" class="text-slate-500 underline">Today</button>
+          <div class="inline-flex bg-slate-100 rounded-full p-1">
+            <button v-for="m in [['week','Week'],['month','Month']]" @click="calMode=m[0]" :class="calMode===m[0] ? 'bg-white shadow' : 'text-slate-500'" class="px-3 py-0.5 rounded-full">{{ m[1] }}</button>
+          </div>
+        </div>
+        <div class="px-2 pt-3">
+          <div class="grid grid-cols-7 text-center text-[11px] text-slate-400 mb-1"><span v-for="w in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']">{{ w }}</span></div>
+          <div class="grid grid-cols-7 gap-1">
+            <button v-for="d in (calMode==='week' ? weekDays : monthDays)" @click="pickedDay=d"
+              :class="[sameDay(d,pickedDay) ? 'bg-slate-900 text-white' : sameDay(d,today) ? 'ring-1 ring-slate-900' : 'bg-slate-50',
+                       calMode==='month' && d.getMonth()!==cursor.getMonth() ? 'opacity-30' : '', calMode==='week' ? 'min-h-20' : 'min-h-12']"
+              class="rounded-xl p-1 flex flex-col items-center">
+              <span class="text-sm font-medium">{{ d.getDate() }}</span>
+              <!-- rounded colour dots, one per Item due that day -->
+              <span class="flex flex-wrap justify-center gap-0.5 mt-1">
+                <span v-for="e in eventsOn(d).slice(0,6)" :class="dayColor(daysTo(e.date), e.i.handledBy).dot" class="w-2.5 h-2.5 rounded-full"></span>
+              </span>
+            </button>
+          </div>
+        </div>
+        <h3 class="px-4 pt-5 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ sameDay(pickedDay,today) ? 'Today' : fmt(pickedDay,{weekday:'long', day:'numeric', month:'long'}) }}</h3>
+        <div v-if="!dayItems.length" class="px-4 py-2 text-sm text-slate-400">Nothing on this day</div>
+        <div v-for="e in dayItems" :key="e.i.id">
+          <DRow :i="e.i" :selected="open===e.i" @pick="pick" />
+        </div>
+      </template>
+    </div>
+
+    <!-- computer: right panel (grows from the phone design) -->
+    <aside class="hidden @3xl:block flex-1 h-full overflow-y-auto bg-slate-50 p-8">
+      <div v-if="adding" class="max-w-lg bg-white rounded-2xl p-6 shadow-sm"><h2 class="text-xl font-semibold mb-4">New Item</h2><ItemFormD :f="f" />
+        <div class="flex gap-2 mt-6"><button @click="save" class="bg-slate-900 text-white rounded-xl px-5 py-2.5">Save Item</button><button @click="adding=false" class="px-5 py-2.5">Cancel</button></div></div>
+      <div v-else-if="open" class="max-w-lg bg-white rounded-2xl p-6 shadow-sm space-y-4">
+        <div class="flex items-center gap-3"><CatBadge :c="open.category" size="lg" /><div><h2 class="text-xl font-semibold">{{ open.name }}</h2><div class="text-sm text-slate-500">{{ open.category }}<span v-if="open.recur"> · repeats {{ open.recur }}</span></div></div></div>
+        <div class="text-3xl font-bold">{{ open.handledBy ? 'Handled by ' + open.handledBy : dCountdown(open) }}</div>
+        <dl class="grid grid-cols-2 gap-3 text-sm"><div class="col-span-2"><dt class="text-slate-500">Due date</dt><dd>{{ fmt(open.due, {weekday:'short',day:'numeric',month:'long'}) }}<span v-if="open.time">{{ " " + open.time }}</span></dd></div>
+          <div class="col-span-2"><dt class="text-slate-500">Reminders</dt><dd>{{ (open.reminders||[]).map(remLabel).join(', ') }}</dd></div>
+          <div v-if="open.price"><dt class="text-slate-500">Price</dt><dd>{{ money(open.price) }}</dd></div><div v-if="open.shared"><dt class="text-slate-500">Owners</dt><dd>{{ open.owners.join(', ') }}</dd></div></dl>
+        <button @click="markHandled(open)" class="bg-slate-900 text-white rounded-xl px-5 py-2.5">{{ open.handledBy ? 'Undo Handled' : 'Mark Handled' }}</button>
+      </div>
+      <div v-else class="h-full grid place-items-center text-slate-400">Pick an Item, or add one</div>
+    </aside>
+
+    <!-- phone: floating + and scrolling bottom sheet -->
+    <button @click="startAdd" class="@3xl:hidden fixed right-5 bottom-20 w-14 h-14 rounded-full bg-slate-900 text-white text-3xl shadow-lg">+</button>
+    <div v-if="adding" class="@3xl:hidden fixed inset-0 bg-black/40 z-20 flex items-end" @click.self="adding=false">
+      <div class="bg-white w-full rounded-t-3xl p-5 max-h-[90%] overflow-y-auto">
+        <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div>
+        <h2 class="text-xl font-semibold mb-4">New Item</h2><ItemFormD :f="f" />
+        <button @click="save" class="w-full mt-5 bg-slate-900 text-white rounded-xl py-3 mb-12">Save Item</button>
+      </div></div>
+  </div>` };
+
+// ---------- switcher + device frame ----------
+const VARIANTS = { D: VariantD, A: VariantA, B: VariantB, C: VariantC };
+createApp({
+  components: VARIANTS,
+  setup() {
+    const params = new URLSearchParams(location.search);
+    const variant = ref(VARIANTS[params.get('variant')] ? params.get('variant') : 'D');
+    const device = ref(params.get('device') === 'computer' ? 'computer' : 'phone');
+    const showState = ref(false);
+    const keys = Object.keys(VARIANTS);
+    const sync = () => { const p = new URLSearchParams(location.search); p.set('variant', variant.value); p.set('device', device.value); history.replaceState(null, '', '?' + p); };
+    watch([variant, device], sync); sync();
+    const cycle = d => { variant.value = keys[(keys.indexOf(variant.value) + d + keys.length) % keys.length]; };
+    const onKey = e => { if (e.target.closest('input,textarea,select,[contenteditable]')) return; if (e.key === 'ArrowLeft') cycle(-1); if (e.key === 'ArrowRight') cycle(1); };
+    onMounted(() => addEventListener('keydown', onKey)); onUnmounted(() => removeEventListener('keydown', onKey));
+    const stateDump = computed(() => JSON.stringify({ variant: variant.value, device: device.value, filter: store.filter,
+      items: sorted.value.map(i => ({ name: i.name, status: status(i), actBy: fmt(actBy(i)), due: fmt(i.due), handledBy: i.handledBy })) }, null, 1));
+    return { variant, device, showState, cycle, VARIANTS, stateDump };
+  },
+  template: `<div class="min-h-screen grid place-items-center py-4">
+    <div class="frame @container bg-white overflow-hidden shadow-2xl"
+      :class="device==='phone' ? 'w-[390px] h-[min(844px,calc(100vh-6rem))] rounded-[2.5rem] border-[10px] border-slate-900' : 'w-[calc(100vw-2rem)] h-[calc(100vh-6rem)] rounded-xl'">
+      <component :is="variant" :key="variant" />
+    </div>
+    <div class="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-black text-white rounded-full px-2 py-1.5 shadow-xl text-sm font-mono">
+      <button @click="cycle(-1)" class="px-2">←</button>
+      <span class="min-w-[13rem] text-center">{{ variant }} ({{ VARIANTS[variant].name }})</span>
+      <button @click="cycle(1)" class="px-2">→</button>
+      <span class="w-px h-5 bg-white/30"></span>
+      <button @click="device = device==='phone' ? 'computer' : 'phone'" class="px-2">{{ device==='phone' ? '📱 Phone' : '💻 Computer' }}</button>
+      <button @click="showState=!showState" class="px-2 opacity-70">state</button>
+    </div>
+    <pre v-if="showState" class="fixed top-2 right-2 z-50 max-h-[80vh] w-80 overflow-auto bg-black/85 text-green-300 text-[10px] p-3 rounded-lg">{{ stateDump }}</pre>
+  </div>`,
+}).mount('#app');
+</script>
+</body>
+</html>
