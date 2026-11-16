@@ -38,6 +38,12 @@
   .chip { padding: 6px 12px; border-radius: 999px; font-size: 14px; background: #f1f5f9; white-space: nowrap; }
   .chip.on { background: #0f172a; color: white; }
   input[type=text], input[type=date], input[type=number], select { border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 10px; font-size: 14px; width: 100%; }
+  /* sheet: backdrop fades, panel slides up (phone) or in from the right (computer) */
+  .sheet-enter-active, .sheet-leave-active { transition: background-color .3s ease; }
+  .sheet-enter-active .panel, .sheet-leave-active .panel { transition: transform .3s cubic-bezier(.32,.72,0,1); }
+  .sheet-enter-from, .sheet-leave-to { background-color: transparent !important; }
+  .sheet-enter-from .panel-phone, .sheet-leave-to .panel-phone { transform: translateY(100%); }
+  .sheet-enter-from .panel-pc, .sheet-leave-to .panel-pc { transform: translateX(100%); }
 </style>
 </head>
 <body class="font-sans text-slate-900">
@@ -130,42 +136,74 @@ const save = () => {
 };
 const del = () => { S.expenses.splice(S.expenses.findIndex(e => e.id === S.sheet.id), 1); S.sheet = null; say('Expense deleted'); };
 
-const Sheet = { setup: () => ({ S, CATS, save, del, say, ITEMS, TODAY }), template: `
+// Phone sheet drag on the grey grip: up grows it to full height, down a little snaps back,
+// down past half its height (or a quick flick) closes it.
+const Sheet = { setup() {
+  const sh = ref(null), panel = ref(null), full = ref(false), size = ref(null), drag = ref(null);
+  let natural = null, start = null;
+  watch(() => S.sheet, v => { if (v) { sh.value = v; full.value = false; size.value = null; drag.value = null; natural = null; } });
+  const down = ev => {
+    ev.currentTarget.setPointerCapture(ev.pointerId);
+    const h0 = panel.value.offsetHeight, fh = panel.value.parentElement.clientHeight;
+    if (!full.value && natural == null) natural = h0;
+    start = { y: ev.clientY, t: ev.timeStamp }; drag.value = { dy: 0, h0, fh };
+  };
+  const move = ev => { if (start) drag.value = { ...drag.value, dy: ev.clientY - start.y }; };
+  const up = ev => {
+    if (!start) return;
+    const { h0, fh } = drag.value, dy = ev.clientY - start.y, speed = dy / Math.max(1, ev.timeStamp - start.t);
+    start = null;
+    if (dy > h0 / 2 || (speed > 0.8 && dy > 40)) { drag.value = { h0, fh, closing: true }; setTimeout(() => { S.sheet = null; }, 220); return; }
+    if (dy < -60) full.value = true; else if (dy > 60) full.value = false;
+    drag.value = null; size.value = full.value ? fh - 16 : natural;
+  };
+  const style = computed(() => {
+    const d = drag.value, ease = 'height .25s ease, transform .3s cubic-bezier(.32,.72,0,1)';
+    if (S.device !== 'phone') return {};
+    if (!d) return size.value ? { height: size.value + 'px', maxHeight: 'none', transition: ease } : {};
+    if (d.closing) return { height: d.h0 + 'px', maxHeight: 'none', transform: 'translateY(100%)', transition: 'transform .22s ease-in' };
+    if (d.dy < 0) return { height: Math.min(d.h0 - d.dy, d.fh - 16) + 'px', maxHeight: 'none', transition: 'none' };
+    return { height: d.h0 + 'px', maxHeight: 'none', transform: `translateY(${d.dy}px)`, transition: 'none' };
+  });
+  return { S, sh, panel, style, down, move, up, CATS, save, del, say, ITEMS, TODAY };
+}, template: `
+  <Teleport defer to="#sheet-layer"><Transition name="sheet">
   <div v-if="S.sheet" class="absolute inset-0 z-30 bg-slate-900/30" @click.self="S.sheet = null">
-    <div :class="['absolute flex flex-col bg-white shadow-2xl', S.device === 'phone' ? 'inset-x-0 bottom-0 max-h-[88%] rounded-t-3xl' : 'inset-y-0 right-0 w-[420px]']">
-      <div v-if="S.device === 'phone'" class="mx-auto mt-2 h-1.5 w-10 rounded-full bg-slate-300"></div>
+    <div ref="panel" :style="style" :class="['panel absolute flex flex-col bg-white shadow-2xl', S.device === 'phone' ? 'panel-phone inset-x-0 bottom-0 max-h-[88%] rounded-t-3xl' : 'panel-pc inset-y-0 right-0 w-[420px]']">
+      <div v-if="S.device === 'phone'" class="flex cursor-grab touch-none justify-center pb-1 pt-2 active:cursor-grabbing"
+        @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up"><div class="h-1.5 w-10 rounded-full bg-slate-300"></div></div>
       <div class="flex items-center justify-between border-b px-4 py-3">
         <button class="text-slate-500" @click="S.sheet = null">Cancel</button>
-        <b>{{ S.sheet.mode === 'add' ? 'New Expense' : 'Expense' }}</b>
+        <b>{{ sh.mode === 'add' ? 'New Expense' : 'Expense' }}</b>
         <button class="font-semibold text-sky-700" @click="save">Save</button>
       </div>
       <div class="space-y-4 overflow-y-auto p-4 text-sm">
-        <div v-if="S.sheet.itemId" class="flex items-center justify-between rounded-xl bg-slate-50 p-3">
-          <span>Created automatically <b>from {{ ITEMS.find(i => i.id === S.sheet.itemId).name }}</b></span>
+        <div v-if="sh.itemId" class="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+          <span>Created automatically <b>from {{ ITEMS.find(i => i.id === sh.itemId).name }}</b></span>
           <button class="text-sky-700" @click="S.sheet = null; say('Opens the Item sheet')">Open Item ›</button>
         </div>
         <label class="block"><span class="mb-1 block text-slate-500">Amount</span>
           <div class="flex items-center gap-2"><span class="text-2xl text-slate-400">€</span>
-            <input type="text" inputmode="decimal" placeholder="0.00" class="!text-2xl font-semibold" v-model="S.sheet.draft.amount" /></div>
-          <span v-if="S.sheet.err.amount" class="text-red-600">{{ S.sheet.err.amount }}</span></label>
-        <div v-if="S.sheet.itemId && S.variant === 'F'"><span class="mb-1 block text-slate-500">Category</span>
-          <span>{{ CATS[S.sheet.draft.cat].icon }} {{ S.sheet.draft.cat }}</span> <span class="text-slate-400">· same as the Item</span></div>
+            <input type="text" inputmode="decimal" placeholder="0.00" class="!text-2xl font-semibold" v-model="sh.draft.amount" /></div>
+          <span v-if="sh.err.amount" class="text-red-600">{{ sh.err.amount }}</span></label>
+        <div v-if="sh.itemId && S.variant === 'F'"><span class="mb-1 block text-slate-500">Category</span>
+          <span>{{ CATS[sh.draft.cat].icon }} {{ sh.draft.cat }}</span> <span class="text-slate-400">· same as the Item</span></div>
         <div v-else><span class="mb-1 block text-slate-500">Category</span>
-          <div class="flex flex-wrap gap-2"><button v-for="(c, k) in CATS" :class="['chip', S.sheet.draft.cat === k && 'on']" @click="S.sheet.draft.cat = k">{{ c.icon }} {{ k }}</button></div>
-          <span v-if="S.sheet.err.cat" class="text-red-600">{{ S.sheet.err.cat }}</span></div>
+          <div class="flex flex-wrap gap-2"><button v-for="(c, k) in CATS" :class="['chip', sh.draft.cat === k && 'on']" @click="sh.draft.cat = k">{{ c.icon }} {{ k }}</button></div>
+          <span v-if="sh.err.cat" class="text-red-600">{{ sh.err.cat }}</span></div>
         <label class="block"><span class="mb-1 block text-slate-500">Date</span>
-          <input type="date" :max="TODAY" v-model="S.sheet.draft.date" />
-          <span v-if="S.sheet.err.date" class="text-red-600">{{ S.sheet.err.date }}</span></label>
-        <label v-if="!S.sheet.itemId" class="block"><span class="mb-1 block text-slate-500">Description (optional)</span>
-          <input type="text" maxlength="60" placeholder="e.g. Groceries" v-model="S.sheet.draft.desc" /></label>
-        <template v-if="S.sheet.mode === 'edit'">
-          <button v-if="!S.sheet.confirmDel" class="btn btn-red w-full" @click="S.sheet.confirmDel = true">Delete Expense</button>
-          <div v-else class="rounded-xl bg-red-50 p-3"><p class="mb-2">Delete this Expense? {{ S.sheet.itemId ? 'The Item stays; only this one Expense goes.' : '' }}</p>
-            <div class="flex gap-2"><button class="btn btn-red" @click="del">Delete</button><button class="btn btn-soft" @click="S.sheet.confirmDel = false">Keep</button></div></div>
+          <input type="date" :max="TODAY" v-model="sh.draft.date" />
+          <span v-if="sh.err.date" class="text-red-600">{{ sh.err.date }}</span></label>
+        <label v-if="!sh.itemId" class="block"><span class="mb-1 block text-slate-500">Description (optional)</span>
+          <input type="text" maxlength="60" placeholder="e.g. Groceries" v-model="sh.draft.desc" /></label>
+        <template v-if="sh.mode === 'edit'">
+          <button v-if="!sh.confirmDel" class="btn btn-red w-full" @click="sh.confirmDel = true">Delete Expense</button>
+          <div v-else class="rounded-xl bg-red-50 p-3"><p class="mb-2">Delete this Expense? {{ sh.itemId ? 'The Item stays; only this one Expense goes.' : '' }}</p>
+            <div class="flex gap-2"><button class="btn btn-red" @click="del">Delete</button><button class="btn btn-soft" @click="sh.confirmDel = false">Keep</button></div></div>
         </template>
       </div>
     </div>
-  </div>` };
+  </div></Transition></Teleport>` };
 
 const MonthNav = { props: ['big'], setup: () => ({ S, canBack, canFwd, shiftMonth, monthName }), template: `
   <div class="flex items-center justify-between">
@@ -431,9 +469,12 @@ const Switcher = { setup() {
 
 createApp({ components: { Switcher }, setup: () => ({ S, VARIANTS, money, total, comingTotal, monthName }), template: `
   <div class="flex min-h-screen items-start justify-center p-4 pb-32">
-    <div :class="['frame relative overflow-y-auto bg-white shadow-xl', S.device === 'phone' ? 'h-[780px] w-[390px] rounded-[2rem]' : 'h-[720px] w-[1000px] rounded-xl']">
-      <component :is="VARIANTS[S.variant]" :key="S.variant + S.device" />
-      <div v-if="S.toast" class="sticky bottom-4 z-40 mx-auto w-fit rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">{{ S.toast }}</div>
+    <div :class="['frame relative overflow-hidden bg-white shadow-xl', S.device === 'phone' ? 'h-[780px] w-[390px] rounded-[2rem]' : 'h-[720px] w-[1000px] rounded-xl']">
+      <div class="h-full overflow-y-auto">
+        <component :is="VARIANTS[S.variant]" :key="S.variant + S.device" />
+        <div v-if="S.toast" class="sticky bottom-4 z-40 mx-auto w-fit rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">{{ S.toast }}</div>
+      </div>
+      <div id="sheet-layer"></div><!-- sheets teleport here: pinned to the visible screen, not the scrolled page -->
     </div>
     <div class="ml-4 hidden w-56 text-xs text-slate-500 xl:block">
       <p class="mb-1 font-semibold text-slate-700">State</p>
