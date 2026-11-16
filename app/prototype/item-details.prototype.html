@@ -152,12 +152,15 @@ const A = {
     else { i.archived = true; log(`${i.name}: not kept, Archived`); toast(`${i.name} archived`, () => { i.archived = false; }); }
   },
   save(i, f) {
-    Object.assign(i, { name: f.name, category: f.category, due: new Date(f.due + 'T00:00'), time: f.time || null, recur: f.recur,
-      price: f.price ? Math.round(parseFloat(String(f.price).replace(',', '.')) * 100) : null, shared: f.shared, owners: f.shared ? f.owners : ['You'],
-      for: f.shared ? f.for : null, remind: f.remind, notes: f.notes, reminders: f.reminders.filter(k => remAllowed(REMINDER_OPTS.find(o => o.k === k), f)), lastChangedBy: 'You' });
+    applyForm(i, f); i.lastChangedBy = 'You';
     log(`${i.name}: saved`);
   },
 };
+function applyForm(i, f) {
+    Object.assign(i, { name: f.name, category: f.category, due: new Date(f.due + 'T00:00'), time: f.time || null, recur: f.recur,
+      price: f.price ? Math.round(parseFloat(String(f.price).replace(',', '.')) * 100) : null, shared: f.shared, owners: f.shared ? f.owners : ['You'],
+      for: f.shared ? f.for : null, remind: f.remind, notes: f.notes, reminders: f.reminders.filter(k => remAllowed(REMINDER_OPTS.find(o => o.k === k), f)) });
+}
 const formFrom = i => ({ name: i.name, category: i.category, due: isoDate(i.due), time: i.time || '', recur: i.recur, price: i.price ? (i.price / 100).toFixed(2) : '',
   shared: i.shared, owners: [...i.owners], for: i.for, remind: i.remind, notes: i.notes, reminders: [...i.reminders] });
 
@@ -380,58 +383,76 @@ const _setupX = VariantX.setup; VariantX.setup = function () { const ctx = _setu
 VariantX.components.XPage.setup = () => VariantX._ctx();
 
 // ---------- Variant Y: bottom sheet, tap any line to change it right there ----------
-const VariantY = { name: 'Sheet, tap to edit', components: { Shell, ItemList, CatBadge, Question }, setup() {
-    const open = ref(null), field = ref(null), draft = ref(null), confirmDel = ref(false);
-    const pick = i => { open.value = i; field.value = null; confirmDel.value = false; };
-    const startEdit = k => { field.value = k; draft.value = formFrom(open.value); };
-    const commit = () => { A.save(open.value, draft.value); field.value = null; };
-    const toggle = k => { if (field.value === k) return commit(); if (field.value) commit(); startEdit(k); };
-    watch(() => open.value && (open.value.archived || !store.items.includes(open.value)), gone => gone && (open.value = null));
-    if (startOpen()) open.value = startOpen();
-    const ctx = { ...H, open, field, draft, confirmDel, pick, startEdit, commit, toggle, look: 'card', editing: ref(null), withEdit: false };
-    provide('sheet', ctx);
-    return ctx;
-  },
-  template: `<Shell title="Y · Sheet, tap to edit">
-    <template #list><ItemList :selected="open" @pick="pick" /></template>
-    <template #panel><div v-if="open" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><component :is="'YBody'" /></div><div v-else class="h-full grid place-items-center text-slate-400">Pick an Item</div></template>
-    <template #overlay><div v-if="open" class="@3xl:hidden fixed inset-0 z-20 bg-black/40 flex items-end" @click.self="open=null">
-      <div class="bg-white w-full rounded-t-3xl p-5 max-h-[85%] overflow-y-auto"><div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div><component :is="'YBody'" /></div></div></template>
-  </Shell>`,
-};
-VariantY.components.YBody = { components: { CatBadge, Question, EditForm, ...FX_COMPONENTS }, setup: () => inject('sheet'),
-  template: `<div v-if="editing" class="pb-10 @3xl:pb-0">
-    <div class="flex justify-between items-center mb-4"><button @click="editing=null" class="text-slate-500">Cancel</button><h2 class="font-semibold">Edit Item</h2><button @click="A.save(open, editing); editing=null" class="font-semibold">Save</button></div>
-    <EditForm :f="editing" /></div>
-  <div v-else class="pb-10 @3xl:pb-0">
-    <div v-if="withEdit" class="flex justify-end -mt-2 mb-2"><button @click="editing = formFrom(open)" class="text-sm font-medium border rounded-full px-3 py-1">Edit</button></div>
+// The Item sheet's state, shared by Y and W: edits go into a draft and are kept only on Save.
+function makeSheet(look) {
+  const open = ref(null), sheetOpen = ref(false), field = ref(null), draft = ref(null), confirmDel = ref(false), leaveAsk = ref(false);
+  let afterLeave = null;
+  const preview = computed(() => { if (!open.value || !draft.value) return open.value; const p = { ...open.value, owners: [...open.value.owners] }; applyForm(p, draft.value); return p; });
+  const dirty = computed(() => !!(open.value && draft.value) && JSON.stringify(draft.value) !== JSON.stringify(formFrom(open.value)));
+  const show = i => { open.value = i; draft.value = formFrom(i); sheetOpen.value = true; field.value = null; confirmDel.value = false; leaveAsk.value = false; };
+  const ask = then => { if (!dirty.value) return then(), true; afterLeave = then; leaveAsk.value = true; field.value = null; return false; };
+  const pick = i => ask(() => show(i));
+  const reallyClose = () => { sheetOpen.value = false; leaveAsk.value = false; setTimeout(() => { if (!sheetOpen.value) open.value = null; }, T(0.2) * 1000 + 30); };
+  const close = () => ask(reallyClose);
+  const toggle = k => { field.value = field.value === k ? null : k; };
+  const closeLine = () => { field.value = null; };
+  const save = () => { A.save(open.value, draft.value); draft.value = formFrom(open.value); field.value = null; toast('Changes saved');
+    if (leaveAsk.value) { leaveAsk.value = false; afterLeave?.(); } };
+  const discard = () => { draft.value = formFrom(open.value); leaveAsk.value = false; afterLeave?.(); };
+  watch(() => open.value && (open.value.archived || !store.items.includes(open.value)), gone => { if (gone) { draft.value = formFrom(open.value); reallyClose(); } });
+  // phone: drag the grey handle down to close
+  const drag = { y0: null, dy: 0 };
+  const dragStart = e => { drag.y0 = e.clientY; drag.dy = 0; try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} };
+  const dragMove = e => { if (drag.y0 == null) return; drag.dy = Math.max(0, e.clientY - drag.y0); gsap.set(e.currentTarget.closest('[data-sheet]'), { y: drag.dy }); };
+  const dragEnd = e => { if (drag.y0 == null) return; const panel = e.currentTarget.closest('[data-sheet]'); const far = drag.dy > 110; drag.y0 = null;
+    if (far && close()) return; gsap.to(panel, { y: 0, duration: T(0.22), ease: EASE_OUT }); };
+  if (startOpen()) { show(startOpen()); const e = new URLSearchParams(location.search).get('edit'); if (e) field.value = e; }
+  return { ...H, open, sheetOpen, field, draft, preview, dirty, confirmDel, leaveAsk, pick, close, toggle, closeLine, save, discard, dragStart, dragMove, dragEnd, look };
+}
+
+// ---------- Variant Y: bottom sheet, tap any line to change it right there ----------
+const SheetBody = { components: { CatBadge, Question, ...FX_COMPONENTS }, setup: () => inject('sheet'),
+  template: `<div class="pb-10 @3xl:pb-0">
+    <!-- top bar: drag handle (phone), unsaved note, Save -->
+    <div class="sticky top-0 z-10 bg-white -mx-5 px-5 pt-2 pb-3 -mt-5 @3xl:-mx-6 @3xl:px-6 @3xl:-mt-6 @3xl:pt-4 rounded-t-3xl">
+      <div class="@3xl:hidden py-2 -mx-5 cursor-grab touch-none" @pointerdown="dragStart" @pointermove="dragMove" @pointerup="dragEnd" @pointercancel="dragEnd">
+        <div class="w-10 h-1.5 bg-slate-300 rounded-full mx-auto"></div></div>
+      <div class="flex items-center justify-between min-h-9">
+        <span class="text-xs transition-colors duration-200" :class="dirty ? 'text-amber-600' : 'text-slate-400'">{{ dirty ? 'Unsaved changes' : 'All changes saved' }}</span>
+        <button @click="press($event); save()" :disabled="!dirty" :class="dirty ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'" class="rounded-full px-5 py-1.5 text-sm font-semibold transition-colors duration-200">Save</button>
+      </div>
+    </div>
+    <FxCollapse><div v-if="leaveAsk" class="mb-4 rounded-2xl bg-amber-50 p-4 text-sm">
+      <div class="font-semibold">Save your changes?</div>
+      <div class="flex gap-2 mt-3"><button @click="save()" class="bg-slate-900 text-white rounded-xl px-4 py-2">Save</button><button @click="discard()" class="bg-white border rounded-xl px-4 py-2">Discard</button><button @click="leaveAsk=false" class="px-3 py-2 text-slate-500">Keep editing</button></div></div></FxCollapse>
     <FxCollapse><div v-if="isExpired(open) || isTrialDay(open)" :key="open.id"><Question :i="open" :look="look" class="mb-4" /></div></FxCollapse>
-    <div class="flex items-center gap-3 mb-1"><CatBadge :c="open.category" />
-      <input v-if="field==='name'" v-model="draft.name" @keydown.enter="commit" class="flex-1 min-w-0 text-xl font-bold border-b-2 border-slate-900 outline-none" />
-      <h2 v-else @click="toggle('name')" class="flex-1 text-xl font-bold cursor-text">{{ open.name }}</h2>
-      <button v-if="field==='name'" @click="commit" class="text-sm bg-slate-900 text-white rounded-lg px-3 py-1">OK</button></div>
-    <div class="text-sm mb-4" :class="dayColor(daysTo(open.due), open.handledBy).text">{{ countdown(open) }}</div>
+    <div class="flex items-center gap-3 mb-1"><CatBadge :c="preview.category" />
+      <input v-if="field==='name'" v-model="draft.name" @keydown.enter="closeLine" class="flex-1 min-w-0 text-xl font-bold border-b-2 border-slate-900 outline-none" />
+      <h2 v-else @click="toggle('name')" class="flex-1 text-xl font-bold cursor-text">{{ preview.name }}</h2>
+      <button v-if="field==='name'" @click="closeLine" class="text-sm bg-slate-900 text-white rounded-lg px-3 py-1">OK</button></div>
+    <div class="text-sm mb-3" :class="dayColor(daysTo(preview.due), preview.handledBy).text">{{ countdown(preview) }}</div>
     <div class="text-xs text-slate-400 mb-1">Tap a line to change it. Tap it again to close.</div>
-    <div class="divide-y border rounded-2xl text-sm">
-      <div v-for="ln in sheetLines(open)" :key="ln.k" :class="field===ln.k ? 'bg-slate-50' : ''">
-        <button @click="toggle(ln.k)" class="w-full px-4 py-3 transition-colors duration-150 flex justify-between items-center gap-3 text-left">
+    <!-- lines, no table borders: like the Item list -->
+    <div class="-mx-3 text-sm">
+      <div v-for="ln in sheetLines(preview)" :key="ln.k" :class="field===ln.k ? 'bg-slate-50' : ''" class="rounded-xl transition-colors duration-150">
+        <button @click="toggle(ln.k)" class="w-full px-3 py-3 rounded-xl hover:bg-slate-50 transition-colors duration-150 flex justify-between items-center gap-3 text-left">
           <span class="text-slate-500 shrink-0" :class="field===ln.k ? 'font-semibold text-slate-900' : ''">{{ ln.label }}</span>
           <span class="flex items-center gap-1 min-w-0"><span class="min-w-0 text-right"><span class="block truncate">{{ ln.value }}</span><span v-if="ln.sub" class="block text-[10px] text-slate-400">{{ ln.sub }}</span></span>
             <span class="text-slate-400 transition-transform duration-200" :class="field===ln.k ? 'rotate-90' : ''">›</span></span></button>
-        <FxCollapse><div v-if="field===ln.k" class="px-4 pb-3">
+        <FxCollapse><div v-if="field===ln.k" class="px-3 pb-3">
           <input v-if="ln.k==='due'" type="date" v-model="draft.due" class="w-full border rounded-lg px-3 py-2 bg-white" />
           <div v-else-if="ln.k==='time'" class="flex gap-2"><input type="time" v-model="draft.time" class="flex-1 min-w-0 border rounded-lg px-3 py-2 bg-white" /><button @click="draft.time=''" class="border rounded-lg px-3 bg-white">No time</button></div>
-          <div v-else-if="ln.k==='recur'" class="flex flex-wrap gap-1.5"><button v-for="(l,k) in RECUR" @click="draft.recur=k; commit()" :class="draft.recur===k ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ l }}</button></div>
+          <div v-else-if="ln.k==='recur'" class="flex flex-wrap gap-1.5"><button v-for="(l,k) in RECUR" @click="draft.recur=k; closeLine()" :class="draft.recur===k ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ l }}</button></div>
           <div v-else-if="ln.k==='rem'"><div class="flex flex-wrap gap-1.5">
             <button v-for="o in REMINDER_OPTS" :disabled="!remAllowed(o, draft)" @click="press($event); draft.reminders.includes(o.k) ? draft.reminders.splice(draft.reminders.indexOf(o.k),1) : draft.reminders.push(o.k)"
               :class="draft.reminders.includes(o.k) && remAllowed(o, draft) ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-2.5 py-1 rounded-full text-xs transition-colors duration-150 disabled:opacity-30">{{ o.label }}</button></div>
             <div class="text-[11px] text-slate-400 mt-1">Day Reminders arrive at 12:00.<span v-if="!draft.time"> Add a time to use hour Reminders.</span> {{ remHint(draft) }}</div></div>
-          <input v-else-if="ln.k==='price'" v-model="draft.price" @keydown.enter="commit" inputmode="decimal" placeholder="€ 0.00" class="w-full border rounded-lg px-3 py-2 bg-white" />
-          <div v-else-if="ln.k==='cat'" class="flex flex-wrap gap-1.5"><button v-for="(v,k) in CATEGORIES" @click="draft.category=k; commit()" :class="draft.category===k ? 'ring-2 ring-slate-900 '+v.color : v.color" class="px-2.5 py-1 rounded-full text-xs">{{ v.icon }} {{ k }}</button></div>
-          <div v-else-if="ln.k==='share'" class="flex flex-wrap gap-1.5"><button v-for="o in [[false,'Personal (only you)'],[true,'Shared with Family']]" @click="draft.shared=o[0]; commit()" :class="draft.shared===o[0] ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ o[1] }}</button></div>
+          <input v-else-if="ln.k==='price'" v-model="draft.price" @keydown.enter="closeLine" inputmode="decimal" placeholder="€ 0.00" class="w-full border rounded-lg px-3 py-2 bg-white" />
+          <div v-else-if="ln.k==='cat'" class="flex flex-wrap gap-1.5"><button v-for="(v,k) in CATEGORIES" @click="draft.category=k; closeLine()" :class="draft.category===k ? 'ring-2 ring-slate-900 '+v.color : v.color" class="px-2.5 py-1 rounded-full text-xs">{{ v.icon }} {{ k }}</button></div>
+          <div v-else-if="ln.k==='share'" class="flex flex-wrap gap-1.5"><button v-for="o in [[false,'Personal (only you)'],[true,'Shared with Family']]" @click="draft.shared=o[0]; closeLine()" :class="draft.shared===o[0] ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ o[1] }}</button></div>
           <div v-else-if="ln.k==='owners'" class="flex flex-wrap gap-1.5"><button v-for="m in MEMBERS" @click="draft.owners.includes(m) ? (draft.owners.length>1 && draft.owners.splice(draft.owners.indexOf(m),1)) : draft.owners.push(m)" :class="draft.owners.includes(m) ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ m }}</button></div>
-          <div v-else-if="ln.k==='for'" class="flex flex-wrap gap-1.5"><button v-for="d in [null, ...MEMBERS, ...DEPENDENTS]" @click="draft.for=d; commit()" :class="draft.for===d ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ d || 'Nobody in particular' }}</button></div>
-          <div v-else-if="ln.k==='remind'" class="flex flex-wrap gap-1.5"><button v-for="r in [['family','Whole family'],['owners','Owners only']]" @click="draft.remind=r[0]; commit()" :class="draft.remind===r[0] ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ r[1] }}</button></div>
+          <div v-else-if="ln.k==='for'" class="flex flex-wrap gap-1.5"><button v-for="d in [null, ...MEMBERS, ...DEPENDENTS]" @click="draft.for=d; closeLine()" :class="draft.for===d ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ d || 'Nobody in particular' }}</button></div>
+          <div v-else-if="ln.k==='remind'" class="flex flex-wrap gap-1.5"><button v-for="r in [['family','Whole family'],['owners','Owners only']]" @click="draft.remind=r[0]; closeLine()" :class="draft.remind===r[0] ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ r[1] }}</button></div>
           <div v-else-if="ln.k==='notes'"><textarea v-model="draft.notes" rows="3" class="w-full border rounded-lg px-3 py-2 bg-white"></textarea>
             <div v-if="/\\d{8,}/.test(draft.notes)" class="text-xs text-amber-700">Don't store full card or document numbers here.</div></div>
         </div></FxCollapse>
@@ -439,35 +460,38 @@ VariantY.components.YBody = { components: { CatBadge, Question, EditForm, ...FX_
     </div>
     <div v-if="open.lastChangedBy" class="text-xs text-slate-400 mt-2">Last changed by {{ open.lastChangedBy }}</div>
     <div class="mt-5 grid grid-cols-3 gap-2 text-sm">
-      <button @click="A.handled(open)" :class="open.handledBy ? 'bg-slate-100' : 'bg-slate-900 text-white'" class="rounded-xl py-2.5">{{ open.handledBy ? 'Undo' : 'Handled' }}</button>
+      <button @click="press($event); A.handled(open)" :class="open.handledBy ? 'bg-slate-100' : 'bg-slate-900 text-white'" class="rounded-xl py-2.5 transition-colors duration-200">{{ open.handledBy ? 'Undo' : 'Handled' }}</button>
       <button :disabled="!canRemove(open)" @click="A.archive(open)" class="border rounded-xl py-2.5 disabled:opacity-40">Archive</button>
       <button :disabled="!canRemove(open)" @click="confirmDel=true" class="border border-red-200 text-red-600 rounded-xl py-2.5 disabled:opacity-40">Delete</button></div>
     <div v-if="!canRemove(open)" class="text-xs text-slate-400 mt-1">Only Owners or Admins can archive or delete this Shared Item</div>
-    <div v-if="confirmDel" class="mt-3 rounded-xl bg-red-50 p-3 text-sm"><div>Delete for good? Past Expenses stay in history.</div>
-      <div class="flex gap-2 mt-2"><button @click="A.remove(open)" class="bg-red-600 text-white rounded-lg px-3 py-1.5">Delete</button><button @click="confirmDel=false" class="px-3 py-1.5">Keep</button></div></div>
+    <FxCollapse><div v-if="confirmDel" class="mt-3 rounded-xl bg-red-50 p-3 text-sm"><div>Delete for good? Past Expenses stay in history.</div>
+      <div class="flex gap-2 mt-2"><button @click="A.remove(open)" class="bg-red-600 text-white rounded-lg px-3 py-1.5">Delete</button><button @click="confirmDel=false" class="px-3 py-1.5">Keep</button></div></div></FxCollapse>
   </div>` };
 
-// ---------- Variant W: owner's mix — Y's sheet + tap a line, X's red question box + Edit button, Z's swipe ----------
-const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge, YBody: VariantY.components.YBody, ...FX_COMPONENTS }, setup() {
-    const open = ref(null), field = ref(null), draft = ref(null), confirmDel = ref(false), editing = ref(null), sheetOpen = ref(false);
-    const pick = i => { open.value = i; sheetOpen.value = true; field.value = null; editing.value = null; confirmDel.value = false; };
-    const startEdit = k => { field.value = k; draft.value = formFrom(open.value); };
-    const commit = () => { A.save(open.value, draft.value); field.value = null; };
-    const toggle = k => { if (field.value === k) return commit(); if (field.value) commit(); startEdit(k); };
-    const close = () => { if (field.value) commit(); sheetOpen.value = false; setTimeout(() => { if (!sheetOpen.value) open.value = null; }, T(0.2) * 1000 + 30); };
-    watch(() => open.value && (open.value.archived || !store.items.includes(open.value)), gone => gone && close());
+const VariantY = { name: 'Sheet, tap to edit', components: { Shell, ItemList, SheetBody, ...FX_COMPONENTS }, setup() {
+    const ctx = makeSheet('card'); provide('sheet', ctx); return ctx; },
+  template: `<Shell title="Y · Sheet, tap to edit">
+    <template #list><ItemList :selected="open" @pick="pick" /></template>
+    <template #panel><div v-if="open" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><SheetBody /></div><div v-else class="h-full grid place-items-center text-slate-400">Pick an Item</div></template>
+    <template #overlay><FxSheet><div v-if="sheetOpen && open" class="@3xl:hidden fixed inset-0 z-20 bg-black/40 flex items-end" @click.self="close()">
+      <div data-sheet class="bg-white w-full rounded-t-3xl p-5 max-h-[88%] overflow-y-auto"><SheetBody /></div></div></FxSheet></template>
+  </Shell>`,
+};
+
+// ---------- Variant W: owner's mix — Y's sheet + tap a line, X's red question box, Z's swipe, Save button, drag handle ----------
+const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge, SheetBody, ...FX_COMPONENTS }, setup() {
+    const ctx = makeSheet('banner');
     const swipe = reactive({ id: null, x: 0, start: 0 });
     const down = (i, e) => { swipe.id = i.id; swipe.start = e.clientX; swipe.x = 0; };
     const move = e => { if (swipe.id != null) swipe.x = Math.max(-140, Math.min(100, e.clientX - swipe.start)); };
     const up = i => { if (swipe.id !== i.id || swipe.busy) return; const x = swipe.x;
       const done = () => { swipe.id = null; swipe.x = 0; swipe.busy = false; };
-      if (Math.abs(x) < 5) { done(); return pick(i); }
+      if (Math.abs(x) < 5) { done(); return ctx.pick(i); }
       swipe.busy = true;
       if (x < -110 && canRemove(i)) return gsap.to(swipe, { x: -420, duration: T(0.2), ease: EASE_IN, onComplete: () => { A.archive(i); done(); } });
       if (x > 70) A.handled(i);
       gsap.to(swipe, { x: 0, duration: T(0.22), ease: EASE_OUT, onComplete: done }); };
-    if (startOpen()) { open.value = startOpen(); sheetOpen.value = true; const e = new URLSearchParams(location.search).get('edit'); if (e) startEdit(e); }
-    const ctx = { ...H, open, sheetOpen, field, draft, confirmDel, editing, pick, startEdit, commit, toggle, close, swipe, down, move, up, look: 'banner', withEdit: false };
+    Object.assign(ctx, { swipe, down, move, up });
     provide('sheet', ctx);
     return ctx;
   },
@@ -481,7 +505,7 @@ const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge,
           <div @pointerdown="down(i,$event)" :style="{ transform: 'translateX(' + (swipe.id===i.id ? swipe.x : 0) + 'px)' }" :class="open===i ? 'bg-slate-100' : 'bg-white'" class="relative flex items-center gap-3 pr-4 py-2.5 cursor-pointer">
             <span :class="dayColor(daysTo(i.due), i.handledBy).bar" class="w-1.5 self-stretch rounded-r-full"></span>
             <CatBadge :c="i.category" />
-            <div class="flex-1 min-w-0"><div class="font-medium truncate" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
+            <div class="flex-1 min-w-0"><div class="font-medium truncate transition-colors duration-200" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
               <div class="text-xs truncate" :class="dayColor(daysTo(i.due), i.handledBy).text">{{ countdown(i) }}<span class="text-slate-400"> · Due {{ fmt(i.due) }}<span v-if="i.shared"> · 👥 {{ i.owners.join(', ') }}</span></span></div></div>
             <span v-if="isExpired(i) || isTrialDay(i)" class="text-[10px] bg-red-600 text-white rounded-full px-2 py-0.5">{{ isTrialDay(i) ? 'Kept it?' : 'What now?' }}</span>
             <button v-else @pointerdown.stop @click.stop="press($event); A.handled(i)" :class="i.handledBy ? 'bg-slate-100 text-slate-500' : 'border'" class="text-xs rounded-full px-2.5 py-1 shrink-0 transition-colors duration-200">{{ i.handledBy ? 'Undo' : 'Handled' }}</button>
@@ -489,9 +513,9 @@ const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge,
         </div>
       </template></ItemList>
     </template>
-    <template #panel><FxFade mode="out-in"><div v-if="open" :key="open.id" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><YBody /></div><div v-else key="none" class="h-full grid place-items-center text-slate-400">Pick an Item</div></FxFade></template>
+    <template #panel><FxFade mode="out-in"><div v-if="open" :key="open.id" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><SheetBody /></div><div v-else key="none" class="h-full grid place-items-center text-slate-400">Pick an Item</div></FxFade></template>
     <template #overlay><FxSheet><div v-if="sheetOpen && open" class="@3xl:hidden fixed inset-0 z-20 bg-black/40 flex items-end" @click.self="close()">
-      <div class="bg-white w-full rounded-t-3xl p-5 max-h-[88%] overflow-y-auto"><div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div><YBody /></div></div></FxSheet></template>
+      <div data-sheet class="bg-white w-full rounded-t-3xl p-5 max-h-[88%] overflow-y-auto"><SheetBody /></div></div></FxSheet></template>
   </Shell>` };
 
 // ---------- Variant Z: open in place inside the list, swipe for actions, questions right in the row ----------
@@ -572,7 +596,7 @@ createApp({
       :class="device==='phone' ? 'w-[390px] h-[min(844px,calc(100vh-6rem))] rounded-[2.5rem] border-[10px] border-slate-900' : 'w-[calc(100vw-2rem)] h-[calc(100vh-6rem)] rounded-xl'">
       <component :is="variant" :key="variant" />
       <FxPop><div v-if="store.toast" :key="store.toast.text" class="fixed bottom-6 left-4 right-4 @3xl:left-auto @3xl:w-80 z-40 bg-slate-900 text-white rounded-xl px-4 py-3 text-sm flex justify-between">
-        <span>{{ store.toast.text }}</span><button @click="store.toast.undo(); store.toast=null" class="underline">Undo</button></div></FxPop>
+        <span>{{ store.toast.text }}</span><button v-if="store.toast.undo" @click="store.toast.undo(); store.toast=null" class="underline">Undo</button></div></FxPop>
     </div>
     <div class="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-black text-white rounded-full px-2 py-1.5 shadow-xl text-sm font-mono">
       <button @click="cycle(-1)" class="px-2">←</button>
