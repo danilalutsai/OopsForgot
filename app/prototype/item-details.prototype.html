@@ -14,6 +14,7 @@
 <title>OopsProof Item prototype</title>
 <script src="https://cdn.tailwindcss.com/3.4.16?plugins=container-queries"></script>
 <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
   body { background: #e5e7eb; }
   .frame { transform: translateZ(0); }
@@ -23,7 +24,33 @@
 <div id="app"></div>
 
 <script>
-const { createApp, ref, reactive, computed, watch, onMounted, onUnmounted, provide, inject } = Vue;
+const { createApp, ref, reactive, computed, watch, onMounted, onUnmounted, provide, inject, h, Transition, TransitionGroup } = Vue;
+
+// ---------- motion: short, smooth, no bounce; off when the phone asks for reduced motion ----------
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const T = s => reduceMotion ? 0 : s; // seconds
+const EASE_IN = 'power2.in', EASE_OUT = 'power3.out';
+const FX = {
+  fade: { enter: (el, done) => gsap.fromTo(el, { opacity: 0 }, { opacity: 1, duration: T(0.15), ease: EASE_OUT, onComplete: done }),
+          leave: (el, done) => gsap.to(el, { opacity: 0, duration: T(0.1), ease: EASE_IN, onComplete: done }) },
+  // small menus and the Undo message: rise 6px and fade
+  pop: { enter: (el, done) => gsap.fromTo(el, { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: T(0.18), ease: EASE_OUT, onComplete: done }),
+         leave: (el, done) => gsap.to(el, { opacity: 0, y: 6, duration: T(0.12), ease: EASE_IN, onComplete: done }) },
+  // line editors, question box, rows leaving the list: height opens/closes
+  collapse: { enter: (el, done) => gsap.fromTo(el, { height: 0, opacity: 0, overflow: 'hidden' }, { height: 'auto', opacity: 1, duration: T(0.22), ease: EASE_OUT, clearProps: 'height,overflow', onComplete: done }),
+              leave: (el, done) => gsap.to(el, { height: 0, opacity: 0, overflow: 'hidden', paddingTop: 0, paddingBottom: 0, duration: T(0.2), ease: EASE_IN, onComplete: done }) },
+  // bottom sheet: backdrop fades, panel slides up from the bottom
+  sheet: { enter: (el, done) => { gsap.fromTo(el, { backgroundColor: 'rgba(0,0,0,0)' }, { backgroundColor: 'rgba(0,0,0,0.4)', duration: T(0.25) });
+                                  gsap.fromTo(el.firstElementChild, { yPercent: 100 }, { yPercent: 0, duration: T(0.3), ease: EASE_OUT, onComplete: done }); },
+           leave: (el, done) => { gsap.to(el, { backgroundColor: 'rgba(0,0,0,0)', duration: T(0.2) });
+                                  gsap.to(el.firstElementChild, { yPercent: 100, duration: T(0.2), ease: EASE_IN, onComplete: done }); } },
+};
+const fxWrap = (kind, group) => ({ props: ['mode', 'tag'], setup: (props, { slots }) => () =>
+  h(group ? TransitionGroup : Transition, { css: false, mode: props.mode, tag: props.tag, onEnter: FX[kind].enter, onLeave: FX[kind].leave }, slots) });
+const FxFade = fxWrap('fade'), FxPop = fxWrap('pop'), FxCollapse = fxWrap('collapse'), FxSheet = fxWrap('sheet'), FxRows = fxWrap('collapse', true);
+// a tapped button gives a tiny press
+const press = e => gsap.fromTo(e.currentTarget, { scale: 0.92 }, { scale: 1, duration: T(0.2), ease: EASE_OUT });
+const FX_COMPONENTS = { FxFade, FxPop, FxCollapse, FxSheet, FxRows };
 
 // ---------- fake data + rules ----------
 const DAY = 86400000;
@@ -46,7 +73,11 @@ const REMINDER_OPTS = [
   { k: '30m', label: '30 min before', time: true }, { k: '1h', label: '1 hour before', time: true },
   { k: '2h', label: '2 hours before', time: true }, { k: '4h', label: '4 hours before', time: true },
   { k: '1d', label: '1 day before' }, { k: '2d', label: '2 days before' }, { k: '1w', label: '1 week before' },
+  { k: '2w', label: '2 weeks before', once: true }, { k: '1mo', label: '1 month before', once: true },
 ];
+// hour Reminders need a time; 2 weeks / 1 month only for one-time Items; weekly Items stop at 2 days (1 week would hit the previous Due date)
+const remAllowed = (o, f) => !(o.time && !f.time) && !(o.once && f.recur) && !(f.recur === 'weekly' && o.k === '1w');
+const remHint = f => f.recur === 'weekly' ? 'Weekly Items can remind up to 2 days before.' : f.recur ? 'Repeating Items can remind up to 1 week before.' : '';
 const remLabel = k => REMINDER_OPTS.find(o => o.k === k)?.label;
 const DAY_REMINDER_TIME = '12:00';
 const hasDayReminder = r => r.some(k => !REMINDER_OPTS.find(o => o.k === k)?.time);
@@ -63,7 +94,7 @@ const seed = [
   { name: 'Water bill', category: 'Home', due: 4, recur: 'monthly', price: 3400, shared: true, owners: ['Max'], handledBy: 'Anna' },
   { name: 'Dentist check-up', category: 'Health', due: 9, recur: 'yearly', for: 'Mia', shared: true, owners: ['Anna', 'You'], reminders: ['1w', '1d'] },
   { name: 'Car insurance', category: 'Vehicle', due: 16, recur: 'yearly', price: 48000, shared: true, owners: ['You', 'Anna'], remind: 'owners' },
-  { name: 'Passport', category: 'Documents', due: 40, reminders: ['1w', '1d'], notes: 'Book appointment online first.' },
+  { name: 'Passport', category: 'Documents', due: 40, reminders: ['1mo', '1w'], notes: 'Book appointment online first.' },
   { name: 'Spotify', category: 'Subscriptions', due: 22, recur: 'monthly', price: 1199 },
 ].map(i => ({ id: nextId++, recur: '', time: null, price: null, shared: false, owners: ['You'], for: null, handledBy: null,
   reminders: ['1d'], notes: '', remind: 'family', archived: false, lastChangedBy: null, ...i, due: plus(i.due) }));
@@ -107,7 +138,7 @@ const A = {
   save(i, f) {
     Object.assign(i, { name: f.name, category: f.category, due: new Date(f.due + 'T00:00'), time: f.time || null, recur: f.recur,
       price: f.price ? Math.round(parseFloat(String(f.price).replace(',', '.')) * 100) : null, shared: f.shared, owners: f.shared ? f.owners : ['You'],
-      for: f.shared ? f.for : null, remind: f.remind, notes: f.notes, reminders: f.reminders.filter(k => f.time || !REMINDER_OPTS.find(o => o.k === k).time), lastChangedBy: 'You' });
+      for: f.shared ? f.for : null, remind: f.remind, notes: f.notes, reminders: f.reminders.filter(k => remAllowed(REMINDER_OPTS.find(o => o.k === k), f)), lastChangedBy: 'You' });
     log(`${i.name}: saved`);
   },
 };
@@ -131,7 +162,7 @@ const sheetLines = i => [
 ];
 const startOpen = () => store.items.find(i => String(i.id) === new URLSearchParams(location.search).get('open'));
 const H = { CATEGORIES, REMINDER_OPTS, RECUR, MEMBERS, DEPENDENTS, store, active, archived, fmt, longDate, money, daysTo, isoDate, remLabel,
-  isExpired, isTrialDay, canRemove, sheetLines, dayColor, countdown, group, A, formFrom, today };
+  isExpired, isTrialDay, canRemove, sheetLines, remAllowed, remHint, press, dayColor, countdown, group, A, formFrom, today };
 
 // ---------- shared pieces ----------
 const CatBadge = { props: ['c', 'size'], setup: () => H,
@@ -143,15 +174,15 @@ const ListRow = { props: ['i', 'selected'], emits: ['pick'], components: { CatBa
     <span :class="dayColor(daysTo(i.due), i.handledBy).bar" class="w-1.5 self-stretch rounded-r-full"></span>
     <CatBadge :c="i.category" />
     <div class="flex-1 min-w-0">
-      <div class="font-medium truncate" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
-      <div class="text-xs truncate" :class="dayColor(daysTo(i.due), i.handledBy).text">{{ countdown(i) }}<span class="text-slate-400"> · Due {{ fmt(i.due) }}<span v-if="i.shared"> · 👥 {{ i.owners.join(', ') }}</span></span></div>
+      <div class="font-medium truncate transition-colors duration-200" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
+      <div class="text-xs truncate transition-colors duration-200" :class="dayColor(daysTo(i.due), i.handledBy).text">{{ countdown(i) }}<span class="text-slate-400"> · Due {{ fmt(i.due) }}<span v-if="i.shared"> · 👥 {{ i.owners.join(', ') }}</span></span></div>
     </div>
     <span v-if="isExpired(i) || isTrialDay(i)" class="text-[10px] bg-red-600 text-white rounded-full px-2 py-0.5">{{ isTrialDay(i) ? 'Kept it?' : 'What now?' }}</span>
-    <button v-else @click.stop="A.handled(i)" :class="i.handledBy ? 'bg-slate-100 text-slate-500' : 'border'" class="text-xs rounded-full px-2.5 py-1 shrink-0">{{ i.handledBy ? 'Undo' : 'Handled' }}</button>
+    <button v-else @click.stop="press($event); A.handled(i)" :class="i.handledBy ? 'bg-slate-100 text-slate-500' : 'border'" class="text-xs rounded-full px-2.5 py-1 shrink-0 transition-colors duration-200">{{ i.handledBy ? 'Undo' : 'Handled' }}</button>
   </div>` };
 
 // The chosen dashboard (variant D): List (Today / This week / Later) or Calendar (week / month, one dot per Due date).
-const ItemList = { props: ['selected'], emits: ['pick'], components: { CatBadge, ListRow }, setup() {
+const ItemList = { props: ['selected'], emits: ['pick'], components: { CatBadge, ListRow, ...FX_COMPONENTS }, setup() {
     const showArchived = ref(false);
     const groups = computed(() => [['today', 'Today', 'bg-red-500'], ['week', 'This week', 'bg-amber-400'], ['later', 'Later', 'bg-emerald-500']]
       .map(([k, label, dot]) => ({ k, label, dot, items: active.value.filter(i => group(i) === k) })));
@@ -164,15 +195,15 @@ const ItemList = { props: ['selected'], emits: ['pick'], components: { CatBadge,
     const goToday = () => { store.cursor = new Date(today); store.picked = new Date(today); };
     return { ...H, groups, showArchived, sameDay, on, weekDays, monthDays, calTitle, move, goToday };
   },
-  template: `<div>
-    <template v-if="store.view==='list'">
+  template: `<div><FxFade mode="out-in">
+    <div v-if="store.view==='list'" key="list">
       <section v-for="g in groups" :key="g.k">
         <h2 class="px-4 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide flex items-center gap-2"><span :class="g.dot" class="w-2 h-2 rounded-full"></span>{{ g.label }} <span class="text-slate-400">{{ g.items.length }}</span></h2>
         <div v-if="!g.items.length" class="px-4 py-2 text-sm text-slate-400">Nothing here</div>
-        <template v-for="i in g.items" :key="i.id"><slot name="row" :i="i"><ListRow :i="i" :selected="selected" @pick="$emit('pick', $event)" /></slot></template>
+        <FxRows tag="div"><div v-for="i in g.items" :key="i.id"><slot name="row" :i="i"><ListRow :i="i" :selected="selected" @pick="$emit('pick', $event)" /></slot></div></FxRows>
       </section>
-    </template>
-    <template v-else>
+    </div>
+    <div v-else key="calendar">
       <div class="px-4 pt-3 flex items-center gap-2">
         <button @click="move(-1)" class="w-8 h-8 rounded-full border">‹</button>
         <div class="font-semibold flex-1 text-center">{{ calTitle }}</div>
@@ -183,24 +214,24 @@ const ItemList = { props: ['selected'], emits: ['pick'], components: { CatBadge,
           <button v-for="m in [['week','Week'],['month','Month']]" @click="store.calMode=m[0]" :class="store.calMode===m[0] ? 'bg-white shadow' : 'text-slate-500'" class="px-3 py-0.5 rounded-full">{{ m[1] }}</button></div></div>
       <div class="px-2 pt-3">
         <div class="grid grid-cols-7 text-center text-[11px] text-slate-400 mb-1"><span v-for="w in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']">{{ w }}</span></div>
-        <div class="grid grid-cols-7 gap-1">
+        <FxFade mode="out-in"><div class="grid grid-cols-7 gap-1" :key="store.calMode + calTitle">
           <button v-for="d in (store.calMode==='week' ? weekDays : monthDays)" @click="store.picked=d"
             :class="[sameDay(d,store.picked) ? 'bg-slate-900 text-white' : sameDay(d,today) ? 'ring-1 ring-slate-900' : 'bg-slate-50',
                      store.calMode==='month' && d.getMonth()!==store.cursor.getMonth() ? 'opacity-30' : '', store.calMode==='week' ? 'min-h-20' : 'min-h-12']"
             class="rounded-xl p-1 flex flex-col items-center">
             <span class="text-sm font-medium">{{ d.getDate() }}</span>
             <span class="flex flex-wrap justify-center gap-0.5 mt-1"><span v-for="i in on(d).slice(0,6)" :class="dayColor(daysTo(i.due), i.handledBy).bar" class="w-2.5 h-2.5 rounded-full"></span></span>
-          </button></div></div>
+          </button></div></FxFade></div>
       <h3 class="px-4 pt-5 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ sameDay(store.picked,today) ? 'Today' : fmt(store.picked,{weekday:'long', day:'numeric', month:'long'}) }}</h3>
       <div v-if="!on(store.picked).length" class="px-4 py-2 text-sm text-slate-400">Nothing on this day</div>
-      <template v-for="i in on(store.picked)" :key="i.id"><slot name="row" :i="i"><ListRow :i="i" :selected="selected" @pick="$emit('pick', $event)" /></slot></template>
-    </template>
+      <FxRows tag="div"><div v-for="i in on(store.picked)" :key="i.id"><slot name="row" :i="i"><ListRow :i="i" :selected="selected" @pick="$emit('pick', $event)" /></slot></div></FxRows>
+    </div></FxFade>
     <button @click="showArchived=!showArchived" class="mx-4 mt-6 text-sm text-slate-500 underline">Archived ({{ archived.length }})</button>
-    <div v-if="showArchived" class="mx-4 mt-2 space-y-1">
+    <FxCollapse><div v-if="showArchived" class="mx-4 mt-2 space-y-1">
       <div v-for="i in archived" :key="i.id" class="flex items-center justify-between text-sm text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
         <span>{{ CATEGORIES[i.category].icon }} {{ i.name }}</span><button @click="A.restore(i)" class="underline">Restore</button></div>
       <div v-if="!archived.length" class="text-sm text-slate-400">Nothing archived</div>
-    </div>
+    </div></FxCollapse>
   </div>` };
 
 // Full edit form (dashboard's add form, prefilled), plus Shared-Item fields.
@@ -214,8 +245,8 @@ const EditForm = { props: ['f'], setup: () => H,
       <label class="block"><span class="text-sm text-slate-500">Time (optional)</span><input type="time" v-model="f.time" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label></div>
     <label class="block"><span class="text-sm text-slate-500">Repeats</span><select v-model="f.recur" class="mt-1 w-full border rounded-xl px-3 py-2.5 bg-white"><option v-for="(l,k) in RECUR" :value="k">{{ l }}</option></select></label>
     <div><span class="text-sm text-slate-500">Reminders (pick any)</span><div class="mt-1 flex flex-wrap gap-2">
-      <button v-for="o in REMINDER_OPTS" :disabled="o.time && !f.time" @click="f.reminders.includes(o.k) ? f.reminders.splice(f.reminders.indexOf(o.k),1) : f.reminders.push(o.k)"
-        :class="f.reminders.includes(o.k) && !(o.time && !f.time) ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600'" class="px-3 py-1.5 rounded-full text-sm disabled:opacity-30">{{ o.label }}</button></div></div>
+      <button v-for="o in REMINDER_OPTS" :disabled="!remAllowed(o, f)" @click="f.reminders.includes(o.k) ? f.reminders.splice(f.reminders.indexOf(o.k),1) : f.reminders.push(o.k)"
+        :class="f.reminders.includes(o.k) && remAllowed(o, f) ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600'" class="px-3 py-1.5 rounded-full text-sm disabled:opacity-30">{{ o.label }}</button></div></div>
     <label class="block"><span class="text-sm text-slate-500">Price (optional)</span><input v-model="f.price" inputmode="decimal" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" v-model="f.shared" /> Shared with Family</label>
     <div v-if="f.shared" class="space-y-3 rounded-xl bg-slate-50 p-3">
@@ -265,7 +296,7 @@ const Facts = { props: ['i'], setup: () => H,
     <div v-if="i.lastChangedBy" class="py-2.5 text-xs text-slate-400">Last changed by {{ i.lastChangedBy }}</div>
   </dl>` };
 
-const Shell = { props: ['title'], emits: ['add'], setup() { const filterOpen = ref(false); return { store, filterOpen, FILTERS: { all: 'All', mine: 'Personal', family: 'Shared' } }; },
+const Shell = { props: ['title'], emits: ['add'], components: FX_COMPONENTS, setup() { const filterOpen = ref(false); return { store, filterOpen, FILTERS: { all: 'All', mine: 'Personal', family: 'Shared' } }; },
   template: `<div class="h-full flex bg-white">
     <div class="flex-1 @3xl:max-w-md @3xl:border-r h-full overflow-y-auto pb-28">
       <header class="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 pt-5 pb-3 border-b">
@@ -273,10 +304,10 @@ const Shell = { props: ['title'], emits: ['add'], setup() { const filterOpen = r
         <div class="mt-3 flex items-center gap-2">
           <div class="relative">
             <button @click="filterOpen=!filterOpen" class="border rounded-full px-3 py-1.5 text-sm">{{ FILTERS[store.filter] }} ▾</button>
-            <div v-if="filterOpen" class="absolute left-0 mt-1 w-36 bg-white border rounded-xl shadow-lg py-1 z-20">
-              <button v-for="(label,k) in FILTERS" @click="store.filter=k; filterOpen=false" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50">{{ store.filter===k ? '✓ ' : '' }}{{ label }}</button></div></div>
+            <FxPop><div v-if="filterOpen" class="absolute left-0 mt-1 w-36 bg-white border rounded-xl shadow-lg py-1 z-20">
+              <button v-for="(label,k) in FILTERS" @click="store.filter=k; filterOpen=false" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50">{{ store.filter===k ? '✓ ' : '' }}{{ label }}</button></div></FxPop></div>
           <div class="inline-flex bg-slate-100 rounded-full p-1 text-sm ml-auto">
-            <button v-for="v in [['list','☰ List'],['calendar','▦ Calendar']]" @click="store.view=v[0]" :class="store.view===v[0] ? 'bg-white shadow' : 'text-slate-500'" class="px-3 py-1 rounded-full">{{ v[1] }}</button></div>
+            <button v-for="v in [['list','☰ List'],['calendar','▦ Calendar']]" @click="store.view=v[0]" :class="store.view===v[0] ? 'bg-white shadow' : 'text-slate-500'" class="px-3 py-1 rounded-full transition-all duration-200">{{ v[1] }}</button></div>
         </div></header>
       <slot name="list" /></div>
     <aside class="hidden @3xl:block flex-1 h-full overflow-y-auto bg-slate-50 p-8"><slot name="panel" /></aside>
@@ -352,13 +383,13 @@ const VariantY = { name: 'Sheet, tap to edit', components: { Shell, ItemList, Ca
       <div class="bg-white w-full rounded-t-3xl p-5 max-h-[85%] overflow-y-auto"><div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div><component :is="'YBody'" /></div></div></template>
   </Shell>`,
 };
-VariantY.components.YBody = { components: { CatBadge, Question, EditForm }, setup: () => inject('sheet'),
+VariantY.components.YBody = { components: { CatBadge, Question, EditForm, ...FX_COMPONENTS }, setup: () => inject('sheet'),
   template: `<div v-if="editing" class="pb-10 @3xl:pb-0">
     <div class="flex justify-between items-center mb-4"><button @click="editing=null" class="text-slate-500">Cancel</button><h2 class="font-semibold">Edit Item</h2><button @click="A.save(open, editing); editing=null" class="font-semibold">Save</button></div>
     <EditForm :f="editing" /></div>
   <div v-else class="pb-10 @3xl:pb-0">
     <div v-if="withEdit" class="flex justify-end -mt-2 mb-2"><button @click="editing = formFrom(open)" class="text-sm font-medium border rounded-full px-3 py-1">Edit</button></div>
-    <Question :i="open" :look="look" class="mb-4" />
+    <FxCollapse><div v-if="isExpired(open) || isTrialDay(open)" :key="open.id"><Question :i="open" :look="look" class="mb-4" /></div></FxCollapse>
     <div class="flex items-center gap-3 mb-1"><CatBadge :c="open.category" />
       <input v-if="field==='name'" v-model="draft.name" @keydown.enter="commit" class="flex-1 min-w-0 text-xl font-bold border-b-2 border-slate-900 outline-none" />
       <h2 v-else @click="toggle('name')" class="flex-1 text-xl font-bold cursor-text">{{ open.name }}</h2>
@@ -367,18 +398,18 @@ VariantY.components.YBody = { components: { CatBadge, Question, EditForm }, setu
     <div class="text-xs text-slate-400 mb-1">Tap a line to change it. Tap it again to close.</div>
     <div class="divide-y border rounded-2xl text-sm">
       <div v-for="ln in sheetLines(open)" :key="ln.k" :class="field===ln.k ? 'bg-slate-50' : ''">
-        <button @click="toggle(ln.k)" class="w-full px-4 py-3 flex justify-between items-center gap-3 text-left">
+        <button @click="toggle(ln.k)" class="w-full px-4 py-3 transition-colors duration-150 flex justify-between items-center gap-3 text-left">
           <span class="text-slate-500 shrink-0" :class="field===ln.k ? 'font-semibold text-slate-900' : ''">{{ ln.label }}</span>
           <span class="flex items-center gap-1 min-w-0"><span class="min-w-0 text-right"><span class="block truncate">{{ ln.value }}</span><span v-if="ln.sub" class="block text-[10px] text-slate-400">{{ ln.sub }}</span></span>
-            <span class="text-slate-400 transition-transform" :class="field===ln.k ? 'rotate-90' : ''">›</span></span></button>
-        <div v-if="field===ln.k" class="px-4 pb-3">
+            <span class="text-slate-400 transition-transform duration-200" :class="field===ln.k ? 'rotate-90' : ''">›</span></span></button>
+        <FxCollapse><div v-if="field===ln.k" class="px-4 pb-3">
           <input v-if="ln.k==='due'" type="date" v-model="draft.due" class="w-full border rounded-lg px-3 py-2 bg-white" />
           <div v-else-if="ln.k==='time'" class="flex gap-2"><input type="time" v-model="draft.time" class="flex-1 min-w-0 border rounded-lg px-3 py-2 bg-white" /><button @click="draft.time=''" class="border rounded-lg px-3 bg-white">No time</button></div>
           <div v-else-if="ln.k==='recur'" class="flex flex-wrap gap-1.5"><button v-for="(l,k) in RECUR" @click="draft.recur=k; commit()" :class="draft.recur===k ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ l }}</button></div>
           <div v-else-if="ln.k==='rem'"><div class="flex flex-wrap gap-1.5">
-            <button v-for="o in REMINDER_OPTS" :disabled="o.time && !draft.time" @click="draft.reminders.includes(o.k) ? draft.reminders.splice(draft.reminders.indexOf(o.k),1) : draft.reminders.push(o.k)"
-              :class="draft.reminders.includes(o.k) && !(o.time && !draft.time) ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-2.5 py-1 rounded-full text-xs disabled:opacity-30">{{ o.label }}</button></div>
-            <div class="text-[11px] text-slate-400 mt-1">Day Reminders arrive at 12:00.<span v-if="!draft.time"> Add a time to use hour Reminders.</span></div></div>
+            <button v-for="o in REMINDER_OPTS" :disabled="!remAllowed(o, draft)" @click="press($event); draft.reminders.includes(o.k) ? draft.reminders.splice(draft.reminders.indexOf(o.k),1) : draft.reminders.push(o.k)"
+              :class="draft.reminders.includes(o.k) && remAllowed(o, draft) ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-2.5 py-1 rounded-full text-xs transition-colors duration-150 disabled:opacity-30">{{ o.label }}</button></div>
+            <div class="text-[11px] text-slate-400 mt-1">Day Reminders arrive at 12:00.<span v-if="!draft.time"> Add a time to use hour Reminders.</span> {{ remHint(draft) }}</div></div>
           <input v-else-if="ln.k==='price'" v-model="draft.price" @keydown.enter="commit" inputmode="decimal" placeholder="€ 0.00" class="w-full border rounded-lg px-3 py-2 bg-white" />
           <div v-else-if="ln.k==='cat'" class="flex flex-wrap gap-1.5"><button v-for="(v,k) in CATEGORIES" @click="draft.category=k; commit()" :class="draft.category===k ? 'ring-2 ring-slate-900 '+v.color : v.color" class="px-2.5 py-1 rounded-full text-xs">{{ v.icon }} {{ k }}</button></div>
           <div v-else-if="ln.k==='share'" class="flex flex-wrap gap-1.5"><button v-for="o in [[false,'Personal (only you)'],[true,'Shared with Family']]" @click="draft.shared=o[0]; commit()" :class="draft.shared===o[0] ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ o[1] }}</button></div>
@@ -387,7 +418,7 @@ VariantY.components.YBody = { components: { CatBadge, Question, EditForm }, setu
           <div v-else-if="ln.k==='remind'" class="flex flex-wrap gap-1.5"><button v-for="r in [['family','Whole family'],['owners','Owners only']]" @click="draft.remind=r[0]; commit()" :class="draft.remind===r[0] ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ r[1] }}</button></div>
           <div v-else-if="ln.k==='notes'"><textarea v-model="draft.notes" rows="3" class="w-full border rounded-lg px-3 py-2 bg-white"></textarea>
             <div v-if="/\\d{8,}/.test(draft.notes)" class="text-xs text-amber-700">Don't store full card or document numbers here.</div></div>
-        </div>
+        </div></FxCollapse>
       </div>
     </div>
     <div v-if="open.lastChangedBy" class="text-xs text-slate-400 mt-2">Last changed by {{ open.lastChangedBy }}</div>
@@ -401,21 +432,26 @@ VariantY.components.YBody = { components: { CatBadge, Question, EditForm }, setu
   </div>` };
 
 // ---------- Variant W: owner's mix — Y's sheet + tap a line, X's red question box + Edit button, Z's swipe ----------
-const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge, YBody: VariantY.components.YBody }, setup() {
-    const open = ref(null), field = ref(null), draft = ref(null), confirmDel = ref(false), editing = ref(null);
-    const pick = i => { open.value = i; field.value = null; editing.value = null; confirmDel.value = false; };
+const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge, YBody: VariantY.components.YBody, ...FX_COMPONENTS }, setup() {
+    const open = ref(null), field = ref(null), draft = ref(null), confirmDel = ref(false), editing = ref(null), sheetOpen = ref(false);
+    const pick = i => { open.value = i; sheetOpen.value = true; field.value = null; editing.value = null; confirmDel.value = false; };
     const startEdit = k => { field.value = k; draft.value = formFrom(open.value); };
     const commit = () => { A.save(open.value, draft.value); field.value = null; };
     const toggle = k => { if (field.value === k) return commit(); if (field.value) commit(); startEdit(k); };
-    const close = () => { open.value = null; editing.value = null; };
+    const close = () => { if (field.value) commit(); sheetOpen.value = false; setTimeout(() => { if (!sheetOpen.value) open.value = null; }, T(0.2) * 1000 + 30); };
     watch(() => open.value && (open.value.archived || !store.items.includes(open.value)), gone => gone && close());
     const swipe = reactive({ id: null, x: 0, start: 0 });
     const down = (i, e) => { swipe.id = i.id; swipe.start = e.clientX; swipe.x = 0; };
     const move = e => { if (swipe.id != null) swipe.x = Math.max(-140, Math.min(100, e.clientX - swipe.start)); };
-    const up = i => { if (swipe.id !== i.id) return; const x = swipe.x; swipe.id = null; swipe.x = 0;
-      if (x > 70) A.handled(i); else if (x < -110 && canRemove(i)) A.archive(i); else if (Math.abs(x) < 5) pick(i); };
-    if (startOpen()) { open.value = startOpen(); const e = new URLSearchParams(location.search).get('edit'); if (e) startEdit(e); }
-    const ctx = { ...H, open, field, draft, confirmDel, editing, pick, startEdit, commit, toggle, close, swipe, down, move, up, look: 'banner', withEdit: false };
+    const up = i => { if (swipe.id !== i.id || swipe.busy) return; const x = swipe.x;
+      const done = () => { swipe.id = null; swipe.x = 0; swipe.busy = false; };
+      if (Math.abs(x) < 5) { done(); return pick(i); }
+      swipe.busy = true;
+      if (x < -110 && canRemove(i)) return gsap.to(swipe, { x: -420, duration: T(0.2), ease: EASE_IN, onComplete: () => { A.archive(i); done(); } });
+      if (x > 70) A.handled(i);
+      gsap.to(swipe, { x: 0, duration: T(0.22), ease: EASE_OUT, onComplete: done }); };
+    if (startOpen()) { open.value = startOpen(); sheetOpen.value = true; const e = new URLSearchParams(location.search).get('edit'); if (e) startEdit(e); }
+    const ctx = { ...H, open, sheetOpen, field, draft, confirmDel, editing, pick, startEdit, commit, toggle, close, swipe, down, move, up, look: 'banner', withEdit: false };
     provide('sheet', ctx);
     return ctx;
   },
@@ -432,14 +468,14 @@ const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge,
             <div class="flex-1 min-w-0"><div class="font-medium truncate" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
               <div class="text-xs truncate" :class="dayColor(daysTo(i.due), i.handledBy).text">{{ countdown(i) }}<span class="text-slate-400"> · Due {{ fmt(i.due) }}<span v-if="i.shared"> · 👥 {{ i.owners.join(', ') }}</span></span></div></div>
             <span v-if="isExpired(i) || isTrialDay(i)" class="text-[10px] bg-red-600 text-white rounded-full px-2 py-0.5">{{ isTrialDay(i) ? 'Kept it?' : 'What now?' }}</span>
-            <button v-else @pointerdown.stop @click.stop="A.handled(i)" :class="i.handledBy ? 'bg-slate-100 text-slate-500' : 'border'" class="text-xs rounded-full px-2.5 py-1 shrink-0">{{ i.handledBy ? 'Undo' : 'Handled' }}</button>
+            <button v-else @pointerdown.stop @click.stop="press($event); A.handled(i)" :class="i.handledBy ? 'bg-slate-100 text-slate-500' : 'border'" class="text-xs rounded-full px-2.5 py-1 shrink-0 transition-colors duration-200">{{ i.handledBy ? 'Undo' : 'Handled' }}</button>
           </div>
         </div>
       </template></ItemList>
     </template>
-    <template #panel><div v-if="open" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><YBody /></div><div v-else class="h-full grid place-items-center text-slate-400">Pick an Item</div></template>
-    <template #overlay><div v-if="open" class="@3xl:hidden fixed inset-0 z-20 bg-black/40 flex items-end" @click.self="close()">
-      <div class="bg-white w-full rounded-t-3xl p-5 max-h-[88%] overflow-y-auto"><div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div><YBody /></div></div></template>
+    <template #panel><FxFade mode="out-in"><div v-if="open" :key="open.id" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><YBody /></div><div v-else key="none" class="h-full grid place-items-center text-slate-400">Pick an Item</div></FxFade></template>
+    <template #overlay><FxSheet><div v-if="sheetOpen && open" class="@3xl:hidden fixed inset-0 z-20 bg-black/40 flex items-end" @click.self="close()">
+      <div class="bg-white w-full rounded-t-3xl p-5 max-h-[88%] overflow-y-auto"><div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div><YBody /></div></div></FxSheet></template>
   </Shell>` };
 
 // ---------- Variant Z: open in place inside the list, swipe for actions, questions right in the row ----------
@@ -500,7 +536,7 @@ const VariantZ = { name: 'In place + swipe', components: { Shell, CatBadge, Ques
 // ---------- switcher + device frame ----------
 const VARIANTS = { W: VariantW, X: VariantX, Y: VariantY, Z: VariantZ };
 createApp({
-  components: VARIANTS,
+  components: { ...VARIANTS, ...FX_COMPONENTS },
   setup() {
     const params = new URLSearchParams(location.search);
     const variant = ref(VARIANTS[params.get('variant')] ? params.get('variant') : 'W');
@@ -519,8 +555,8 @@ createApp({
     <div class="frame @container bg-white overflow-hidden shadow-2xl"
       :class="device==='phone' ? 'w-[390px] h-[min(844px,calc(100vh-6rem))] rounded-[2.5rem] border-[10px] border-slate-900' : 'w-[calc(100vw-2rem)] h-[calc(100vh-6rem)] rounded-xl'">
       <component :is="variant" :key="variant" />
-      <div v-if="store.toast" class="fixed bottom-6 left-4 right-4 @3xl:left-auto @3xl:w-80 z-40 bg-slate-900 text-white rounded-xl px-4 py-3 text-sm flex justify-between">
-        <span>{{ store.toast.text }}</span><button @click="store.toast.undo(); store.toast=null" class="underline">Undo</button></div>
+      <FxPop><div v-if="store.toast" :key="store.toast.text" class="fixed bottom-6 left-4 right-4 @3xl:left-auto @3xl:w-80 z-40 bg-slate-900 text-white rounded-xl px-4 py-3 text-sm flex justify-between">
+        <span>{{ store.toast.text }}</span><button @click="store.toast.undo(); store.toast=null" class="underline">Undo</button></div></FxPop>
     </div>
     <div class="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-black text-white rounded-full px-2 py-1.5 shadow-xl text-sm font-mono">
       <button @click="cycle(-1)" class="px-2">←</button>
