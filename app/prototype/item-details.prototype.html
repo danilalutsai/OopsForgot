@@ -43,7 +43,7 @@ const CATEGORIES = {
   'Travel': { color: 'bg-cyan-100 text-cyan-700', icon: '✈️' }, 'Other': { color: 'bg-slate-100 text-slate-700', icon: '•' },
 };
 const REMINDER_OPTS = [
-  { k: 'day', label: 'On the day' }, { k: '30m', label: '30 min before', time: true }, { k: '1h', label: '1 hour before', time: true },
+  { k: '30m', label: '30 min before', time: true }, { k: '1h', label: '1 hour before', time: true },
   { k: '2h', label: '2 hours before', time: true }, { k: '4h', label: '4 hours before', time: true },
   { k: '1d', label: '1 day before' }, { k: '2d', label: '2 days before' }, { k: '1w', label: '1 week before' },
 ];
@@ -59,12 +59,12 @@ const seed = [
   { name: 'Gym class', category: 'Health', due: 0, recur: 'weekly', time: '18:30', reminders: ['2h', '30m'] },
   { name: 'Netflix', category: 'Subscriptions', due: 5, recur: 'monthly', price: 1299, shared: true, owners: ['Anna'], lastChangedBy: 'Anna' },
   { name: 'Water bill', category: 'Home', due: 4, recur: 'monthly', price: 3400, shared: true, owners: ['Max'], handledBy: 'Anna' },
-  { name: 'Dentist check-up', category: 'Health', due: 9, recur: 'yearly', for: 'Mia', shared: true, owners: ['Anna', 'You'], reminders: ['1w', 'day'] },
+  { name: 'Dentist check-up', category: 'Health', due: 9, recur: 'yearly', for: 'Mia', shared: true, owners: ['Anna', 'You'], reminders: ['1w', '1d'] },
   { name: 'Car insurance', category: 'Vehicle', due: 16, recur: 'yearly', price: 48000, shared: true, owners: ['You', 'Anna'], remind: 'owners' },
-  { name: 'Passport', category: 'Documents', due: 40, reminders: ['1w', 'day'], notes: 'Book appointment online first.' },
+  { name: 'Passport', category: 'Documents', due: 40, reminders: ['1w', '1d'], notes: 'Book appointment online first.' },
   { name: 'Spotify', category: 'Subscriptions', due: 22, recur: 'monthly', price: 1199 },
 ].map(i => ({ id: nextId++, recur: '', time: null, price: null, shared: false, owners: ['You'], for: null, handledBy: null,
-  reminders: ['day'], notes: '', remind: 'family', archived: false, lastChangedBy: null, ...i, due: plus(i.due) }));
+  reminders: ['1d'], notes: '', remind: 'family', archived: false, lastChangedBy: null, ...i, due: plus(i.due) }));
 
 const store = reactive({ items: seed, toast: null, log: [], filter: 'all', view: new URLSearchParams(location.search).get('view') || 'list', calMode: 'week', cursor: new Date(today), picked: new Date(today) });
 const log = msg => { store.log.unshift(msg); store.log.length = Math.min(store.log.length, 8); };
@@ -120,6 +120,7 @@ const sheetLines = i => [
   { k: 'rem', label: 'Reminders', value: i.reminders.map(remLabel).join(', ') || 'None' },
   { k: 'price', label: 'Price', value: i.price ? money(i.price) : 'Add price' },
   { k: 'cat', label: 'Category', value: CATEGORIES[i.category].icon + ' ' + i.category },
+  { k: 'share', label: 'Family', value: i.shared ? 'Shared' : 'Personal' },
   ...(i.shared ? [
     { k: 'owners', label: 'Owners', value: i.owners.join(', ') },
     { k: 'for', label: 'For', value: i.for || 'Nobody in particular' },
@@ -378,6 +379,7 @@ VariantY.components.YBody = { components: { CatBadge, Question, EditForm }, setu
             <div v-if="!draft.time" class="text-xs text-slate-400 mt-1">Hour options need a time</div></div>
           <input v-else-if="ln.k==='price'" v-model="draft.price" @keydown.enter="commit" inputmode="decimal" placeholder="€ 0.00" class="w-full border rounded-lg px-3 py-2 bg-white" />
           <div v-else-if="ln.k==='cat'" class="flex flex-wrap gap-1.5"><button v-for="(v,k) in CATEGORIES" @click="draft.category=k; commit()" :class="draft.category===k ? 'ring-2 ring-slate-900 '+v.color : v.color" class="px-2.5 py-1 rounded-full text-xs">{{ v.icon }} {{ k }}</button></div>
+          <div v-else-if="ln.k==='share'" class="flex flex-wrap gap-1.5"><button v-for="o in [[false,'Personal (only you)'],[true,'Shared with Family']]" @click="draft.shared=o[0]; commit()" :class="draft.shared===o[0] ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ o[1] }}</button></div>
           <div v-else-if="ln.k==='owners'" class="flex flex-wrap gap-1.5"><button v-for="m in MEMBERS" @click="draft.owners.includes(m) ? (draft.owners.length>1 && draft.owners.splice(draft.owners.indexOf(m),1)) : draft.owners.push(m)" :class="draft.owners.includes(m) ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ m }}</button></div>
           <div v-else-if="ln.k==='for'" class="flex flex-wrap gap-1.5"><button v-for="d in [null, ...MEMBERS, ...DEPENDENTS]" @click="draft.for=d; commit()" :class="draft.for===d ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ d || 'Nobody in particular' }}</button></div>
           <div v-else-if="ln.k==='remind'" class="flex flex-wrap gap-1.5"><button v-for="r in [['family','Whole family'],['owners','Owners only']]" @click="draft.remind=r[0]; commit()" :class="draft.remind===r[0] ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ r[1] }}</button></div>
@@ -411,7 +413,7 @@ const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge,
     const up = i => { if (swipe.id !== i.id) return; const x = swipe.x; swipe.id = null; swipe.x = 0;
       if (x > 70) A.handled(i); else if (x < -110 && canRemove(i)) A.archive(i); else if (Math.abs(x) < 5) pick(i); };
     if (startOpen()) { open.value = startOpen(); const e = new URLSearchParams(location.search).get('edit'); if (e) startEdit(e); }
-    const ctx = { ...H, open, field, draft, confirmDel, editing, pick, startEdit, commit, toggle, close, swipe, down, move, up, look: 'banner', withEdit: true };
+    const ctx = { ...H, open, field, draft, confirmDel, editing, pick, startEdit, commit, toggle, close, swipe, down, move, up, look: 'banner', withEdit: false };
     provide('sheet', ctx);
     return ctx;
   },
