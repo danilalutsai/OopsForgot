@@ -1,0 +1,476 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Answers: "What do the Item details, edit and Expired screens look like?"
+  Builds on the chosen dashboard (variant D of dashboard-add-item.prototype.html, list view only here).
+  Three structurally different ways to open, edit, archive and delete an Item, and to answer the
+  Expired choices and the free-trial "Did you keep it?" prompt. Switch with ?variant=X|Y|Z,
+  the floating bar, or ← → keys. "Phone / Computer" toggle in the bar.
+  All data is fake and in memory; reload resets it. "You" is a Member, not an Admin.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OopsProof Item prototype</title>
+<script src="https://cdn.tailwindcss.com/3.4.16?plugins=container-queries"></script>
+<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+<style>
+  body { background: #e5e7eb; }
+  .frame { transform: translateZ(0); }
+</style>
+</head>
+<body class="font-sans text-slate-900">
+<div id="app"></div>
+
+<script>
+const { createApp, ref, reactive, computed, watch, onMounted, onUnmounted, provide, inject } = Vue;
+
+// ---------- fake data + rules ----------
+const DAY = 86400000;
+const today = new Date(); today.setHours(0, 0, 0, 0);
+const plus = n => new Date(today.getTime() + n * DAY);
+const daysTo = d => Math.round((d - today) / DAY);
+const isoDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const fmt = (d, o = { day: 'numeric', month: 'short' }) => d.toLocaleDateString(undefined, o);
+const longDate = d => fmt(d, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+const money = c => c == null ? '' : (c / 100).toLocaleString(undefined, { style: 'currency', currency: 'EUR' });
+
+const CATEGORIES = {
+  'Documents': { color: 'bg-indigo-100 text-indigo-700', icon: '📄' }, 'Cards': { color: 'bg-sky-100 text-sky-700', icon: '💳' },
+  'Subscriptions': { color: 'bg-violet-100 text-violet-700', icon: '🔁' }, 'Free trials': { color: 'bg-pink-100 text-pink-700', icon: '🎁' },
+  'Vehicle': { color: 'bg-amber-100 text-amber-700', icon: '🚗' }, 'Home': { color: 'bg-emerald-100 text-emerald-700', icon: '🏠' },
+  'Health': { color: 'bg-rose-100 text-rose-700', icon: '🩺' }, 'Purchases': { color: 'bg-orange-100 text-orange-700', icon: '🛍️' },
+  'Travel': { color: 'bg-cyan-100 text-cyan-700', icon: '✈️' }, 'Other': { color: 'bg-slate-100 text-slate-700', icon: '•' },
+};
+const REMINDER_OPTS = [
+  { k: 'day', label: 'On the day' }, { k: '30m', label: '30 min before', time: true }, { k: '1h', label: '1 hour before', time: true },
+  { k: '2h', label: '2 hours before', time: true }, { k: '4h', label: '4 hours before', time: true },
+  { k: '1d', label: '1 day before' }, { k: '2d', label: '2 days before' }, { k: '1w', label: '1 week before' },
+];
+const remLabel = k => REMINDER_OPTS.find(o => o.k === k)?.label;
+const RECUR = { '': 'Once', weekly: 'Every week', monthly: 'Every month', yearly: 'Every year' };
+const MEMBERS = ['You', 'Anna', 'Max'];
+const DEPENDENTS = ['Mia', 'Rex'];
+
+let nextId = 100;
+const seed = [
+  { name: 'Disney+ free trial', category: 'Free trials', due: 0, price: 899, time: '23:59', reminders: ['1d', '4h'] },
+  { name: 'Concert ticket refund', category: 'Purchases', due: -2, price: 6500, notes: 'Ask at the box office, keep the receipt.' },
+  { name: 'Gym class', category: 'Health', due: 0, recur: 'weekly', time: '18:30', reminders: ['2h', '30m'] },
+  { name: 'Netflix', category: 'Subscriptions', due: 5, recur: 'monthly', price: 1299, shared: true, owners: ['Anna'], lastChangedBy: 'Anna' },
+  { name: 'Water bill', category: 'Home', due: 4, recur: 'monthly', price: 3400, shared: true, owners: ['Max'], handledBy: 'Anna' },
+  { name: 'Dentist check-up', category: 'Health', due: 9, recur: 'yearly', for: 'Mia', shared: true, owners: ['Anna', 'You'], reminders: ['1w', 'day'] },
+  { name: 'Car insurance', category: 'Vehicle', due: 16, recur: 'yearly', price: 48000, shared: true, owners: ['You', 'Anna'], remind: 'owners' },
+  { name: 'Passport', category: 'Documents', due: 40, reminders: ['1w', 'day'], notes: 'Book appointment online first.' },
+  { name: 'Spotify', category: 'Subscriptions', due: 22, recur: 'monthly', price: 1199 },
+].map(i => ({ id: nextId++, recur: '', time: null, price: null, shared: false, owners: ['You'], for: null, handledBy: null,
+  reminders: ['day'], notes: '', remind: 'family', archived: false, lastChangedBy: null, ...i, due: plus(i.due) }));
+
+const store = reactive({ items: seed, toast: null, log: [] });
+const log = msg => { store.log.unshift(msg); store.log.length = Math.min(store.log.length, 8); };
+const toast = (text, undo) => { store.toast = { text, undo }; setTimeout(() => { if (store.toast?.text === text) store.toast = null; }, 4000); };
+
+const isExpired = i => !i.recur && daysTo(i.due) < 0 && !i.handledBy;
+const isTrialDay = i => i.category === 'Free trials' && daysTo(i.due) <= 0 && !i.handledBy;
+const canRemove = i => !i.shared || i.owners.includes('You'); // Owners or Admins; "You" is not an Admin here
+const dayColor = (days, handled) => handled ? { bar: 'bg-slate-200', text: 'text-slate-400' }
+  : days <= 0 ? { bar: 'bg-red-500', text: 'text-red-600' } : days <= 7 ? { bar: 'bg-amber-400', text: 'text-amber-600' } : { bar: 'bg-emerald-500', text: 'text-emerald-600' };
+function countdown(i) {
+  if (i.handledBy) return `Handled by ${i.handledBy}`;
+  const d = daysTo(i.due);
+  if (d < 0) return `Expired ${-d} day${d === -1 ? '' : 's'} ago`;
+  if (d === 0) return 'Due today' + (i.time ? ` at ${i.time}` : '');
+  return `Due in ${d} day${d === 1 ? '' : 's'}`;
+}
+const group = i => daysTo(i.due) <= 0 ? 'today' : daysTo(i.due) <= 7 ? 'week' : 'later';
+const active = computed(() => store.items.filter(i => !i.archived).sort((a, b) => a.due - b.due));
+const archived = computed(() => store.items.filter(i => i.archived));
+
+// ---------- actions (same rules in every variant) ----------
+const A = {
+  handled(i) { i.handledBy = i.handledBy ? null : 'You'; log(`${i.name}: ${i.handledBy ? 'Handled' : 'not Handled'}`); },
+  archive(i) { i.archived = true; log(`${i.name}: Archived`); toast(`${i.name} archived`, () => { i.archived = false; }); },
+  restore(i) { i.archived = false; log(`${i.name}: restored`); },
+  remove(i) { const k = store.items.indexOf(i); store.items.splice(k, 1); log(`${i.name}: deleted`); toast(`${i.name} deleted`, () => store.items.splice(k, 0, i)); },
+  newDue(i, iso) { i.due = new Date(iso + 'T00:00'); i.handledBy = null; log(`${i.name}: new Due date ${fmt(i.due)}`); },
+  makeRepeat(i, recur) { // next Due date counted from the old one
+    const d = new Date(i.due);
+    while (d < today) recur === 'weekly' ? d.setDate(d.getDate() + 7) : recur === 'monthly' ? d.setMonth(d.getMonth() + 1) : d.setFullYear(d.getFullYear() + 1);
+    i.recur = recur; i.due = d; log(`${i.name}: repeats ${recur}, next ${fmt(d)}`);
+  },
+  keptTrial(i, yes) {
+    if (yes) { i.category = 'Subscriptions'; i.name = i.name.replace(/ free trial/i, ''); i.recur = 'monthly'; const d = new Date(i.due); d.setMonth(d.getMonth() + 1); i.due = d; log(`${i.name}: kept, now a monthly Subscription`); }
+    else { i.archived = true; log(`${i.name}: not kept, Archived`); toast(`${i.name} archived`, () => { i.archived = false; }); }
+  },
+  save(i, f) {
+    Object.assign(i, { name: f.name, category: f.category, due: new Date(f.due + 'T00:00'), time: f.time || null, recur: f.recur,
+      price: f.price ? Math.round(parseFloat(String(f.price).replace(',', '.')) * 100) : null, shared: f.shared, owners: f.shared ? f.owners : ['You'],
+      for: f.shared ? f.for : null, remind: f.remind, notes: f.notes, reminders: f.reminders.filter(k => f.time || !REMINDER_OPTS.find(o => o.k === k).time), lastChangedBy: 'You' });
+    log(`${i.name}: saved`);
+  },
+};
+const formFrom = i => ({ name: i.name, category: i.category, due: isoDate(i.due), time: i.time || '', recur: i.recur, price: i.price ? (i.price / 100).toFixed(2) : '',
+  shared: i.shared, owners: [...i.owners], for: i.for, remind: i.remind, notes: i.notes, reminders: [...i.reminders] });
+
+const startOpen = () => store.items.find(i => String(i.id) === new URLSearchParams(location.search).get('open'));
+const H = { CATEGORIES, REMINDER_OPTS, RECUR, MEMBERS, DEPENDENTS, store, active, archived, fmt, longDate, money, daysTo, isoDate, remLabel,
+  isExpired, isTrialDay, canRemove, dayColor, countdown, group, A, formFrom, today };
+
+// ---------- shared pieces ----------
+const CatBadge = { props: ['c', 'size'], setup: () => H,
+  template: `<span :class="[CATEGORIES[c].color, size==='lg' ? 'w-14 h-14 text-3xl' : 'w-9 h-9 text-lg']" class="rounded-xl grid place-items-center shrink-0">{{ CATEGORIES[c].icon }}</span>` };
+
+// The chosen dashboard list (variant D), reduced: groups, colour bar, in-place Handled.
+const ItemList = { props: ['selected'], emits: ['pick'], components: { CatBadge }, setup() {
+    const showArchived = ref(false);
+    const groups = computed(() => [['today', 'Today', 'bg-red-500'], ['week', 'This week', 'bg-amber-400'], ['later', 'Later', 'bg-emerald-500']]
+      .map(([k, label, dot]) => ({ k, label, dot, items: active.value.filter(i => group(i) === k) })));
+    return { ...H, groups, showArchived };
+  },
+  template: `<div>
+    <section v-for="g in groups" :key="g.k">
+      <h2 class="px-4 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide flex items-center gap-2"><span :class="g.dot" class="w-2 h-2 rounded-full"></span>{{ g.label }} <span class="text-slate-400">{{ g.items.length }}</span></h2>
+      <template v-for="i in g.items" :key="i.id"><slot name="row" :i="i">
+        <div @click="$emit('pick', i)" :class="selected===i ? 'bg-slate-100' : ''" class="flex items-center gap-3 pr-4 py-2.5 cursor-pointer">
+          <span :class="dayColor(daysTo(i.due), i.handledBy).bar" class="w-1.5 self-stretch rounded-r-full"></span>
+          <CatBadge :c="i.category" />
+          <div class="flex-1 min-w-0">
+            <div class="font-medium truncate" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
+            <div class="text-xs truncate" :class="dayColor(daysTo(i.due), i.handledBy).text">{{ countdown(i) }}<span class="text-slate-400"> · Due {{ fmt(i.due) }}<span v-if="i.shared"> · 👥 {{ i.owners.join(', ') }}</span></span></div>
+          </div>
+          <span v-if="isExpired(i) || isTrialDay(i)" class="text-[10px] bg-red-600 text-white rounded-full px-2 py-0.5">{{ isTrialDay(i) ? 'Kept it?' : 'What now?' }}</span>
+          <button v-else @click.stop="A.handled(i)" :class="i.handledBy ? 'bg-slate-100 text-slate-500' : 'border'" class="text-xs rounded-full px-2.5 py-1 shrink-0">{{ i.handledBy ? 'Undo' : 'Handled' }}</button>
+        </div>
+      </slot></template>
+    </section>
+    <button @click="showArchived=!showArchived" class="mx-4 mt-6 text-sm text-slate-500 underline">Archived ({{ archived.length }})</button>
+    <div v-if="showArchived" class="mx-4 mt-2 space-y-1">
+      <div v-for="i in archived" :key="i.id" class="flex items-center justify-between text-sm text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+        <span>{{ CATEGORIES[i.category].icon }} {{ i.name }}</span><button @click="A.restore(i)" class="underline">Restore</button></div>
+      <div v-if="!archived.length" class="text-sm text-slate-400">Nothing archived</div>
+    </div>
+  </div>` };
+
+// Full edit form (dashboard's add form, prefilled), plus Shared-Item fields.
+const EditForm = { props: ['f'], setup: () => H,
+  template: `<div class="space-y-4">
+    <label class="block"><span class="text-sm text-slate-500">Name</span><input v-model="f.name" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label>
+    <div><span class="text-sm text-slate-500">Category</span><div class="mt-1 flex flex-wrap gap-2">
+      <button v-for="(v,k) in CATEGORIES" @click="f.category=k" :class="f.category===k ? 'ring-2 ring-slate-900 '+v.color : 'bg-slate-50 text-slate-600'" class="px-3 py-1.5 rounded-full text-sm">{{ v.icon }} {{ k }}</button></div></div>
+    <div class="grid grid-cols-2 gap-3">
+      <label class="block"><span class="text-sm text-slate-500">Due date</span><input type="date" v-model="f.due" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label>
+      <label class="block"><span class="text-sm text-slate-500">Time (optional)</span><input type="time" v-model="f.time" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label></div>
+    <label class="block"><span class="text-sm text-slate-500">Repeats</span><select v-model="f.recur" class="mt-1 w-full border rounded-xl px-3 py-2.5 bg-white"><option v-for="(l,k) in RECUR" :value="k">{{ l }}</option></select></label>
+    <div><span class="text-sm text-slate-500">Reminders (pick any)</span><div class="mt-1 flex flex-wrap gap-2">
+      <button v-for="o in REMINDER_OPTS" :disabled="o.time && !f.time" @click="f.reminders.includes(o.k) ? f.reminders.splice(f.reminders.indexOf(o.k),1) : f.reminders.push(o.k)"
+        :class="f.reminders.includes(o.k) && !(o.time && !f.time) ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600'" class="px-3 py-1.5 rounded-full text-sm disabled:opacity-30">{{ o.label }}</button></div></div>
+    <label class="block"><span class="text-sm text-slate-500">Price (optional)</span><input v-model="f.price" inputmode="decimal" class="mt-1 w-full border rounded-xl px-3 py-2.5" /></label>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" v-model="f.shared" /> Shared with Family</label>
+    <div v-if="f.shared" class="space-y-3 rounded-xl bg-slate-50 p-3">
+      <div><span class="text-sm text-slate-500">Owners</span><div class="mt-1 flex gap-2">
+        <button v-for="m in MEMBERS" @click="f.owners.includes(m) ? (f.owners.length>1 && f.owners.splice(f.owners.indexOf(m),1)) : f.owners.push(m)" :class="f.owners.includes(m) ? 'bg-slate-900 text-white' : 'bg-white'" class="px-3 py-1 rounded-full text-sm border">{{ m }}</button></div></div>
+      <label class="block"><span class="text-sm text-slate-500">For</span><select v-model="f.for" class="mt-1 w-full border rounded-xl px-3 py-2 bg-white"><option :value="null">Nobody in particular</option><option v-for="d in [...MEMBERS, ...DEPENDENTS]" :value="d">{{ d }}</option></select></label>
+      <label class="block"><span class="text-sm text-slate-500">Remind</span><select v-model="f.remind" class="mt-1 w-full border rounded-xl px-3 py-2 bg-white"><option value="family">Whole family</option><option value="owners">Owners only</option></select></label>
+    </div>
+    <textarea v-model="f.notes" placeholder="Notes" class="w-full border rounded-xl px-3 py-2"></textarea>
+    <div v-if="/\\d{8,}/.test(f.notes)" class="text-xs text-amber-700">Don't store full card or document numbers here.</div>
+  </div>` };
+
+// Expired / free-trial question, in three looks (banner, card, inline chips).
+const Question = { props: ['i', 'look'], setup() { const date = ref(isoDate(plus(30))), recur = ref('yearly'), mode = ref(null); return { ...H, date, recur, mode }; },
+  template: `<div v-if="isTrialDay(i) || isExpired(i)" :class="look==='inline' ? 'pl-14 pr-4 pb-3' : look==='card' ? 'rounded-2xl border-2 border-red-200 bg-red-50 p-4' : 'bg-red-600 text-white rounded-2xl p-4'">
+    <template v-if="isTrialDay(i)">
+      <div v-if="look!=='inline'" class="font-semibold">Did you keep {{ i.name.replace(/ free trial/i,'') }}?</div>
+      <div v-if="look!=='inline'" class="text-sm opacity-80 mb-3">The free trial ends today. Yes turns it into a monthly Subscription ({{ money(i.price) }}).</div>
+      <div class="flex gap-2"><button @click="A.keptTrial(i,true)" :class="look==='banner' ? 'bg-white text-red-700' : 'bg-slate-900 text-white'" class="flex-1 rounded-xl py-2 text-sm">{{ look==='inline' ? 'Kept it' : 'Yes, I kept it' }}</button>
+        <button @click="A.keptTrial(i,false)" :class="look==='banner' ? 'bg-white/20' : 'bg-white border'" class="flex-1 rounded-xl py-2 text-sm">{{ look==='inline' ? 'Cancelled' : 'No, cancelled' }}</button></div>
+    </template>
+    <template v-else>
+      <div v-if="look!=='inline'" class="font-semibold">{{ countdown(i) }}. What now?</div>
+      <div v-if="look!=='inline'" class="text-sm opacity-80 mb-3">Pick one so it stops showing as Expired.</div>
+      <div class="flex flex-wrap gap-2">
+        <button @click="mode = mode==='date' ? null : 'date'" :class="look==='banner' ? 'bg-white text-red-700' : 'bg-slate-900 text-white'" class="rounded-xl px-3 py-2 text-sm">New Due date</button>
+        <button @click="mode = mode==='repeat' ? null : 'repeat'" :class="look==='banner' ? 'bg-white/20' : 'bg-white border'" class="rounded-xl px-3 py-2 text-sm">Make it repeat</button>
+        <button @click="A.archive(i)" :class="look==='banner' ? 'bg-white/20' : 'bg-white border'" class="rounded-xl px-3 py-2 text-sm">Archive</button></div>
+      <div v-if="mode==='date'" class="mt-3 flex gap-2"><input type="date" v-model="date" class="flex-1 border rounded-xl px-3 py-2 text-slate-900" /><button @click="A.newDue(i,date)" class="bg-slate-900 text-white rounded-xl px-4 text-sm">Set</button></div>
+      <div v-if="mode==='repeat'" class="mt-3 flex gap-2"><select v-model="recur" class="flex-1 border rounded-xl px-3 py-2 text-slate-900 bg-white"><option value="weekly">Every week</option><option value="monthly">Every month</option><option value="yearly">Every year</option></select><button @click="A.makeRepeat(i,recur)" class="bg-slate-900 text-white rounded-xl px-4 text-sm">Set</button></div>
+    </template>
+  </div>` };
+
+// Read-only facts about an Item, reused by X and Z.
+const Facts = { props: ['i'], setup: () => H,
+  template: `<dl class="divide-y text-sm">
+    <div class="py-2.5 flex justify-between gap-4"><dt class="text-slate-500">Due date</dt><dd class="text-right">{{ longDate(i.due) }}<span v-if="i.time">{{ ' at ' + i.time }}</span></dd></div>
+    <div class="py-2.5 flex justify-between gap-4"><dt class="text-slate-500">Repeats</dt><dd>{{ RECUR[i.recur] }}</dd></div>
+    <div class="py-2.5 flex justify-between gap-4"><dt class="text-slate-500">Reminders</dt><dd class="text-right">{{ i.reminders.map(remLabel).join(', ') || 'None' }}</dd></div>
+    <div v-if="i.price" class="py-2.5 flex justify-between gap-4"><dt class="text-slate-500">Price</dt><dd>{{ money(i.price) }}</dd></div>
+    <template v-if="i.shared">
+      <div class="py-2.5 flex justify-between gap-4"><dt class="text-slate-500">Owners</dt><dd>{{ i.owners.join(', ') }}</dd></div>
+      <div v-if="i.for" class="py-2.5 flex justify-between gap-4"><dt class="text-slate-500">For</dt><dd>{{ i.for }}</dd></div>
+      <div class="py-2.5 flex justify-between gap-4"><dt class="text-slate-500">Remind</dt><dd>{{ i.remind==='owners' ? 'Owners only' : 'Whole family' }}</dd></div>
+    </template>
+    <div v-if="i.notes" class="py-2.5"><dt class="text-slate-500 mb-1">Notes</dt><dd>{{ i.notes }}</dd></div>
+    <div v-if="i.lastChangedBy" class="py-2.5 text-xs text-slate-400">Last changed by {{ i.lastChangedBy }}</div>
+  </dl>` };
+
+const Shell = { props: ['title'], emits: ['add'],
+  template: `<div class="h-full flex bg-white">
+    <div class="flex-1 @3xl:max-w-md @3xl:border-r h-full overflow-y-auto pb-28">
+      <header class="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 pt-5 pb-3 border-b flex justify-between items-center">
+        <h1 class="text-2xl font-bold">OopsProof</h1><span class="text-xs text-slate-400">{{ title }}</span></header>
+      <slot name="list" /></div>
+    <aside class="hidden @3xl:block flex-1 h-full overflow-y-auto bg-slate-50 p-8"><slot name="panel" /></aside>
+    <slot name="overlay" />
+  </div>` };
+
+// ---------- Variant X: full page (phone pushes a new screen; computer right panel) ----------
+const VariantX = { name: 'Full page', components: { Shell, ItemList, CatBadge, Question, Facts, EditForm }, setup() {
+    const open = ref(null), editing = ref(null), menu = ref(false), confirmDel = ref(false);
+    const pick = i => { open.value = i; editing.value = null; menu.value = false; confirmDel.value = false; };
+    const close = () => { open.value = null; editing.value = null; };
+    const save = () => { A.save(open.value, editing.value); editing.value = null; };
+    watch(() => open.value && (open.value.archived || !store.items.includes(open.value)), gone => gone && close());
+    if (startOpen()) open.value = startOpen();
+    return { ...H, open, editing, menu, confirmDel, pick, close, save };
+  },
+  template: `<Shell title="X · Full page">
+    <template #list><ItemList :selected="open" @pick="pick" /></template>
+    <template #panel><div v-if="open" class="max-w-lg mx-auto"><component :is="'XPage'" /></div><div v-else class="h-full grid place-items-center text-slate-400">Pick an Item</div></template>
+    <template #overlay><div v-if="open" class="@3xl:hidden fixed inset-0 z-20 bg-white overflow-y-auto"><component :is="'XPage'" /></div></template>
+  </Shell>`,
+  components: { Shell, ItemList, CatBadge, Question, Facts, EditForm,
+    XPage: { setup() { return VariantX._ctx; }, components: { CatBadge, Question, Facts, EditForm },
+      template: `<div class="p-5 pb-24 @3xl:p-0">
+        <div class="flex items-center justify-between mb-4">
+          <button @click="editing ? editing=null : close()" class="text-slate-500">{{ editing ? 'Cancel' : '‹ Back' }}</button>
+          <div class="relative" v-if="!editing">
+            <button @click="editing = formFrom(open)" class="mr-3 font-medium">Edit</button>
+            <button @click="menu=!menu" class="px-2 text-xl leading-none">⋯</button>
+            <div v-if="menu" class="absolute right-0 mt-1 w-56 bg-white border rounded-xl shadow-lg py-1 z-10 text-sm">
+              <button @click="A.handled(open); menu=false" class="w-full text-left px-3 py-2 hover:bg-slate-50">{{ open.handledBy ? 'Undo Handled' : 'Mark Handled' }}</button>
+              <button :disabled="!canRemove(open)" @click="A.archive(open)" class="w-full text-left px-3 py-2 hover:bg-slate-50 disabled:opacity-40">Archive</button>
+              <button :disabled="!canRemove(open)" @click="confirmDel=true; menu=false" class="w-full text-left px-3 py-2 text-red-600 hover:bg-slate-50 disabled:opacity-40">Delete…</button>
+              <div v-if="!canRemove(open)" class="px-3 py-1 text-xs text-slate-400">Only Owners or Admins can archive or delete</div>
+            </div></div>
+          <button v-else @click="save" class="font-semibold">Save</button>
+        </div>
+        <template v-if="!editing">
+          <div class="flex items-center gap-3"><CatBadge :c="open.category" size="lg" /><div><h2 class="text-2xl font-bold">{{ open.name }}</h2><div class="text-sm text-slate-500">{{ open.category }}<span v-if="open.shared"> · Shared</span></div></div></div>
+          <div class="mt-5 text-3xl font-black" :class="dayColor(daysTo(open.due), open.handledBy).text">{{ countdown(open) }}</div>
+          <div class="mt-4"><Question :i="open" look="banner" /></div>
+          <button v-if="!isExpired(open) && !isTrialDay(open)" @click="A.handled(open)" class="mt-4 w-full rounded-xl py-3 font-semibold" :class="open.handledBy ? 'bg-slate-100 text-slate-600' : 'bg-slate-900 text-white'">{{ open.handledBy ? 'Undo Handled' : 'Mark Handled' }}</button>
+          <div class="mt-6"><Facts :i="open" /></div>
+          <div v-if="confirmDel" class="fixed inset-0 z-30 bg-black/40 grid place-items-center p-6" @click.self="confirmDel=false">
+            <div class="bg-white rounded-2xl p-5 max-w-sm"><div class="font-semibold text-lg">Delete {{ open.name }}?</div>
+              <p class="text-sm text-slate-500 mt-1">It is gone for good. Its past Expenses stay in your history. Archive instead if you may need it again.</p>
+              <div class="flex gap-2 mt-4"><button @click="A.remove(open)" class="flex-1 bg-red-600 text-white rounded-xl py-2">Delete</button><button @click="confirmDel=false" class="flex-1 border rounded-xl py-2">Keep</button></div></div></div>
+        </template>
+        <template v-else><h2 class="text-xl font-semibold mb-4">Edit Item</h2><EditForm :f="editing" /></template>
+      </div>` } },
+};
+// share the variant's state with its page component
+const _setupX = VariantX.setup; VariantX.setup = function () { const ctx = _setupX(); VariantX._ctx = () => ctx; return ctx; };
+VariantX.components.XPage.setup = () => VariantX._ctx();
+
+// ---------- Variant Y: bottom sheet, tap any line to change it right there ----------
+const VariantY = { name: 'Sheet, tap to edit', components: { Shell, ItemList, CatBadge, Question }, setup() {
+    const open = ref(null), field = ref(null), draft = ref(null), confirmDel = ref(false);
+    const pick = i => { open.value = i; field.value = null; confirmDel.value = false; };
+    const startEdit = k => { field.value = k; draft.value = formFrom(open.value); };
+    const commit = () => { A.save(open.value, draft.value); field.value = null; };
+    watch(() => open.value && (open.value.archived || !store.items.includes(open.value)), gone => gone && (open.value = null));
+    if (startOpen()) open.value = startOpen();
+    const ctx = { ...H, open, field, draft, confirmDel, pick, startEdit, commit, look: 'card', editing: ref(null), withEdit: false };
+    provide('sheet', ctx);
+    return ctx;
+  },
+  template: `<Shell title="Y · Sheet, tap to edit">
+    <template #list><ItemList :selected="open" @pick="pick" /></template>
+    <template #panel><div v-if="open" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><component :is="'YBody'" /></div><div v-else class="h-full grid place-items-center text-slate-400">Pick an Item</div></template>
+    <template #overlay><div v-if="open" class="@3xl:hidden fixed inset-0 z-20 bg-black/40 flex items-end" @click.self="open=null">
+      <div class="bg-white w-full rounded-t-3xl p-5 max-h-[85%] overflow-y-auto"><div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div><component :is="'YBody'" /></div></div></template>
+  </Shell>`,
+};
+VariantY.components.YBody = { components: { CatBadge, Question, EditForm }, setup: () => inject('sheet'),
+  template: `<div v-if="editing" class="pb-10 @3xl:pb-0">
+    <div class="flex justify-between items-center mb-4"><button @click="editing=null" class="text-slate-500">Cancel</button><h2 class="font-semibold">Edit Item</h2><button @click="A.save(open, editing); editing=null" class="font-semibold">Save</button></div>
+    <EditForm :f="editing" /></div>
+  <div v-else class="pb-10 @3xl:pb-0">
+    <div v-if="withEdit" class="flex justify-end -mt-2 mb-2"><button @click="editing = formFrom(open)" class="text-sm font-medium border rounded-full px-3 py-1">Edit</button></div>
+    <Question :i="open" :look="look" class="mb-4" />
+    <div class="flex items-center gap-3 mb-1"><CatBadge :c="open.category" />
+      <input v-if="field==='name'" v-model="draft.name" @keydown.enter="commit" @blur="commit" class="flex-1 text-xl font-bold border-b-2 border-slate-900 outline-none" />
+      <h2 v-else @click="startEdit('name')" class="flex-1 text-xl font-bold cursor-text">{{ open.name }}</h2></div>
+    <div class="text-sm mb-4" :class="dayColor(daysTo(open.due), open.handledBy).text">{{ countdown(open) }}</div>
+    <div class="text-xs text-slate-400 mb-1">Tap a line to change it</div>
+    <div class="divide-y border rounded-2xl text-sm">
+      <div @click="field!=='due' && startEdit('due')" class="px-4 py-3 flex justify-between items-center gap-3"><span class="text-slate-500">Due date</span>
+        <span v-if="field==='due'" class="flex gap-2"><input type="date" v-model="draft.due" class="border rounded-lg px-2 py-1" /><input type="time" v-model="draft.time" class="border rounded-lg px-2 py-1 w-24" /><button @click.stop="commit" class="bg-slate-900 text-white rounded-lg px-3">OK</button></span>
+        <span v-else>{{ fmt(open.due, {weekday:'short', day:'numeric', month:'long'}) }}<span v-if="open.time">{{ ' ' + open.time }}</span> ›</span></div>
+      <div @click="field!=='recur' && startEdit('recur')" class="px-4 py-3 flex justify-between items-center"><span class="text-slate-500">Repeats</span>
+        <select v-if="field==='recur'" v-model="draft.recur" @change="commit" class="border rounded-lg px-2 py-1 bg-white"><option v-for="(l,k) in RECUR" :value="k">{{ l }}</option></select>
+        <span v-else>{{ RECUR[open.recur] }} ›</span></div>
+      <div @click="field!=='rem' && startEdit('rem')" class="px-4 py-3"><div class="flex justify-between"><span class="text-slate-500">Reminders</span><span v-if="field!=='rem'" class="text-right">{{ open.reminders.map(remLabel).join(', ') || 'None' }} ›</span></div>
+        <div v-if="field==='rem'" class="mt-2 flex flex-wrap gap-1.5">
+          <button v-for="o in REMINDER_OPTS" :disabled="o.time && !draft.time" @click.stop="draft.reminders.includes(o.k) ? draft.reminders.splice(draft.reminders.indexOf(o.k),1) : draft.reminders.push(o.k)"
+            :class="draft.reminders.includes(o.k) ? 'bg-slate-900 text-white' : 'bg-slate-50'" class="px-2.5 py-1 rounded-full text-xs disabled:opacity-30">{{ o.label }}</button>
+          <button @click.stop="commit" class="ml-auto bg-slate-900 text-white rounded-lg px-3 text-xs">Done</button></div></div>
+      <div @click="field!=='price' && startEdit('price')" class="px-4 py-3 flex justify-between items-center"><span class="text-slate-500">Price</span>
+        <input v-if="field==='price'" v-model="draft.price" @keydown.enter="commit" @blur="commit" inputmode="decimal" class="border rounded-lg px-2 py-1 w-28 text-right" />
+        <span v-else>{{ open.price ? money(open.price) : 'Add price' }} ›</span></div>
+      <div @click="field!=='cat' && startEdit('cat')" class="px-4 py-3"><div class="flex justify-between"><span class="text-slate-500">Category</span><span v-if="field!=='cat'">{{ CATEGORIES[open.category].icon }} {{ open.category }} ›</span></div>
+        <div v-if="field==='cat'" class="mt-2 flex flex-wrap gap-1.5"><button v-for="(v,k) in CATEGORIES" @click.stop="draft.category=k; commit()" :class="v.color" class="px-2.5 py-1 rounded-full text-xs">{{ v.icon }} {{ k }}</button></div></div>
+      <template v-if="open.shared">
+        <div @click="field!=='owners' && startEdit('owners')" class="px-4 py-3"><div class="flex justify-between"><span class="text-slate-500">Owners</span><span v-if="field!=='owners'">{{ open.owners.join(', ') }} ›</span></div>
+          <div v-if="field==='owners'" class="mt-2 flex gap-1.5"><button v-for="m in MEMBERS" @click.stop="draft.owners.includes(m) ? (draft.owners.length>1 && draft.owners.splice(draft.owners.indexOf(m),1)) : draft.owners.push(m)" :class="draft.owners.includes(m) ? 'bg-slate-900 text-white' : 'bg-slate-50'" class="px-2.5 py-1 rounded-full text-xs">{{ m }}</button><button @click.stop="commit" class="ml-auto bg-slate-900 text-white rounded-lg px-3 text-xs">Done</button></div></div>
+        <div class="px-4 py-3 flex justify-between"><span class="text-slate-500">For</span><span>{{ open.for || 'Nobody in particular' }}</span></div>
+      </template>
+      <div @click="field!=='notes' && startEdit('notes')" class="px-4 py-3"><div class="text-slate-500">Notes</div>
+        <textarea v-if="field==='notes'" v-model="draft.notes" @blur="commit" class="mt-1 w-full border rounded-lg px-2 py-1"></textarea>
+        <div v-else class="mt-1">{{ open.notes || 'Add notes' }}</div></div>
+    </div>
+    <div v-if="open.lastChangedBy" class="text-xs text-slate-400 mt-2">Last changed by {{ open.lastChangedBy }}</div>
+    <div class="mt-5 grid grid-cols-3 gap-2 text-sm">
+      <button @click="A.handled(open)" :class="open.handledBy ? 'bg-slate-100' : 'bg-slate-900 text-white'" class="rounded-xl py-2.5">{{ open.handledBy ? 'Undo' : 'Handled' }}</button>
+      <button :disabled="!canRemove(open)" @click="A.archive(open)" class="border rounded-xl py-2.5 disabled:opacity-40">Archive</button>
+      <button :disabled="!canRemove(open)" @click="confirmDel=true" class="border border-red-200 text-red-600 rounded-xl py-2.5 disabled:opacity-40">Delete</button></div>
+    <div v-if="!canRemove(open)" class="text-xs text-slate-400 mt-1">Only Owners or Admins can archive or delete this Shared Item</div>
+    <div v-if="confirmDel" class="mt-3 rounded-xl bg-red-50 p-3 text-sm"><div>Delete for good? Past Expenses stay in history.</div>
+      <div class="flex gap-2 mt-2"><button @click="A.remove(open)" class="bg-red-600 text-white rounded-lg px-3 py-1.5">Delete</button><button @click="confirmDel=false" class="px-3 py-1.5">Keep</button></div></div>
+  </div>` };
+
+// ---------- Variant W: owner's mix — Y's sheet + tap a line, X's red question box + Edit button, Z's swipe ----------
+const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge, YBody: VariantY.components.YBody }, setup() {
+    const open = ref(null), field = ref(null), draft = ref(null), confirmDel = ref(false), editing = ref(null);
+    const pick = i => { open.value = i; field.value = null; editing.value = null; confirmDel.value = false; };
+    const startEdit = k => { field.value = k; draft.value = formFrom(open.value); };
+    const commit = () => { A.save(open.value, draft.value); field.value = null; };
+    const close = () => { open.value = null; editing.value = null; };
+    watch(() => open.value && (open.value.archived || !store.items.includes(open.value)), gone => gone && close());
+    const swipe = reactive({ id: null, x: 0, start: 0 });
+    const down = (i, e) => { swipe.id = i.id; swipe.start = e.clientX; swipe.x = 0; };
+    const move = e => { if (swipe.id != null) swipe.x = Math.max(-140, Math.min(100, e.clientX - swipe.start)); };
+    const up = i => { if (swipe.id !== i.id) return; const x = swipe.x; swipe.id = null; swipe.x = 0;
+      if (x > 70) A.handled(i); else if (x < -110 && canRemove(i)) A.archive(i); else if (Math.abs(x) < 5) pick(i); };
+    if (startOpen()) open.value = startOpen();
+    const ctx = { ...H, open, field, draft, confirmDel, editing, pick, startEdit, commit, close, swipe, down, move, up, look: 'banner', withEdit: true };
+    provide('sheet', ctx);
+    return ctx;
+  },
+  template: `<Shell title="W · Owner's mix">
+    <template #list>
+      <div class="px-4 pt-2 text-xs text-slate-400">Swipe right = Handled, left = Archive. Tap to open.</div>
+      <ItemList :selected="open"><template #row="{ i }">
+        <div class="relative overflow-hidden select-none" @pointermove="move" @pointerup="up(i)" @pointerleave="swipe.id===i.id && up(i)">
+          <div class="absolute inset-0 flex justify-between items-center px-5 text-sm text-white" :class="swipe.id===i.id && swipe.x>0 ? 'bg-emerald-500' : 'bg-slate-500'">
+            <span>✓ {{ i.handledBy ? 'Undo' : 'Handled' }}</span><span>{{ canRemove(i) ? 'Archive' : 'Owners only' }}</span></div>
+          <div @pointerdown="down(i,$event)" :style="{ transform: 'translateX(' + (swipe.id===i.id ? swipe.x : 0) + 'px)' }" :class="open===i ? 'bg-slate-100' : 'bg-white'" class="relative flex items-center gap-3 pr-4 py-2.5 cursor-pointer">
+            <span :class="dayColor(daysTo(i.due), i.handledBy).bar" class="w-1.5 self-stretch rounded-r-full"></span>
+            <CatBadge :c="i.category" />
+            <div class="flex-1 min-w-0"><div class="font-medium truncate" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
+              <div class="text-xs truncate" :class="dayColor(daysTo(i.due), i.handledBy).text">{{ countdown(i) }}<span class="text-slate-400"> · Due {{ fmt(i.due) }}<span v-if="i.shared"> · 👥 {{ i.owners.join(', ') }}</span></span></div></div>
+            <span v-if="isExpired(i) || isTrialDay(i)" class="text-[10px] bg-red-600 text-white rounded-full px-2 py-0.5">{{ isTrialDay(i) ? 'Kept it?' : 'What now?' }}</span>
+            <button v-else @pointerdown.stop @click.stop="A.handled(i)" :class="i.handledBy ? 'bg-slate-100 text-slate-500' : 'border'" class="text-xs rounded-full px-2.5 py-1 shrink-0">{{ i.handledBy ? 'Undo' : 'Handled' }}</button>
+          </div>
+        </div>
+      </template></ItemList>
+    </template>
+    <template #panel><div v-if="open" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><YBody /></div><div v-else class="h-full grid place-items-center text-slate-400">Pick an Item</div></template>
+    <template #overlay><div v-if="open" class="@3xl:hidden fixed inset-0 z-20 bg-black/40 flex items-end" @click.self="close()">
+      <div class="bg-white w-full rounded-t-3xl p-5 max-h-[88%] overflow-y-auto"><div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div><YBody /></div></div></template>
+  </Shell>` };
+
+// ---------- Variant Z: open in place inside the list, swipe for actions, questions right in the row ----------
+const VariantZ = { name: 'In place + swipe', components: { Shell, CatBadge, Question, Facts, EditForm, ItemList }, setup() {
+    const open = ref(null), editing = ref(null), confirmDel = ref(null), swipe = reactive({ id: null, x: 0, start: 0 });
+    const down = (i, e) => { swipe.id = i.id; swipe.start = e.clientX; swipe.x = 0; };
+    const move = e => { if (swipe.id != null) swipe.x = Math.max(-140, Math.min(100, e.clientX - swipe.start)); };
+    const up = i => { if (swipe.id !== i.id) return; const x = swipe.x; swipe.id = null; swipe.x = 0;
+      if (x > 70) A.handled(i); else if (x < -110 && canRemove(i)) A.archive(i); else if (Math.abs(x) < 5) { open.value = open.value === i ? null : i; editing.value = null; } };
+    const save = () => { A.save(open.value, editing.value); editing.value = null; };
+    if (startOpen()) open.value = startOpen();
+    return { ...H, open, editing, confirmDel, swipe, down, move, up, save };
+  },
+  template: `<Shell title="Z · In place + swipe">
+    <template #list>
+      <div class="px-4 pt-2 text-xs text-slate-400">Swipe a row right = Handled, left = Archive. Tap to open.</div>
+      <ItemList :selected="open"><template #row="{ i }">
+        <div class="relative overflow-hidden select-none" @pointermove="move" @pointerup="up(i)" @pointerleave="swipe.id===i.id && up(i)">
+          <div class="absolute inset-0 flex justify-between items-center px-5 text-sm text-white" :class="swipe.id===i.id && swipe.x>0 ? 'bg-emerald-500' : 'bg-slate-500'">
+            <span>✓ {{ i.handledBy ? 'Undo' : 'Handled' }}</span><span>{{ canRemove(i) ? 'Archive' : 'Owners only' }}</span></div>
+          <div @pointerdown="down(i,$event)" :style="{ transform: 'translateX(' + (swipe.id===i.id ? swipe.x : 0) + 'px)' }" :class="open===i ? 'bg-slate-50' : 'bg-white'" class="relative flex items-center gap-3 pr-4 py-2.5 cursor-pointer transition-transform">
+            <span :class="dayColor(daysTo(i.due), i.handledBy).bar" class="w-1.5 self-stretch rounded-r-full"></span>
+            <CatBadge :c="i.category" />
+            <div class="flex-1 min-w-0"><div class="font-medium truncate" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
+              <div class="text-xs truncate" :class="dayColor(daysTo(i.due), i.handledBy).text">{{ countdown(i) }}<span class="text-slate-400"> · Due {{ fmt(i.due) }}</span></div></div>
+            <span class="text-slate-300">{{ open===i ? '▾' : '▸' }}</span>
+          </div>
+        </div>
+        <div :class="open===i ? 'bg-slate-50' : ''"><Question :i="i" look="inline" /></div>
+        <div v-if="open===i" class="bg-slate-50 pl-14 pr-4 pb-4 @3xl:hidden">
+          <Facts :i="i" />
+          <div class="flex gap-2 mt-3 text-sm"><button @click="editing = formFrom(i)" class="flex-1 bg-slate-900 text-white rounded-xl py-2">Edit</button>
+            <button :disabled="!canRemove(i)" @click="confirmDel=i" class="flex-1 border border-red-200 text-red-600 rounded-xl py-2 disabled:opacity-40">Delete</button></div>
+        </div>
+      </template></ItemList>
+    </template>
+    <template #panel>
+      <div v-if="open && !editing" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6">
+        <div class="flex items-center gap-3 mb-3"><CatBadge :c="open.category" size="lg" /><h2 class="text-2xl font-bold">{{ open.name }}</h2></div>
+        <Facts :i="open" />
+        <div class="flex gap-2 mt-4 text-sm"><button @click="editing = formFrom(open)" class="bg-slate-900 text-white rounded-xl px-4 py-2">Edit</button>
+          <button :disabled="!canRemove(open)" @click="confirmDel=open" class="border border-red-200 text-red-600 rounded-xl px-4 py-2 disabled:opacity-40">Delete</button></div></div>
+      <div v-else-if="editing" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><h2 class="text-xl font-semibold mb-4">Edit Item</h2><EditForm :f="editing" />
+        <div class="flex gap-2 mt-5"><button @click="save" class="bg-slate-900 text-white rounded-xl px-5 py-2.5">Save</button><button @click="editing=null" class="px-5 py-2.5">Cancel</button></div></div>
+      <div v-else class="h-full grid place-items-center text-slate-400">Tap an Item</div>
+    </template>
+    <template #overlay>
+      <div v-if="editing" class="@3xl:hidden fixed inset-0 z-20 bg-black/40 flex items-end" @click.self="editing=null">
+        <div class="bg-white w-full rounded-t-3xl p-5 max-h-[90%] overflow-y-auto"><h2 class="text-xl font-semibold mb-4">Edit Item</h2><EditForm :f="editing" />
+          <button @click="save" class="w-full mt-5 bg-slate-900 text-white rounded-xl py-3 mb-10">Save</button></div></div>
+      <div v-if="confirmDel" class="fixed inset-0 z-30 bg-black/40 grid place-items-center p-6" @click.self="confirmDel=null">
+        <div class="bg-white rounded-2xl p-5 max-w-sm"><div class="font-semibold text-lg">Delete {{ confirmDel.name }}?</div>
+          <p class="text-sm text-slate-500 mt-1">Gone for good. Past Expenses stay in history.</p>
+          <div class="flex gap-2 mt-4"><button @click="A.remove(confirmDel); confirmDel=null; open=null" class="flex-1 bg-red-600 text-white rounded-xl py-2">Delete</button><button @click="confirmDel=null" class="flex-1 border rounded-xl py-2">Keep</button></div></div></div>
+    </template>
+  </Shell>` };
+
+// ---------- switcher + device frame ----------
+const VARIANTS = { W: VariantW, X: VariantX, Y: VariantY, Z: VariantZ };
+createApp({
+  components: VARIANTS,
+  setup() {
+    const params = new URLSearchParams(location.search);
+    const variant = ref(VARIANTS[params.get('variant')] ? params.get('variant') : 'W');
+    const device = ref(params.get('device') === 'computer' ? 'computer' : 'phone');
+    const showState = ref(false), keys = Object.keys(VARIANTS);
+    const sync = () => { const p = new URLSearchParams(location.search); p.set('variant', variant.value); p.set('device', device.value); history.replaceState(null, '', '?' + p); };
+    watch([variant, device], sync); sync();
+    const cycle = d => { variant.value = keys[(keys.indexOf(variant.value) + d + keys.length) % keys.length]; };
+    const onKey = e => { if (e.target.closest('input,textarea,select,[contenteditable]')) return; if (e.key === 'ArrowLeft') cycle(-1); if (e.key === 'ArrowRight') cycle(1); };
+    onMounted(() => addEventListener('keydown', onKey)); onUnmounted(() => removeEventListener('keydown', onKey));
+    const stateDump = computed(() => JSON.stringify({ variant: variant.value, lastActions: store.log,
+      items: store.items.map(i => ({ name: i.name, category: i.category, due: fmt(i.due), recur: i.recur || 'once', handledBy: i.handledBy, archived: i.archived, reminders: i.reminders })) }, null, 1));
+    return { variant, device, showState, cycle, VARIANTS, stateDump, store };
+  },
+  template: `<div class="min-h-screen grid place-items-center py-4">
+    <div class="frame @container bg-white overflow-hidden shadow-2xl"
+      :class="device==='phone' ? 'w-[390px] h-[min(844px,calc(100vh-6rem))] rounded-[2.5rem] border-[10px] border-slate-900' : 'w-[calc(100vw-2rem)] h-[calc(100vh-6rem)] rounded-xl'">
+      <component :is="variant" :key="variant" />
+      <div v-if="store.toast" class="fixed bottom-6 left-4 right-4 @3xl:left-auto @3xl:w-80 z-40 bg-slate-900 text-white rounded-xl px-4 py-3 text-sm flex justify-between">
+        <span>{{ store.toast.text }}</span><button @click="store.toast.undo(); store.toast=null" class="underline">Undo</button></div>
+    </div>
+    <div class="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-black text-white rounded-full px-2 py-1.5 shadow-xl text-sm font-mono">
+      <button @click="cycle(-1)" class="px-2">←</button>
+      <span class="min-w-[13rem] text-center">{{ variant }} ({{ VARIANTS[variant].name }})</span>
+      <button @click="cycle(1)" class="px-2">→</button>
+      <span class="w-px h-5 bg-white/30"></span>
+      <button @click="device = device==='phone' ? 'computer' : 'phone'" class="px-2">{{ device==='phone' ? '📱 Phone' : '💻 Computer' }}</button>
+      <button @click="showState=!showState" class="px-2 opacity-70">state</button>
+    </div>
+    <pre v-if="showState" class="fixed top-2 right-2 z-50 max-h-[80vh] w-80 overflow-auto bg-black/85 text-green-300 text-[10px] p-3 rounded-lg">{{ stateDump }}</pre>
+  </div>`,
+}).mount('#app');
+</script>
+</body>
+</html>
