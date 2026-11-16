@@ -162,7 +162,7 @@ function applyForm(i, f) {
       for: f.shared ? f.for : null, remind: f.remind, notes: f.notes, reminders: f.reminders.filter(k => remAllowed(REMINDER_OPTS.find(o => o.k === k), f)) });
 }
 const formFrom = i => ({ name: i.name, category: i.category, due: isoDate(i.due), time: i.time || '', recur: i.recur, price: i.price ? (i.price / 100).toFixed(2) : '',
-  shared: i.shared, owners: [...i.owners], for: i.for, remind: i.remind, notes: i.notes, reminders: [...i.reminders] });
+  shared: i.shared, owners: [...i.owners].sort(), for: i.for, remind: i.remind, notes: i.notes, reminders: [...i.reminders].sort() });
 
 // The lines of the Item sheet, in order; Shared-only lines last.
 const sheetLines = i => [
@@ -388,7 +388,9 @@ function makeSheet(look) {
   const open = ref(null), sheetOpen = ref(false), field = ref(null), draft = ref(null), confirmDel = ref(false), leaveAsk = ref(false);
   let afterLeave = null;
   const preview = computed(() => { if (!open.value || !draft.value) return open.value; const p = { ...open.value, owners: [...open.value.owners] }; applyForm(p, draft.value); return p; });
-  const dirty = computed(() => !!(open.value && draft.value) && JSON.stringify(draft.value) !== JSON.stringify(formFrom(open.value)));
+  // compare both sides after the same clean-up (e.g. Reminders already in the past drop out), so opening an Item never counts as a change
+  const normal = f => { const p = { ...open.value, owners: [...open.value.owners] }; applyForm(p, f); return JSON.stringify(formFrom(p)); };
+  const dirty = computed(() => !!(open.value && draft.value) && normal(draft.value) !== normal(formFrom(open.value)));
   const show = i => { open.value = i; draft.value = formFrom(i); sheetOpen.value = true; field.value = null; confirmDel.value = false; leaveAsk.value = false; };
   const ask = then => { if (!dirty.value) return then(), true; afterLeave = then; leaveAsk.value = true; field.value = null; return false; };
   const pick = i => ask(() => show(i));
@@ -400,28 +402,41 @@ function makeSheet(look) {
     if (leaveAsk.value) { leaveAsk.value = false; afterLeave?.(); } };
   const discard = () => { draft.value = formFrom(open.value); leaveAsk.value = false; afterLeave?.(); };
   watch(() => open.value && (open.value.archived || !store.items.includes(open.value)), gone => { if (gone) { draft.value = formFrom(open.value); reallyClose(); } });
-  // phone: drag the grey handle down to close
-  const drag = { y0: null, dy: 0 };
-  const dragStart = e => { drag.y0 = e.clientY; drag.dy = 0; try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} };
-  const dragMove = e => { if (drag.y0 == null) return; drag.dy = Math.max(0, e.clientY - drag.y0); gsap.set(e.currentTarget.closest('[data-sheet]'), { y: drag.dy }); };
-  const dragEnd = e => { if (drag.y0 == null) return; const panel = e.currentTarget.closest('[data-sheet]'); const far = drag.dy > 110; drag.y0 = null;
-    if (far && close()) return; gsap.to(panel, { y: 0, duration: T(0.22), ease: EASE_OUT }); };
+  // phone: drag the top bar down to close (past half the sheet, or a quick flick)
+  const drag = { y0: null, dy: 0, t: 0, v: 0 };
+  const dragStart = e => { if (e.target.closest('button')) return; drag.y0 = e.clientY; drag.dy = 0; drag.t = performance.now(); drag.v = 0;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} };
+  const dragMove = e => { if (drag.y0 == null) return; const dy = Math.max(0, e.clientY - drag.y0), now = performance.now();
+    drag.v = (dy - drag.dy) / Math.max(1, now - drag.t); drag.dy = dy; drag.t = now;
+    gsap.set(e.currentTarget.closest('[data-sheet]'), { y: dy }); };
+  const dragEnd = e => { if (drag.y0 == null) return; drag.y0 = null;
+    const panel = e.currentTarget.closest('[data-sheet]');
+    if (drag.dy > panel.offsetHeight / 2 || drag.v > 0.8) { if (close()) return; }
+    gsap.to(panel, { y: 0, duration: T(0.22), ease: EASE_OUT }); };
   if (startOpen()) { show(startOpen()); const e = new URLSearchParams(location.search).get('edit'); if (e) field.value = e; }
   return { ...H, open, sheetOpen, field, draft, preview, dirty, confirmDel, leaveAsk, pick, close, toggle, closeLine, save, discard, dragStart, dragMove, dragEnd, look };
 }
 
 // ---------- Variant Y: bottom sheet, tap any line to change it right there ----------
-const SheetBody = { components: { CatBadge, Question, ...FX_COMPONENTS }, setup: () => inject('sheet'),
-  template: `<div class="pb-10 @3xl:pb-0">
-    <!-- top bar: drag handle (phone), unsaved note, Save -->
-    <div class="sticky top-0 z-10 bg-white -mx-5 px-5 pt-2 pb-3 -mt-5 @3xl:-mx-6 @3xl:px-6 @3xl:-mt-6 @3xl:pt-4 rounded-t-3xl">
-      <div class="@3xl:hidden py-2 -mx-5 cursor-grab touch-none" @pointerdown="dragStart" @pointermove="dragMove" @pointerup="dragEnd" @pointercancel="dragEnd">
-        <div class="w-10 h-1.5 bg-slate-300 rounded-full mx-auto"></div></div>
-      <div class="flex items-center justify-between min-h-9">
-        <span class="text-xs transition-colors duration-200" :class="dirty ? 'text-amber-600' : 'text-slate-400'">{{ dirty ? 'Unsaved changes' : 'All changes saved' }}</span>
-        <button @click="press($event); save()" :disabled="!dirty" :class="dirty ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'" class="rounded-full px-5 py-1.5 text-sm font-semibold transition-colors duration-200">Save</button>
-      </div>
+// Top bar of the sheet: drag handle (phone), unsaved note, Save. Never scrolls, so nothing slides under it.
+const SheetTop = { setup: () => inject('sheet'),
+  template: `<div class="shrink-0 px-5 pb-3 @3xl:px-6 @3xl:pt-4 cursor-grab @3xl:cursor-auto touch-none @3xl:touch-auto select-none"
+      @pointerdown="dragStart" @pointermove="dragMove" @pointerup="dragEnd" @pointercancel="dragEnd">
+    <div class="@3xl:hidden pt-3 pb-2"><div class="w-10 h-1.5 bg-slate-300 rounded-full mx-auto"></div></div>
+    <div class="flex items-center justify-between min-h-9">
+      <span class="text-xs transition-colors duration-200" :class="dirty ? 'text-amber-600' : 'text-slate-400'">{{ dirty ? 'Unsaved changes' : 'All changes saved' }}</span>
+      <button @click="press($event); save()" :disabled="!dirty" :class="dirty ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'" class="rounded-full px-5 py-1.5 text-sm font-semibold transition-colors duration-200">Save</button>
     </div>
+  </div>` };
+// The scrolling part of the sheet. A thin line under the top bar appears only once it has scrolled.
+const SheetScroll = { setup() {
+    const scrolled = ref(false), box = ref(null), sheet = inject('sheet');
+    // the "Save your changes?" box sits at the top: bring it into view when it appears
+    watch(sheet.leaveAsk, ask => { if (ask && box.value) box.value.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }); });
+    return { scrolled, box }; },
+  template: `<div ref="box" class="min-h-0 flex-1 overflow-y-auto px-5 pb-10 @3xl:px-6 @3xl:pb-6 transition-shadow duration-150" :class="scrolled ? 'shadow-[inset_0_1px_0_#e2e8f0]' : ''" @scroll="scrolled = $event.target.scrollTop > 0"><slot /></div>` };
+const SheetBody = { components: { CatBadge, Question, ...FX_COMPONENTS }, setup: () => inject('sheet'),
+  template: `<div class="pt-1">
     <FxCollapse><div v-if="leaveAsk" class="mb-4 rounded-2xl bg-amber-50 p-4 text-sm">
       <div class="font-semibold">Save your changes?</div>
       <div class="flex gap-2 mt-3"><button @click="save()" class="bg-slate-900 text-white rounded-xl px-4 py-2">Save</button><button @click="discard()" class="bg-white border rounded-xl px-4 py-2">Discard</button><button @click="leaveAsk=false" class="px-3 py-2 text-slate-500">Keep editing</button></div></div></FxCollapse>
@@ -468,18 +483,18 @@ const SheetBody = { components: { CatBadge, Question, ...FX_COMPONENTS }, setup:
       <div class="flex gap-2 mt-2"><button @click="A.remove(open)" class="bg-red-600 text-white rounded-lg px-3 py-1.5">Delete</button><button @click="confirmDel=false" class="px-3 py-1.5">Keep</button></div></div></FxCollapse>
   </div>` };
 
-const VariantY = { name: 'Sheet, tap to edit', components: { Shell, ItemList, SheetBody, ...FX_COMPONENTS }, setup() {
+const VariantY = { name: 'Sheet, tap to edit', components: { Shell, ItemList, SheetBody, SheetTop, SheetScroll, ...FX_COMPONENTS }, setup() {
     const ctx = makeSheet('card'); provide('sheet', ctx); return ctx; },
   template: `<Shell title="Y · Sheet, tap to edit">
     <template #list><ItemList :selected="open" @pick="pick" /></template>
-    <template #panel><div v-if="open" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><SheetBody /></div><div v-else class="h-full grid place-items-center text-slate-400">Pick an Item</div></template>
+    <template #panel><div v-if="open" class="h-full max-w-lg mx-auto"><div class="bg-white rounded-2xl shadow-sm flex flex-col max-h-full"><SheetTop /><SheetScroll><SheetBody /></SheetScroll></div></div><div v-else class="h-full grid place-items-center text-slate-400">Pick an Item</div></template>
     <template #overlay><FxSheet><div v-if="sheetOpen && open" class="@3xl:hidden fixed inset-0 z-20 bg-black/40 flex items-end" @click.self="close()">
-      <div data-sheet class="bg-white w-full rounded-t-3xl p-5 max-h-[88%] overflow-y-auto"><SheetBody /></div></div></FxSheet></template>
+      <div data-sheet class="bg-white w-full rounded-t-3xl max-h-[88%] flex flex-col"><SheetTop /><SheetScroll><SheetBody /></SheetScroll></div></div></FxSheet></template>
   </Shell>`,
 };
 
 // ---------- Variant W: owner's mix — Y's sheet + tap a line, X's red question box, Z's swipe, Save button, drag handle ----------
-const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge, SheetBody, ...FX_COMPONENTS }, setup() {
+const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge, SheetBody, SheetTop, SheetScroll, ...FX_COMPONENTS }, setup() {
     const ctx = makeSheet('banner');
     const swipe = reactive({ id: null, x: 0, start: 0 });
     const down = (i, e) => { swipe.id = i.id; swipe.start = e.clientX; swipe.x = 0; };
@@ -513,9 +528,9 @@ const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge,
         </div>
       </template></ItemList>
     </template>
-    <template #panel><FxFade mode="out-in"><div v-if="open" :key="open.id" class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-6"><SheetBody /></div><div v-else key="none" class="h-full grid place-items-center text-slate-400">Pick an Item</div></FxFade></template>
+    <template #panel><FxFade mode="out-in"><div v-if="open" :key="open.id" class="h-full max-w-lg mx-auto"><div class="bg-white rounded-2xl shadow-sm flex flex-col max-h-full"><SheetTop /><SheetScroll><SheetBody /></SheetScroll></div></div><div v-else key="none" class="h-full grid place-items-center text-slate-400">Pick an Item</div></FxFade></template>
     <template #overlay><FxSheet><div v-if="sheetOpen && open" class="@3xl:hidden fixed inset-0 z-20 bg-black/40 flex items-end" @click.self="close()">
-      <div data-sheet class="bg-white w-full rounded-t-3xl p-5 max-h-[88%] overflow-y-auto"><SheetBody /></div></div></FxSheet></template>
+      <div data-sheet class="bg-white w-full rounded-t-3xl max-h-[88%] flex flex-col"><SheetTop /><SheetScroll><SheetBody /></SheetScroll></div></div></FxSheet></template>
   </Shell>` };
 
 // ---------- Variant Z: open in place inside the list, swipe for actions, questions right in the row ----------
