@@ -1,0 +1,312 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Answers: "What does OopsProof look like and sound like?"
+  Four whole brand directions, switchable with ?variant=A|B|C|D, the floating bar, or ← → keys; ?theme=light|dark.
+  Each direction picks its own colours (incl. red / yellow / green urgency + dark mode), font, logo, app icon,
+  tone of voice, AND a different way of showing urgency on a list row:
+    A  Calm & clear   Indigo, Inter. Plain, friendly sentences. Logo: check inside an "o". Urgency: coloured bar.
+    B  Warm paper     Cream + terracotta, Fraunces headings / Inter text. Warm, personal ("Heads up"). Logo: sticky note
+                      with "!". Urgency: soft tinted pill.
+    C  Playful pop    Yellow + coral, Nunito. Cheeky, plays on "Oops", emoji. Logo: "O!" speech bubble.
+                      Urgency: big coloured day count.
+    D  Quiet tool     Black & white + one green, Space Grotesk / IBM Plex Mono numbers. Short, factual. Logo: shield
+                      with check. Urgency: dot + mono countdown.
+  Left: the real dashboard (Items tab) in that direction. Right: app icon on a home screen, a push Reminder,
+  an email Reminder, and the app's key messages written in that voice.
+  Urgency rule (from the dashboard decision): red = due today or Expired, yellow = within 7 days, green = later,
+  grey = Handled. Today is fixed at 16 Nov 2026. All data is fake and in memory.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OopsProof look and sound prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Nunito:wght@500;700;800;900&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+<style>
+  body { background: #e5e7eb; font-family: Inter, system-ui, sans-serif; }
+  .themed { background: var(--bg); color: var(--text); font-family: var(--body); }
+  .themed h1, .themed h2, .themed .head { font-family: var(--heading); }
+  .surface { background: var(--surface); }
+  .muted { color: var(--muted); }
+  .line-b { border-bottom: 1px solid var(--line); }
+  .mono { font-family: var(--num); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="text-slate-900">
+<div id="app"></div>
+
+<script>
+const { createApp, reactive, computed } = Vue;
+
+// ---------- fake state ----------
+const ITEMS = [
+  { id: 1, name: 'Driving licence', icon: '🪪', due: '13 Nov', days: -3 },
+  { id: 2, name: 'Netflix', icon: '🔁', due: '16 Nov', days: 0, price: '€13.99' },
+  { id: 3, name: 'Gym', icon: '🩺', due: '18 Nov', days: 2, price: '€35.00' },
+  { id: 4, name: 'Disney+ free trial', icon: '⏳', due: '20 Nov', days: 4 },
+  { id: 5, name: 'Spotify', icon: '🔁', due: '22 Nov', days: 6, price: '€10.99', handled: true },
+  { id: 6, name: 'Car insurance', icon: '🚗', due: '28 Nov', days: 12, price: '€420.00' },
+  { id: 7, name: 'Passport', icon: '🪪', due: '2 Mar 2027', days: 106 },
+];
+const params = new URLSearchParams(location.search);
+const S = reactive({ variant: params.get('variant') || 'A', theme: params.get('theme') || 'light', items: ITEMS.map(i => ({ ...i })), toast: null });
+
+const level = i => i.handled ? 'grey' : i.days <= 0 ? 'red' : i.days <= 7 ? 'yellow' : 'green';
+const groups = computed(() => [
+  ['Today', S.items.filter(i => i.days <= 0)],
+  ['This week', S.items.filter(i => i.days > 0 && i.days <= 7)],
+  ['Later', S.items.filter(i => i.days > 7)],
+]);
+
+// ---------- the four directions ----------
+const V = {
+  A: {
+    name: 'Calm & clear',
+    fonts: { heading: 'Inter', body: 'Inter', num: 'Inter' },
+    fontNote: 'Inter for everything. Neutral, very readable at small sizes.',
+    light: { bg: '#f8fafc', surface: '#ffffff', text: '#0f172a', muted: '#64748b', line: '#e2e8f0', accent: '#4f46e5', onAccent: '#ffffff', red: '#dc2626', yellow: '#d97706', green: '#059669', grey: '#94a3b8' },
+    dark: { bg: '#0b1020', surface: '#151b2e', text: '#e2e8f0', muted: '#94a3b8', line: '#26304a', accent: '#818cf8', onAccent: '#0b1020', red: '#f87171', yellow: '#fbbf24', green: '#34d399', grey: '#64748b' },
+    row: 'bar',
+    logo: c => `<svg viewBox="0 0 32 32" width="26" height="26"><circle cx="16" cy="16" r="13" fill="none" stroke="${c.accent}" stroke-width="4"/><path d="M10 16.5l4 4 8-9" fill="none" stroke="${c.accent}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    wordmark: 'oopsproof', wordStyle: 'font-weight:700;letter-spacing:-.02em',
+    icon: () => `<svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#4f46e5"/><circle cx="32" cy="32" r="17" fill="none" stroke="#fff" stroke-width="6"/><path d="M24 33l6 6 11-13" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    count: i => i.days < 0 ? `Expired ${-i.days} days ago` : i.days === 0 ? 'Due today' : `Due in ${i.days} days`,
+    voice: 'Plain and friendly. Full sentences, no jokes, no emoji. Says what happens next.',
+    copy: {
+      pushTitle: 'Netflix renews tomorrow', pushBody: '€13.99 on 16 Nov. Tap to mark it Handled or change it.',
+      mailSubject: 'Reminder: Netflix renews tomorrow',
+      mailBody: 'Hi Ana,\n\nNetflix renews tomorrow, 16 November, for €13.99.\n\nIf you want to keep it, there is nothing to do. If not, cancel it before then.',
+      mailButton: 'Open Netflix in OopsProof',
+      empty: 'Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before it is due.',
+      handled: 'Marked as Handled. We will remind you again before 16 Dec.',
+      expired: 'Expired 3 days ago. What now?',
+      trial: 'Your Disney+ free trial ends today. Did you keep it?',
+      del: 'Delete Gym? This cannot be undone.',
+      error: 'Could not save. Check your connection and try again.',
+    },
+  },
+  B: {
+    name: 'Warm paper',
+    fonts: { heading: 'Fraunces', body: 'Inter', num: 'Inter' },
+    fontNote: 'Fraunces (soft serif) for titles, Inter for everything else. Feels like a notebook.',
+    light: { bg: '#faf6ef', surface: '#fffdf9', text: '#2b211b', muted: '#8a7b6e', line: '#ece3d6', accent: '#c2410c', onAccent: '#fffdf9', red: '#b42318', yellow: '#b54708', green: '#3f7d4e', grey: '#a8998b' },
+    dark: { bg: '#1c1714', surface: '#26201c', text: '#f3ebe1', muted: '#a8998b', line: '#3a312b', accent: '#fb8a4c', onAccent: '#1c1714', red: '#f97066', yellow: '#fdb022', green: '#7cc68f', grey: '#6f6259' },
+    row: 'pill',
+    logo: c => `<svg viewBox="0 0 32 32" width="26" height="26"><path d="M5 5h22v15l-7 7H5z" fill="${c.accent}"/><path d="M20 27v-7h7" fill="${c.onAccent}" opacity=".35"/><rect x="14.5" y="9" width="3" height="9" rx="1.5" fill="${c.onAccent}"/><circle cx="16" cy="22" r="1.8" fill="${c.onAccent}"/></svg>`,
+    wordmark: 'OopsProof', wordStyle: 'font-family:Fraunces;font-weight:700',
+    icon: () => `<svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#c2410c"/><path d="M15 14h34v25l-11 11H15z" fill="#faf6ef"/><path d="M38 50V39h11" fill="#e9dccb"/><rect x="29.5" y="20" width="5" height="15" rx="2.5" fill="#c2410c"/><circle cx="32" cy="41" r="3" fill="#c2410c"/></svg>`,
+    count: i => i.days < 0 ? `Expired ${-i.days} days ago` : i.days === 0 ? 'Today' : i.days === 1 ? 'Tomorrow' : `In ${i.days} days`,
+    voice: 'Warm and personal, like a thoughtful friend. Uses the person\'s name, gentle "heads up", no emoji.',
+    copy: {
+      pushTitle: 'Heads up: Netflix renews tomorrow', pushBody: '€13.99 leaves your account on Monday. Still watching? Nothing to do. If not, cancel today.',
+      mailSubject: 'Heads up, Ana: Netflix renews tomorrow',
+      mailBody: 'Hi Ana,\n\njust a quick note: Netflix renews tomorrow (Monday 16 November) for €13.99.\n\nStill watching? Then you are all set. If not, today is a good day to cancel.',
+      mailButton: 'See it in OopsProof',
+      empty: 'A clean slate. Add the first thing you would hate to forget: a passport, a subscription, the car insurance.',
+      handled: 'Lovely, that is sorted. We will check in again before 16 Dec.',
+      expired: 'Your driving licence expired 3 days ago. What would you like to do?',
+      trial: 'Your Disney+ trial ends today. Are you keeping it?',
+      del: 'Delete Gym for good? You cannot undo this.',
+      error: 'Hmm, that did not save. Check your connection and give it another go.',
+    },
+  },
+  C: {
+    name: 'Playful pop',
+    fonts: { heading: 'Nunito', body: 'Nunito', num: 'Nunito' },
+    fontNote: 'Nunito, rounded and chunky (800–900 for titles and numbers). Friendly and bouncy.',
+    light: { bg: '#fffbea', surface: '#ffffff', text: '#1f1a3d', muted: '#7a7396', line: '#f1ead0', accent: '#ff5a5f', onAccent: '#ffffff', red: '#e8364f', yellow: '#e09400', green: '#0ca678', grey: '#b5aec8' },
+    dark: { bg: '#17142b', surface: '#221e3d', text: '#fdf6e3', muted: '#a49dc0', line: '#332d57', accent: '#ff7a7e', onAccent: '#17142b', red: '#ff5c74', yellow: '#ffc933', green: '#38d9a9', grey: '#625b80' },
+    row: 'number',
+    logo: c => `<svg viewBox="0 0 32 32" width="28" height="28"><path d="M16 3c7.7 0 13 4.8 13 11.5S23.7 26 16 26c-1.3 0-2.6-.2-3.8-.5L6 29l1.3-5.6C4.6 21.3 3 18.1 3 14.5 3 7.8 8.3 3 16 3z" fill="${c.accent}"/><text x="16" y="19.5" font-family="Nunito" font-weight="900" font-size="12" text-anchor="middle" fill="${c.onAccent}">O!</text></svg>`,
+    wordmark: 'Oops<span style="color:var(--accent)">Proof</span>', wordStyle: 'font-family:Nunito;font-weight:900',
+    icon: () => `<svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#ffd43b"/><path d="M32 11c12.7 0 21 7.6 21 18s-8.3 18-21 18c-2.2 0-4.2-.3-6.1-.8L16 52l2-9.1C13.6 39.6 11 34.7 11 29c0-10.4 8.3-18 21-18z" fill="#ff5a5f" transform="rotate(-6 32 32)"/><text x="32" y="36" font-family="Nunito" font-weight="900" font-size="20" text-anchor="middle" fill="#fff" transform="rotate(-6 32 32)">O!</text></svg>`,
+    count: i => i.days < 0 ? `${-i.days}d late` : i.days === 0 ? 'today' : `${i.days} days`,
+    bigNum: i => i.days <= 0 ? '!' : i.days,
+    voice: 'Cheeky and upbeat. Plays on "Oops", short punchy lines, a little emoji. Never jokes about money owed.',
+    copy: {
+      pushTitle: 'Psst! Netflix renews tomorrow 👀', pushBody: '€13.99 incoming. Keep it, or cancel before it charges?',
+      mailSubject: '👀 Netflix renews tomorrow',
+      mailBody: 'Hey Ana!\n\nHeads up: Netflix renews tomorrow for €13.99.\n\nLove it? Do nothing. Over it? Cancel today and dodge the oops.',
+      mailButton: 'Open OopsProof',
+      empty: 'Nothing here… yet! Add the stuff you always forget. We will do the remembering. 🧠',
+      handled: 'Nice! Oops avoided. ✅',
+      expired: 'Oops! Your driving licence expired 3 days ago. Fix it?',
+      trial: 'Disney+ trial ends today! Keeping it? 🍿',
+      del: 'Bye-bye, Gym? No take-backs.',
+      error: 'Oops, that one is on us. Try again?',
+    },
+  },
+  D: {
+    name: 'Quiet tool',
+    fonts: { heading: 'Space Grotesk', body: 'Space Grotesk', num: 'IBM Plex Mono' },
+    fontNote: 'Space Grotesk for text, IBM Plex Mono for dates, days and money. Precise, like an instrument.',
+    light: { bg: '#ffffff', surface: '#ffffff', text: '#0a0a0a', muted: '#737373', line: '#e5e5e5', accent: '#0a0a0a', onAccent: '#ffffff', red: '#e5484d', yellow: '#d68a00', green: '#30a46c', grey: '#a3a3a3' },
+    dark: { bg: '#0a0a0a', surface: '#121212', text: '#f5f5f5', muted: '#8f8f8f', line: '#262626', accent: '#f5f5f5', onAccent: '#0a0a0a', red: '#ff6369', yellow: '#ffca16', green: '#3dd68c', grey: '#525252' },
+    row: 'dot',
+    logo: c => `<svg viewBox="0 0 32 32" width="24" height="24"><path d="M16 3l11 4v8c0 7-4.7 12.2-11 14-6.3-1.8-11-7-11-14V7z" fill="${c.accent}"/><path d="M11 16l3.5 3.5L21 12.5" fill="none" stroke="${c.green}" stroke-width="3" stroke-linecap="square"/></svg>`,
+    wordmark: 'OOPSPROOF', wordStyle: 'font-family:\'Space Grotesk\';font-weight:700;letter-spacing:.12em;font-size:15px',
+    icon: () => `<svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0a0a0a"/><path d="M32 12l18 6.5v13C50 43 42.5 51 32 54 21.5 51 14 43 14 31.5v-13z" fill="#fff"/><path d="M24 32l6 6 11-12" fill="none" stroke="#30a46c" stroke-width="5" stroke-linecap="square"/></svg>`,
+    count: i => i.days < 0 ? `−${-i.days}d` : i.days === 0 ? '0d' : `${i.days}d`,
+    voice: 'Short and factual. Facts first (what, when, how much), no greetings, no emoji, no exclamation marks.',
+    copy: {
+      pushTitle: 'Netflix · renews tomorrow', pushBody: '€13.99 · Mon 16 Nov',
+      mailSubject: 'Netflix renews 16 Nov · €13.99',
+      mailBody: 'Netflix renews tomorrow, Mon 16 Nov.\nAmount: €13.99.\n\nTo stop it, cancel before then.',
+      mailButton: 'Open Item',
+      empty: 'No Items. Add one to get Reminders.',
+      handled: 'Handled. Next Due date: 16 Dec.',
+      expired: 'Expired 3 days ago.',
+      trial: 'Free trial ends today. Keep Disney+?',
+      del: 'Delete Gym? This cannot be undone.',
+      error: 'Not saved. No connection.',
+    },
+  },
+};
+const KEYS = Object.keys(V);
+const cur = computed(() => V[S.variant]);
+const colors = computed(() => cur.value[S.theme]);
+const vars = computed(() => {
+  const c = colors.value, f = cur.value.fonts, o = {};
+  for (const k in c) o['--' + k] = c[k];
+  o['--heading'] = `'${f.heading}', sans-serif`; o['--body'] = `'${f.body}', sans-serif`; o['--num'] = `'${f.num}', monospace`;
+  return o;
+});
+const tint = (hex, a) => hex + Math.round(a * 255).toString(16).padStart(2, '0');
+const say = t => { S.toast = t; setTimeout(() => { if (S.toast === t) S.toast = null; }, 2500); };
+const toggle = i => { i.handled = !i.handled; if (i.handled) say(cur.value.copy.handled); };
+
+// ---------- one list row, four ways of showing urgency ----------
+const Row = { props: ['i'], setup: () => ({ S, cur, colors, level, tint, toggle }), template: `
+  <div class="flex items-center gap-3 px-4 py-3 line-b" :style="{ opacity: i.handled ? .55 : 1 }">
+    <div v-if="cur.row === 'bar'" class="h-10 w-1 shrink-0 rounded-full" :style="{ background: colors[level(i)] }"></div>
+    <div v-if="cur.row === 'number'" class="flex w-11 shrink-0 flex-col items-center leading-none" :style="{ color: colors[level(i)] }">
+      <span class="text-[26px] font-black">{{ cur.bigNum(i) }}</span>
+      <span class="text-[10px] font-extrabold uppercase">{{ i.days < 0 ? 'late' : i.days === 0 ? 'today' : i.days === 1 ? 'day' : 'days' }}</span>
+    </div>
+    <span class="text-xl">{{ i.icon }}</span>
+    <div class="min-w-0 flex-1">
+      <div class="truncate font-semibold" :style="cur.row === 'number' ? 'font-weight:800' : ''">{{ i.name }}</div>
+      <div class="flex items-center gap-2 text-[13px]">
+        <span v-if="cur.row === 'bar'" :style="{ color: colors[level(i)], fontWeight: 600 }">{{ i.handled ? 'Handled' : cur.count(i) }}</span>
+        <span v-if="cur.row === 'pill'" class="rounded-full px-2 py-0.5 text-[12px] font-semibold" :style="{ background: tint(colors[level(i)], S.theme === 'dark' ? .22 : .13), color: colors[level(i)] }">{{ i.handled ? 'Handled' : cur.count(i) }}</span>
+        <span v-if="cur.row === 'dot'" class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full" :style="{ background: colors[level(i)] }"></span><span class="mono text-[12px]" :style="{ color: colors[level(i)] }">{{ i.handled ? 'DONE' : cur.count(i) }}</span></span>
+        <span class="muted" :class="cur.row === 'dot' ? 'mono text-[12px]' : ''">{{ i.due }}<template v-if="i.price"> · {{ i.price }}</template></span>
+      </div>
+    </div>
+    <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm" :title="i.handled ? 'Undo' : 'Handled'"
+      :style="i.handled ? { background: colors.green, color: colors.onAccent } : { border: '1.5px solid ' + colors.line, color: colors.muted }" @click="toggle(i)">✓</button>
+  </div>` };
+
+// ---------- the dashboard (phone) ----------
+const Phone = { components: { Row }, setup: () => ({ S, cur, colors, vars, groups }), template: `
+  <div class="themed relative h-[780px] w-[390px] shrink-0 overflow-hidden rounded-[2rem] shadow-xl" :style="vars">
+    <div class="flex h-full flex-col">
+      <div class="flex items-center gap-2 px-4 pb-2 pt-5">
+        <span v-html="cur.logo(colors)"></span>
+        <span class="text-[19px]" :style="cur.wordStyle" v-html="cur.wordmark"></span>
+        <span class="flex-1"></span>
+        <span class="relative text-xl muted">⚙︎<span class="absolute -right-0.5 top-0 h-2 w-2 rounded-full" :style="{ background: colors.yellow }"></span></span>
+        <span class="ml-2 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold" :style="{ background: colors.accent, color: colors.onAccent }">AG</span>
+      </div>
+      <div class="mx-4 mb-2 grid grid-cols-2 rounded-xl p-1 text-sm" :style="{ background: colors.line }">
+        <span class="surface rounded-lg py-1.5 text-center font-semibold shadow-sm">List</span><span class="py-1.5 text-center muted">Calendar</span>
+      </div>
+      <div class="flex-1 overflow-y-auto pb-24">
+        <template v-for="[g, list] in groups" :key="g">
+          <h2 class="px-4 pb-1 pt-4 text-[13px] font-semibold uppercase tracking-wide muted" :style="S.variant === 'B' ? 'text-transform:none;letter-spacing:0;font-size:18px;color:var(--text)' : ''">{{ g }}</h2>
+          <div class="surface" :class="S.variant === 'C' ? 'mx-3 overflow-hidden rounded-2xl shadow-sm' : ''"><Row v-for="i in list" :key="i.id" :i="i" /></div>
+        </template>
+      </div>
+      <button class="absolute bottom-20 right-5 flex h-14 w-14 items-center justify-center text-3xl shadow-lg"
+        :class="S.variant === 'D' ? 'rounded-xl' : 'rounded-full'" :style="{ background: colors.accent, color: colors.onAccent }">+</button>
+      <div class="surface grid grid-cols-2 text-center text-xs" :style="{ borderTop: '1px solid ' + colors.line }">
+        <span class="py-3 font-semibold" :style="{ color: colors.accent }"><span class="block text-lg">▤</span>Items</span>
+        <span class="py-3 muted"><span class="block text-lg">◔</span>Money</span>
+      </div>
+      <div v-if="S.toast" class="absolute bottom-36 left-1/2 w-max max-w-[340px] -translate-x-1/2 rounded-full px-4 py-2 text-sm shadow-lg" :style="{ background: colors.text, color: colors.bg }">{{ S.toast }}</div>
+    </div>
+  </div>` };
+
+// ---------- brand board: icon, push, email, key messages ----------
+const Board = { setup: () => ({ S, cur, colors, vars, V }), template: `
+  <div class="w-[560px] space-y-4 text-sm">
+    <div class="grid grid-cols-2 gap-4">
+      <div class="rounded-2xl p-4 text-white" :style="{ background: S.theme === 'dark' ? 'linear-gradient(160deg,#111827,#1e1b4b)' : 'linear-gradient(160deg,#93c5fd,#c4b5fd)' }">
+        <p class="mb-3 text-xs font-semibold opacity-80">App icon on a home screen</p>
+        <div class="grid grid-cols-4 gap-3 text-center text-[10px]">
+          <div v-for="n in 3"><div class="mx-auto h-11 w-11 rounded-[11px] bg-white/30"></div><div class="mt-1 opacity-70">App</div></div>
+          <div><div class="mx-auto h-11 w-11" v-html="cur.icon()"></div><div class="mt-1">OopsProof</div></div>
+        </div>
+        <div class="mt-4 flex items-center gap-3"><div class="h-16 w-16" v-html="cur.icon()"></div><span class="text-xs opacity-80">Big size (store / install prompt)</span></div>
+      </div>
+      <div class="rounded-2xl p-4" :style="{ background: S.theme === 'dark' ? 'linear-gradient(160deg,#0f172a,#312e81)' : 'linear-gradient(160deg,#fca5a5,#fde68a)' }">
+        <p class="mb-3 text-xs font-semibold" :class="S.theme === 'dark' ? 'text-white/80' : 'text-slate-800/70'">Push Reminder (lock screen, sent 15 Nov 12:00)</p>
+        <div class="flex gap-2.5 rounded-2xl p-3 backdrop-blur" :class="S.theme === 'dark' ? 'bg-slate-800/80 text-white' : 'bg-white/75 text-slate-900'">
+          <div class="h-9 w-9 shrink-0" v-html="cur.icon()"></div>
+          <div class="min-w-0"><div class="flex justify-between text-[11px] opacity-60"><span>OOPSPROOF</span><span>now</span></div>
+            <div class="font-semibold leading-snug">{{ cur.copy.pushTitle }}</div><div class="leading-snug opacity-80">{{ cur.copy.pushBody }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="overflow-hidden rounded-2xl bg-white text-slate-900 shadow" :style="{ fontFamily: vars['--body'] }">
+      <div class="border-b bg-slate-50 px-4 py-2 text-xs text-slate-500">Email Reminder · from OopsProof · <b class="text-slate-800">{{ cur.copy.mailSubject }}</b></div>
+      <div class="px-6 py-5" :style="{ background: V[S.variant].light.bg }">
+        <div class="mb-4 flex items-center gap-2"><span v-html="cur.logo(V[S.variant].light)"></span><span class="text-lg" :style="cur.wordStyle" v-html="cur.wordmark"></span></div>
+        <div class="rounded-xl p-5" :style="{ background: V[S.variant].light.surface, color: V[S.variant].light.text }">
+          <p class="whitespace-pre-line leading-relaxed">{{ cur.copy.mailBody }}</p>
+          <span class="mt-4 inline-block px-4 py-2 font-semibold" :class="S.variant === 'D' ? 'rounded-md' : 'rounded-full'" :style="{ background: V[S.variant].light.accent, color: V[S.variant].light.onAccent }">{{ cur.copy.mailButton }}</span>
+        </div>
+        <p class="mt-3 text-[11px]" :style="{ color: V[S.variant].light.muted }">You get this because you set a Reminder 1 day before. Change Reminders in Settings.</p>
+      </div>
+    </div>
+
+    <div class="themed rounded-2xl p-4 shadow" :style="vars">
+      <p class="head mb-2 text-base font-bold">How it sounds</p>
+      <p class="mb-3 muted">{{ cur.voice }}</p>
+      <div class="space-y-2">
+        <div class="surface rounded-xl p-3" :style="{ border: '1px solid ' + colors.line }"><span class="text-[11px] uppercase muted">Empty dashboard</span><p>{{ cur.copy.empty }}</p></div>
+        <div class="rounded-xl p-3" :style="{ background: colors.red + '1f', color: colors.red }"><span class="text-[11px] uppercase opacity-70">Expired box</span><p class="font-semibold">{{ cur.copy.expired }}</p></div>
+        <div class="rounded-xl p-3" :style="{ background: colors.red + '1f', color: colors.red }"><span class="text-[11px] uppercase opacity-70">Free trial box</span><p class="font-semibold">{{ cur.copy.trial }}</p></div>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="surface rounded-xl p-3" :style="{ border: '1px solid ' + colors.line }"><span class="text-[11px] uppercase muted">After Handled</span><p>{{ cur.copy.handled }}</p></div>
+          <div class="surface rounded-xl p-3" :style="{ border: '1px solid ' + colors.line }"><span class="text-[11px] uppercase muted">Delete question</span><p>{{ cur.copy.del }}</p></div>
+          <div class="surface rounded-xl p-3" :style="{ border: '1px solid ' + colors.line }"><span class="text-[11px] uppercase muted">Error</span><p>{{ cur.copy.error }}</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="themed rounded-2xl p-4 shadow" :style="vars">
+      <p class="head mb-1 text-base font-bold">Colours & font</p>
+      <p class="mb-3 muted">{{ cur.fontNote }}</p>
+      <div class="flex flex-wrap gap-2">
+        <div v-for="k in ['accent','bg','surface','text','muted','red','yellow','green','grey']" :key="k" class="text-center text-[11px]">
+          <div class="h-10 w-12 rounded-lg" :style="{ background: colors[k], border: '1px solid ' + colors.line }"></div><div class="muted">{{ k }}</div><div class="mono">{{ colors[k] }}</div>
+        </div>
+      </div>
+    </div>
+  </div>` };
+
+// ---------- floating switcher (not part of the design) ----------
+const Switcher = { setup() {
+  const setUrl = () => history.replaceState(null, '', '?' + new URLSearchParams({ variant: S.variant, theme: S.theme }));
+  const step = d => { S.variant = KEYS[(KEYS.indexOf(S.variant) + d + KEYS.length) % KEYS.length]; setUrl(); };
+  addEventListener('keydown', e => { if (e.target.closest('input,textarea,select,[contenteditable]')) return; if (e.key === 'ArrowLeft') step(-1); if (e.key === 'ArrowRight') step(1); });
+  return { S, step, setUrl, V }; }, template: `
+  <div class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-2xl bg-fuchsia-700 px-3 py-2 text-sm text-white shadow-2xl">
+    <button class="px-2 text-lg" @click="step(-1)">←</button>
+    <span class="min-w-[180px] text-center font-semibold">{{ S.variant }} ({{ V[S.variant].name }})</span>
+    <button class="px-2 text-lg" @click="step(1)">→</button>
+    <button class="rounded-lg bg-fuchsia-800 px-3 py-1" @click="S.theme = S.theme === 'light' ? 'dark' : 'light'; setUrl()">{{ S.theme === 'light' ? '☀︎ Light' : '☾ Dark' }}</button>
+  </div>` };
+
+createApp({ components: { Phone, Board, Switcher }, template: `
+  <div class="flex min-h-screen flex-wrap items-start justify-center gap-6 p-4 pb-28">
+    <Phone /><Board /><Switcher />
+  </div>` }).mount('#app');
+</script>
+</body>
+</html>
