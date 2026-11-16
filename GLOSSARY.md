@@ -29,7 +29,7 @@ The state of an Item a person no longer tracks. It leaves the active list but ke
 _Avoid_: Deleted, inactive, cancelled
 
 **Reminder**:
-An alert sent to a person a set time before, or on, an Item's Due date. An Item can have several: on the day, 30 minutes, 1, 2 or 4 hours before (only for Items with a time), or 1 day, 2 days or 1 week before. A repeating Item's Reminders repeat every time it comes due.
+An alert sent to a person a set time before an Item's Due date. An Item can have several: 30 minutes, 1, 2 or 4 hours before (only for Items with a time), or 1 day, 2 days, 1 week, 2 weeks or 1 month before, sent at 12:00. A Reminder must fit inside the time the Item covers: shorter than one repeat for a repeating Item, still ahead of now for a one-time Item. A repeating Item's Reminders repeat every time it comes due.
 _Avoid_: Notification, alarm, alert
 
 **Handled**:
