@@ -315,8 +315,8 @@ const Facts = { props: ['i'], setup: () => H,
     <div v-if="i.lastChangedBy" class="py-2.5 text-xs text-slate-400">Last changed by {{ i.lastChangedBy }}</div>
   </dl>` };
 
-const Shell = { props: ['title'], emits: ['add'], components: FX_COMPONENTS, setup() { const filterOpen = ref(false); return { store, filterOpen, FILTERS: { all: 'All', mine: 'Personal', family: 'Shared' } }; },
-  template: `<div class="h-full flex bg-white">
+const Shell = { props: ['title'], emits: ['add'], components: FX_COMPONENTS, setup() { const filterOpen = ref(false); return { store, filterOpen, press, toast, FILTERS: { all: 'All', mine: 'Personal', family: 'Shared' } }; },
+  template: `<div class="relative h-full flex bg-white">
     <div class="flex-1 @3xl:max-w-md @3xl:border-r h-full overflow-y-auto pb-28">
       <header class="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 pt-5 pb-3 border-b">
         <div class="flex justify-between items-center"><h1 class="text-2xl font-bold">OopsProof</h1><span class="text-xs text-slate-400">{{ title }}</span></div>
@@ -329,6 +329,8 @@ const Shell = { props: ['title'], emits: ['add'], components: FX_COMPONENTS, set
             <button v-for="v in [['list','☰ List'],['calendar','▦ Calendar']]" @click="store.view=v[0]" :class="store.view===v[0] ? 'bg-white shadow' : 'text-slate-500'" class="px-3 py-1 rounded-full transition-all duration-200">{{ v[1] }}</button></div>
         </div></header>
       <slot name="list" /></div>
+    <!-- phone: floating + to add an Item (add form as in dashboard-add-item.prototype.html, variant D) -->
+    <button @click="press($event); toast('Opens the add-Item form (see dashboard prototype)')" class="@3xl:hidden absolute right-5 bottom-6 z-10 w-14 h-14 rounded-full bg-slate-900 text-white text-3xl shadow-lg">+</button>
     <aside class="hidden @3xl:block flex-1 h-full overflow-y-auto bg-slate-50 p-8"><slot name="panel" /></aside>
     <slot name="overlay" />
   </div>` };
