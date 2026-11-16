@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
   PROTOTYPE — throwaway. Answers: "What does OopsProof look like and sound like?"
-  Four whole brand directions, switchable with ?variant=A|B|C|D, the floating bar, or ← → keys; ?theme=light|dark.
+  Four whole brand directions (+ F, the final), switchable with ?variant=F|A|B|C|D, the floating bar, or ← → keys; ?theme=light|dark.
   Each direction picks its own colours (incl. red / yellow / green urgency + dark mode), font, logo, app icon,
   tone of voice, AND a different way of showing urgency on a list row:
     A  Calm & clear   Indigo, Inter. Plain, friendly sentences. Logo: check inside an "o". Urgency: coloured bar.
@@ -52,7 +52,7 @@ const ITEMS = [
   { id: 7, name: 'Passport', icon: '🪪', due: '2 Mar 2027', days: 106 },
 ];
 const params = new URLSearchParams(location.search);
-const S = reactive({ variant: params.get('variant') || 'A', theme: params.get('theme') || 'light', items: ITEMS.map(i => ({ ...i })), toast: null });
+const S = reactive({ variant: params.get('variant') || 'F', theme: params.get('theme') || 'light', items: ITEMS.map(i => ({ ...i })), toast: null });
 
 const level = i => i.handled ? 'grey' : i.days <= 0 ? 'red' : i.days <= 7 ? 'yellow' : 'green';
 const groups = computed(() => [
@@ -165,7 +165,18 @@ const V = {
     },
   },
 };
-const KEYS = Object.keys(V);
+// FINAL (chosen 2026-11-16): A everywhere, plus emoji and the person's first name.
+// Emoji: one at most, at the end of happy or heads-up lines (push title, email subject, empty, Handled). Never in
+// Expired / delete / error lines. Name: push title, email greeting and subject, empty dashboard.
+V.F = { ...V.A, name: 'Final: A + emoji + name',
+  voice: 'Plain and friendly. Full sentences, says what happens next. Uses the first name. One emoji at most, only on good-news or heads-up lines, never on problems.',
+  copy: { ...V.A.copy,
+    pushTitle: 'Ana, Netflix renews tomorrow 🔔', pushBody: '€13.99 on 16 Nov. Tap to mark it Handled or change it.',
+    mailSubject: 'Ana, Netflix renews tomorrow 🔔',
+    empty: 'Welcome, Ana 👋 Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before it is due.',
+    handled: 'Marked as Handled ✅ We will remind you again before 16 Dec.',
+  } };
+const KEYS = ['F', 'A', 'B', 'C', 'D'];
 const cur = computed(() => V[S.variant]);
 const colors = computed(() => cur.value[S.theme]);
 const vars = computed(() => {
