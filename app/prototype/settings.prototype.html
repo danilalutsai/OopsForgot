@@ -1,0 +1,451 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Answers: "What does the Settings screen look like?"
+  Three structurally different Settings screens, switchable with ?variant=A|B|C, the floating bar, or ← → keys:
+    A  One long list: every setting is a line, tap it to edit below (same feel as the Item sheet).
+    B  Menu + pages: a short menu (Reminders, Calendar, Money, Account, Privacy); each opens its own page.
+       On computer: menu on the left, page on the right.
+    C  Check-up first: a top box says how Reminders reach you and lists anything that needs fixing
+       (iPhone not installed, time zone changed, calendar not set up); the rest sits in folded groups below.
+  F  FINAL (chosen 2026-11-16): A's long list, opened from a gear on the dashboard; avatar next to it with Log out;
+     own day Reminder time (15-minute steps, default 12:00); no Family anywhere (personal use only).
+  Bar extras: Phone / Computer, the fake device (iPhone not installed, iPhone installed, Android, computer),
+  and the open question "Day Reminders: fixed 12:00 for everyone, or a per-person time?".
+  All data is fake and in memory; reload resets it. Nothing is really sent.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OopsProof Settings prototype</title>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+<style>
+  body { background: #e5e7eb; }
+  .line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; cursor: pointer; }
+  .line:hover, .line.open { background: #f1f5f9; }
+  .btn { padding: 8px 14px; border-radius: 10px; font-size: 14px; font-weight: 500; }
+  .btn-main { background: #0f172a; color: white; }
+  .btn-soft { background: #f1f5f9; color: #0f172a; }
+  .btn-red { background: #fee2e2; color: #b91c1c; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .chip { padding: 6px 12px; border-radius: 999px; font-size: 14px; background: #f1f5f9; }
+  .chip.on { background: #0f172a; color: white; }
+  input[type=text], input[type=password], input[type=email], select { border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 10px; font-size: 14px; width: 100%; }
+</style>
+</head>
+<body class="font-sans text-slate-900">
+<div id="app"></div>
+
+<script>
+const { createApp, reactive, computed, ref } = Vue;
+
+// ---------- fake state ----------
+const params = new URLSearchParams(location.search);
+const S = reactive({
+  variant: params.get('variant') || 'F',
+  device: params.get('device') || 'phone',            // phone | computer (frame size)
+  situation: params.get('situation') || 'iphone-web', // iphone-web | iphone-app | android | computer
+  dayTimeMode: params.get('daytime') || 'setting',      // fixed | setting
+  dayTime: '12:00',
+  tz: 'Europe/Berlin', browserTz: 'Europe/Kyiv', tzDismissed: false,
+  pushHere: false,
+  devices: [{ name: 'Chrome on Windows', added: '2 Nov' }],
+  email: true,
+  account: { first: 'Danila', last: 'Lutsai', photo: null, email: 'danila@example.com', pendingEmail: null, google: true, password: true },
+  calendar: { on: false, secret: 'k3f9x2qpz7m1' },
+  currency: 'EUR', family: { name: 'Lutsai family', currency: 'EUR' },
+  owes: [{ who: 'Anna', amount: 1250, dir: 'you owe' }],
+  toast: null, log: [],
+});
+const say = t => { S.toast = t; S.log.unshift(t); S.log.length = Math.min(S.log.length, 6); setTimeout(() => { if (S.toast === t) S.toast = null; }, 2500); };
+
+const isIphone = computed(() => S.situation.startsWith('iphone'));
+const canPushHere = computed(() => S.situation !== 'iphone-web'); // iPhone needs Add to Home Screen first
+const thisDeviceName = computed(() => ({ 'iphone-web': 'Safari on iPhone', 'iphone-app': 'OopsProof on iPhone', android: 'Chrome on Android', computer: 'Chrome on Mac' })[S.situation]);
+const pushDevices = computed(() => S.pushHere ? [{ name: thisDeviceName.value + ' (this device)', added: 'today', here: true }, ...S.devices] : S.devices);
+const pushWorks = computed(() => pushDevices.value.length > 0);
+const tzMismatch = computed(() => S.tz !== S.browserTz && !S.tzDismissed);
+const calLink = computed(() => `https://oopsproof.app/cal/${S.calendar.secret}.ics`);
+const money = c => (c / 100).toLocaleString(undefined, { style: 'currency', currency: S.currency });
+const channelsText = computed(() => [pushWorks.value && `push (${pushDevices.value.length} device${pushDevices.value.length > 1 ? 's' : ''})`, S.email && 'email'].filter(Boolean).join(' + ') || 'nothing');
+const dayTimeText = computed(() => S.dayTimeMode === 'fixed' ? '12:00 (same for everyone)' : S.dayTime);
+
+const TIMEZONES = ['Europe/Berlin', 'Europe/Kyiv', 'Europe/London', 'Europe/Madrid', 'America/New_York'];
+const CURRENCIES = ['EUR', 'USD', 'GBP', 'UAH', 'PLN', 'CHF'];
+
+// ---------- shared editors (the bits inside a line or a page; the layout around them is per variant) ----------
+const round15 = v => { if (!v) return '12:00'; let [h, m] = v.split(':').map(Number); m = Math.round(m / 15) * 15; if (m === 60) { m = 0; h = (h + 1) % 24; } return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; };
+const DayTimeEditor = { setup: () => ({ S, round15 }), template: `
+  <div class="space-y-2 text-sm">
+    <template v-if="S.dayTimeMode === 'fixed'">
+      <p>Reminders set in days ("1 day before", "1 week before") arrive at <b>12:00</b> your time.</p>
+      <p class="text-slate-500">Reminders set in hours arrive at the exact time before the Item's time.</p>
+    </template>
+    <template v-else>
+      <p>Reminders set in days ("1 day before", "1 week before") arrive at:</p>
+      <div class="flex items-center gap-2"><input type="time" step="900" class="w-32 rounded-xl border border-slate-300 px-2 py-1" :value="S.dayTime" @change="S.dayTime = round15($event.target.value)" />
+        <button v-if="S.dayTime !== '12:00'" class="text-sm text-sky-700" @click="S.dayTime = '12:00'">Back to 12:00</button></div>
+      <p class="text-slate-500">Reminders set in hours always arrive at the exact time. Changes apply from the next Reminder.</p>
+    </template>
+  </div>` };
+
+const PushEditor = { setup: () => ({ S, canPushHere, pushDevices, thisDeviceName, isIphone, say }), template: `
+  <div class="space-y-3 text-sm">
+    <div v-if="!canPushHere" class="rounded-xl bg-amber-50 p-3 text-amber-900">
+      <b>Push needs the app on your Home Screen.</b>
+      <ol class="mt-1 list-decimal pl-5"><li>Tap <b>Share</b> (square with arrow) in Safari.</li><li>Tap <b>Add to Home Screen</b>.</li><li>Open OopsProof from the Home Screen and come back here.</li></ol>
+      <p class="mt-1 text-amber-800">Until then, Reminders come by email.</p>
+    </div>
+    <div v-else-if="!S.pushHere" class="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+      <span>Push is off on this device.</span>
+      <button class="btn btn-main" @click="S.pushHere = true; say('Push turned on for ' + thisDeviceName)">Turn on here</button>
+    </div>
+    <div>
+      <p class="mb-1 text-slate-500">Devices that get push</p>
+      <p v-if="!pushDevices.length" class="text-slate-500">None yet.</p>
+      <div v-for="d in pushDevices" class="flex items-center justify-between py-1">
+        <span>{{ d.name }} <span class="text-slate-400">· since {{ d.added }}</span></span>
+        <button class="text-red-600" @click="d.here ? S.pushHere = false : S.devices.splice(S.devices.indexOf(d), 1); if (!pushDevices.length && !S.email) S.email = true; say('Removed ' + d.name)">Remove</button>
+      </div>
+    </div>
+  </div>` };
+
+const EmailEditor = { setup: () => ({ S, pushWorks, say }), template: `
+  <div class="space-y-2 text-sm">
+    <label class="flex items-center justify-between">
+      <span>Send Reminders to <b>{{ S.account.email }}</b></span>
+      <input type="checkbox" class="h-5 w-5" :checked="S.email" :disabled="!pushWorks && S.email" @change="S.email = !S.email; say(S.email ? 'Email Reminders on' : 'Email Reminders off')" />
+    </label>
+    <p v-if="!pushWorks" class="text-slate-500">Email can only be turned off once push works on at least one device, so Reminders always reach you.</p>
+    <p class="text-slate-500">Account emails (password reset, deletion warnings) always come by email.</p>
+  </div>` };
+
+const TzEditor = { setup: () => ({ S, TIMEZONES, say }), template: `
+  <div class="space-y-2 text-sm">
+    <select v-model="S.tz" @change="say('Time zone set to ' + S.tz)"><option v-for="z in TIMEZONES">{{ z }}</option></select>
+    <p class="text-slate-500">Reminders are sent by this time zone. Your browser says <b>{{ S.browserTz }}</b>.</p>
+  </div>` };
+
+const TzPrompt = { setup: () => ({ S, tzMismatch, say }), template: `
+  <div v-if="tzMismatch" class="rounded-xl bg-sky-50 p-3 text-sm text-sky-900">
+    <b>Update time zone?</b> Your device is in {{ S.browserTz }}, Reminders use {{ S.tz }}.
+    <div class="mt-2 flex gap-2"><button class="btn btn-main" @click="S.tz = S.browserTz; say('Time zone updated')">Use {{ S.browserTz }}</button><button class="btn btn-soft" @click="S.tzDismissed = true">Keep {{ S.tz }}</button></div>
+  </div>` };
+
+const CalendarEditor = { setup() { const guide = ref(null); const confirmReset = ref(false); return { S, calLink, say, guide, confirmReset,
+  reset() { S.calendar.secret = Math.random().toString(36).slice(2, 14); confirmReset.value = false; say('New link made. The old link stopped working.'); } }; }, template: `
+  <div class="space-y-3 text-sm">
+    <template v-if="!S.calendar.on">
+      <p>Show your Due dates in Google, Apple or Outlook Calendar. The calendar updates by itself (can take up to a day). No prices or notes are included.</p>
+      <button class="btn btn-main" @click="S.calendar.on = true; say('Calendar link created')">Set up Calendar feed</button>
+    </template>
+    <template v-else>
+      <div class="flex gap-2"><input type="text" readonly :value="calLink" class="font-mono text-xs" /><button class="btn btn-main shrink-0" @click="say('Link copied')">Copy link</button></div>
+      <p class="text-amber-700">Anyone with this link can see your Due dates. Don't share it.</p>
+      <div class="flex flex-wrap gap-2">
+        <button v-for="g in ['Google', 'Apple', 'Outlook']" :class="['chip', guide === g && 'on']" @click="guide = guide === g ? null : g">How to add in {{ g }}</button>
+      </div>
+      <ol v-if="guide === 'Google'" class="list-decimal pl-5 text-slate-600"><li>Open calendar.google.com on a computer.</li><li>Other calendars → + → From URL.</li><li>Paste the link, Add calendar.</li></ol>
+      <ol v-if="guide === 'Apple'" class="list-decimal pl-5 text-slate-600"><li>Settings → Calendar → Accounts → Add Account → Other.</li><li>Add Subscribed Calendar, paste the link.</li></ol>
+      <ol v-if="guide === 'Outlook'" class="list-decimal pl-5 text-slate-600"><li>Outlook.com → Add calendar → Subscribe from web.</li><li>Paste the link, Import.</li></ol>
+      <div v-if="!confirmReset" class="flex gap-2"><button class="btn btn-soft" @click="confirmReset = true">Reset link</button><button class="btn btn-soft" @click="S.calendar.on = false; say('Calendar feed turned off')">Turn off</button></div>
+      <div v-else class="rounded-xl bg-red-50 p-3 text-red-900">The old link stops working. Calendars using it must be set up again with the new one.
+        <div class="mt-2 flex gap-2"><button class="btn btn-red" @click="reset">Reset link</button><button class="btn btn-soft" @click="confirmReset = false">Cancel</button></div></div>
+    </template>
+  </div>` };
+
+const CurrencyEditor = { setup: () => ({ S, CURRENCIES, say }), template: `
+  <div class="space-y-2 text-sm">
+    <div class="flex flex-wrap gap-2"><button v-for="c in CURRENCIES" :class="['chip', S.currency === c && 'on']" @click="S.currency = c; say('Currency: ' + c)">{{ c }}</button></div>
+    <p class="text-slate-500">Used for your Items and Expenses. Amounts are not converted.</p>
+  </div>` };
+
+const EmailChangeEditor = { setup() { const v = ref(''); return { S, v, say, send() { S.account.pendingEmail = v.value; v.value = ''; say('Confirmation sent to ' + S.account.pendingEmail); } }; }, template: `
+  <div class="space-y-2 text-sm">
+    <p v-if="S.account.pendingEmail" class="rounded-xl bg-amber-50 p-2 text-amber-900">Waiting for you to confirm <b>{{ S.account.pendingEmail }}</b>. Until then, {{ S.account.email }} stays in use.</p>
+    <div class="flex gap-2"><input type="email" v-model="v" placeholder="New email" /><button class="btn btn-main shrink-0" :disabled="!v.includes('@')" @click="send">Send link</button></div>
+    <p class="text-slate-500">We email the new address a link. It changes once you click it.</p>
+  </div>` };
+
+const PasswordEditor = { setup() { const a = ref(''), b = ref(''); return { S, a, b, say, save() { S.account.password = true; a.value = b.value = ''; say('Password changed'); } }; }, template: `
+  <div class="space-y-2 text-sm">
+    <input v-if="S.account.password" type="password" v-model="a" placeholder="Current password" />
+    <input type="password" v-model="b" placeholder="New password (8+ characters)" />
+    <button class="btn btn-main" :disabled="b.length < 8 || (S.account.password && !a)" @click="save">{{ S.account.password ? 'Change password' : 'Add a password' }}</button>
+    <p class="text-slate-500">Forgot it? Log out and use "Forgot password".</p>
+  </div>` };
+
+const GoogleEditor = { setup: () => ({ S, say }), template: `
+  <div class="space-y-2 text-sm">
+    <template v-if="S.account.google">
+      <p>You can sign in with Google ({{ S.account.email }}).</p>
+      <button class="btn btn-soft" :disabled="!S.account.password" @click="S.account.google = false; say('Google disconnected')">Disconnect Google</button>
+      <p v-if="!S.account.password" class="text-slate-500">Add a password first, so you can still sign in.</p>
+    </template>
+    <template v-else><button class="btn btn-main" @click="S.account.google = true; say('Google connected')">Connect Google</button></template>
+  </div>` };
+
+const SessionsEditor = { setup: () => ({ say }), template: `
+  <div class="flex flex-wrap gap-2 text-sm">
+    <p class="w-full text-slate-500">Logs you out on every phone and computer, this one too. To log out only here, tap your picture at the top.</p>
+    <button class="btn btn-soft" @click="say('Logged out on all devices (fake)')">Log out everywhere</button>
+  </div>` };
+
+const initials = a => ((a.first.trim()[0] || '') + (a.last.trim()[0] || '')).toUpperCase(); // first name + first surname word only
+const Avatar = { props: ['size'], setup: () => ({ S, initials }), template: `
+  <span :class="['grid shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-600 font-semibold text-white', size === 'lg' ? 'h-16 w-16 text-xl' : 'h-9 w-9 text-sm']">
+    <img v-if="S.account.photo" :src="S.account.photo" class="h-full w-full object-cover" /><template v-else>{{ initials(S.account) }}</template></span>` };
+const ProfileEditor = { components: { Avatar }, setup() { return { S, say,
+  pick(e) { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { S.account.photo = r.result; say('Photo saved (cropped square, 256 px)'); }; r.readAsDataURL(f); } }; }, template: `
+  <div class="space-y-3 text-sm">
+    <div class="flex items-center gap-3"><Avatar size="lg" />
+      <div class="flex flex-wrap gap-2"><label class="btn btn-soft cursor-pointer">{{ S.account.photo ? 'Change photo' : 'Add photo' }}<input type="file" accept="image/*" class="hidden" @change="pick" /></label>
+        <button v-if="S.account.photo" class="btn btn-soft" @click="S.account.photo = null; say('Photo removed')">Remove</button></div></div>
+    <div class="grid grid-cols-2 gap-2"><input type="text" v-model="S.account.first" placeholder="Name" /><input type="text" v-model="S.account.last" placeholder="Surname" /></div>
+    <p class="text-slate-500">No photo? Your initials show instead. Only you see it.</p>
+  </div>` };
+
+const DataCopyEditor = { setup: () => ({ say }), template: `
+  <div class="space-y-2 text-sm">
+    <p>Want a copy of everything we store about you? Email the owner and you'll get it within 30 days.</p>
+    <button class="btn btn-soft" @click="say('Opens your email app to owner@oopsproof.app')">Email owner@oopsproof.app</button>
+  </div>` };
+
+const DeleteEditor = { setup() { const step = ref(0), pw = ref(''), word = ref(''); return { S, step, pw, word, money, say,
+  go() { say('Account deleted (fake). Back to the sign-up screen.'); step.value = 0; pw.value = word.value = ''; } }; }, template: `
+  <div class="space-y-2 text-sm">
+    <template v-if="step === 0">
+      <p>Deletes your account, Personal Items, Expenses, Calendar link and push devices right away. This can't be undone.</p>
+      <button class="btn btn-red" @click="step = 1">Delete account…</button>
+    </template>
+    <div v-else class="space-y-2 rounded-xl bg-red-50 p-3 text-red-900">
+      <input v-if="S.account.password" type="password" v-model="pw" placeholder="Your password" />
+      <button v-else class="btn btn-soft" @click="pw = 'google'">Sign in with Google again</button>
+      <input type="text" v-model="word" placeholder="Type DELETE" />
+      <div class="flex gap-2"><button class="btn btn-red" :disabled="!pw || word !== 'DELETE'" @click="go">Delete forever</button><button class="btn btn-soft" @click="step = 0">Cancel</button></div>
+    </div>
+  </div>` };
+
+const PrivacyEditor = { template: `
+  <div class="space-y-1 text-sm"><a class="text-sky-700 underline" href="#" @click.prevent>Read the privacy notice</a>
+  <p class="text-slate-500">No ads, no tracking, no selling. Inactive accounts are deleted after 12 months (with warnings).</p></div>` };
+
+const EDITORS = { ProfileEditor, DayTimeEditor, PushEditor, EmailEditor, TzEditor, TzPrompt, CalendarEditor, CurrencyEditor, EmailChangeEditor, PasswordEditor, GoogleEditor, SessionsEditor, DataCopyEditor, DeleteEditor, PrivacyEditor };
+
+// what each setting line shows when closed
+const SECTIONS = computed(() => [
+  { k: 'reminders', title: 'Reminders', icon: '🔔', lines: [
+    { k: 'push', label: 'Push', value: pushWorks.value ? `${pushDevices.value.length} device${pushDevices.value.length > 1 ? 's' : ''}` : (canPushHere.value ? 'Off' : 'Needs Home Screen'), ed: 'PushEditor', warn: !pushWorks.value },
+    { k: 'email', label: 'Email', value: S.email ? 'On' : 'Off', ed: 'EmailEditor' },
+    { k: 'daytime', label: 'Day Reminders at', value: S.dayTimeMode === 'fixed' ? '12:00' : S.dayTime, ed: 'DayTimeEditor' },
+    { k: 'tz', label: 'Time zone', value: S.tz.split('/')[1].replace('_', ' '), ed: 'TzEditor', warn: tzMismatch.value },
+  ] },
+  { k: 'calendar', title: 'Calendar', icon: '📅', lines: [
+    { k: 'cal', label: 'Calendar feed', value: S.calendar.on ? 'On' : 'Off', ed: 'CalendarEditor' },
+  ] },
+  { k: 'money', title: 'Money', icon: '💶', lines: [
+    { k: 'cur', label: 'Currency', value: S.currency, ed: 'CurrencyEditor' },
+  ] },
+  { k: 'account', title: 'Account', icon: '👤', lines: [
+    { k: 'profile', label: 'Profile', value: `${S.account.first} ${S.account.last}`, ed: 'ProfileEditor' },
+    { k: 'mail', label: 'Email', value: S.account.email, ed: 'EmailChangeEditor' },
+    { k: 'pw', label: 'Password', value: S.account.password ? '••••••••' : 'Not set', ed: 'PasswordEditor' },
+    { k: 'google', label: 'Google', value: S.account.google ? 'Connected' : 'Not connected', ed: 'GoogleEditor' },
+    { k: 'data', label: 'Copy of my data', value: 'By email', ed: 'DataCopyEditor' },
+    { k: 'sess', label: 'Log out everywhere', value: '', ed: 'SessionsEditor' },
+    { k: 'del', label: 'Delete account', value: '', ed: 'DeleteEditor', red: true },
+  ] },
+  { k: 'privacy', title: 'Privacy', icon: '🔒', lines: [
+    { k: 'priv', label: 'Privacy notice', value: '', ed: 'PrivacyEditor' },
+  ] },
+]);
+
+// app chrome shared by all variants (just the top bar the dashboard decision already fixed)
+const AppBar = { props: ['title', 'back'], emits: ['back'], template: `
+  <div class="sticky top-0 z-10 flex items-center gap-2 border-b bg-white/95 px-4 py-3 backdrop-blur">
+    <button v-if="back" class="-ml-1 px-1 text-xl" @click="$emit('back')">‹</button>
+    <h1 class="text-lg font-semibold">{{ title }}</h1>
+  </div>` };
+
+// ---------- Variant A: one long list, tap a line to edit it below ----------
+const VariantA = { name: 'One long list', components: { ...EDITORS, AppBar }, setup() { const open = ref(null); return { S, SECTIONS, open, isIphone, canPushHere }; }, template: `
+  <div>
+    <AppBar title="Settings" />
+    <div :class="['mx-auto space-y-5 p-3', S.device === 'computer' && 'max-w-xl py-6']">
+      <TzPrompt />
+      <section v-for="s in SECTIONS">
+        <h2 class="px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ s.title }}</h2>
+        <div v-for="l in s.lines">
+          <div :class="['line', open === l.k && 'open']" @click="open = open === l.k ? null : l.k">
+            <span :class="l.red && 'text-red-600'">{{ l.label }}</span>
+            <span class="truncate text-slate-500"><span v-if="l.warn" class="mr-1 text-amber-500">●</span>{{ l.value }} <span class="text-slate-300">›</span></span>
+          </div>
+          <div v-if="open === l.k" class="px-4 pb-3 pt-1"><component :is="l.ed" /></div>
+        </div>
+      </section>
+      <p class="px-4 text-xs text-slate-400">OopsProof · free, no ads</p>
+    </div>
+  </div>` };
+
+// ---------- Variant B: menu, each section its own page (computer: menu left, page right) ----------
+const VariantB = { name: 'Menu + pages', components: { ...EDITORS, AppBar }, setup() {
+  const page = ref(S.device === 'computer' ? 'reminders' : null);
+  const cur = computed(() => SECTIONS.value.find(s => s.k === page.value));
+  const summary = { reminders: () => channelsText.value, calendar: () => S.calendar.on ? 'Feed on' : 'Not set up', money: () => S.currency, account: () => S.account.email, privacy: () => 'Notice, data copy' };
+  const warn = { reminders: () => !pushWorks.value || tzMismatch.value };
+  return { S, SECTIONS, page, cur, summary, warn }; }, template: `
+  <div>
+    <template v-if="S.device === 'phone'">
+      <div v-if="!page">
+        <AppBar title="Settings" />
+        <div class="space-y-1 p-3">
+          <div v-for="s in SECTIONS" class="line" @click="page = s.k">
+            <span class="flex items-center gap-3"><span class="text-xl">{{ s.icon }}</span><span><b class="font-medium">{{ s.title }}</b><br><span class="text-sm text-slate-500">{{ summary[s.k]() }}</span></span></span>
+            <span><span v-if="warn[s.k]?.()" class="mr-1 text-amber-500">●</span><span class="text-slate-300">›</span></span>
+          </div>
+        </div>
+      </div>
+      <div v-else>
+        <AppBar :title="cur.title" back @back="page = null" />
+        <div class="space-y-6 p-4">
+          <TzPrompt v-if="page === 'reminders'" />
+          <div v-for="l in cur.lines"><h3 :class="['mb-2 font-medium', l.red && 'text-red-600']">{{ l.label }}</h3><component :is="l.ed" /></div>
+        </div>
+      </div>
+    </template>
+    <div v-else class="flex min-h-full">
+      <nav class="w-56 shrink-0 space-y-1 border-r bg-slate-50 p-3">
+        <h1 class="px-3 pb-2 text-lg font-semibold">Settings</h1>
+        <div v-for="s in SECTIONS" :class="['line', page === s.k && 'open']" @click="page = s.k">
+          <span class="flex items-center gap-2">{{ s.icon }} {{ s.title }}</span><span v-if="warn[s.k]?.()" class="text-amber-500">●</span>
+        </div>
+      </nav>
+      <div class="max-w-xl flex-1 space-y-6 p-6">
+        <h2 class="text-xl font-semibold">{{ cur.title }}</h2>
+        <TzPrompt v-if="page === 'reminders'" />
+        <div v-for="l in cur.lines"><h3 :class="['mb-2 font-medium', l.red && 'text-red-600']">{{ l.label }}</h3><component :is="l.ed" /></div>
+      </div>
+    </div>
+  </div>` };
+
+// ---------- Variant C: check-up first, then folded groups ----------
+const VariantC = { name: 'Check-up first', components: { ...EDITORS, AppBar }, setup() {
+  const fold = ref(null), fixing = ref(null);
+  const issues = computed(() => [
+    !pushWorks.value && { k: 'push', text: canPushHere.value ? 'Push is off on this device' : 'Add OopsProof to your Home Screen to get push', ed: 'PushEditor' },
+    tzMismatch.value && { k: 'tz', text: `Your device moved to ${S.browserTz}`, ed: 'TzPrompt' },
+    !S.calendar.on && { k: 'cal', text: 'Optional: see Due dates in your calendar', ed: 'CalendarEditor', soft: true },
+  ].filter(Boolean));
+  return { S, SECTIONS, fold, fixing, issues, channelsText, dayTimeText }; }, template: `
+  <div>
+    <AppBar title="Settings" />
+    <div :class="['mx-auto space-y-4 p-3', S.device === 'computer' && 'max-w-2xl py-6']">
+      <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <p class="text-sm text-slate-500">Your Reminders reach you by</p>
+        <p class="text-lg font-semibold">{{ channelsText }}</p>
+        <p class="text-sm text-slate-500">Day Reminders at {{ dayTimeText }} · {{ S.tz }}</p>
+        <div class="mt-3 space-y-2">
+          <div v-for="i in issues" :class="['rounded-xl p-3 text-sm', i.soft ? 'bg-slate-50' : 'bg-amber-50']">
+            <div class="flex items-center justify-between gap-2"><span>{{ i.soft ? '○' : '⚠️' }} {{ i.text }}</span>
+              <button class="btn btn-soft shrink-0" @click="fixing = fixing === i.k ? null : i.k">{{ fixing === i.k ? 'Close' : (i.soft ? 'Set up' : 'Fix') }}</button></div>
+            <div v-if="fixing === i.k" class="mt-3"><component :is="i.ed" /></div>
+          </div>
+          <p v-if="!issues.length" class="text-sm text-emerald-700">✓ All good.</p>
+        </div>
+      </div>
+      <div :class="S.device === 'computer' && 'grid grid-cols-2 gap-4 items-start'">
+        <div v-for="s in SECTIONS" class="mb-3 rounded-2xl bg-white ring-1 ring-slate-200">
+          <button class="flex w-full items-center justify-between px-4 py-3 font-medium" @click="fold = fold === s.k ? null : s.k">
+            <span>{{ s.icon }} {{ s.title }}</span><span class="text-slate-400">{{ fold === s.k ? '−' : '+' }}</span></button>
+          <div v-if="fold === s.k" class="space-y-5 border-t px-4 py-4">
+            <div v-for="l in s.lines"><h3 :class="['mb-2 text-sm font-medium', l.red && 'text-red-600']">{{ l.label }}</h3><component :is="l.ed" /></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>` };
+
+// ---------- Variant F (FINAL): dashboard top bar with gear + avatar; gear opens A's list as its own page ----------
+const VariantF = { name: 'Final', components: { ...EDITORS, AppBar, Avatar }, setup() {
+  const page = ref('home'), open = ref(null), menu = ref(false);
+  const problem = computed(() => !pushWorks.value || tzMismatch.value);
+  return { S, SECTIONS, page, open, menu, problem, say }; }, template: `
+  <div class="h-full">
+    <div v-if="page === 'home'" class="relative h-full">
+      <header class="border-b px-4 pb-3 pt-5">
+        <div class="flex items-center justify-between"><h1 class="text-2xl font-bold">OopsProof</h1>
+          <div class="relative flex items-center gap-2">
+            <button class="relative grid h-9 w-9 place-items-center rounded-full text-xl hover:bg-slate-100" title="Settings" @click="page = 'settings'">⚙︎
+              <span v-if="problem" class="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white"></span></button>
+            <button @click="menu = !menu"><Avatar /></button>
+            <div v-if="menu" class="absolute right-0 top-11 z-20 w-36 rounded-xl border bg-white py-1 shadow-lg">
+              <button class="w-full px-3 py-2 text-left text-sm hover:bg-slate-50" @click="menu = false; say('Logged out (fake)')">Log out</button></div>
+          </div></div>
+        <div class="mt-3 flex justify-end"><div class="inline-flex rounded-full bg-slate-100 p-1 text-sm"><span class="rounded-full bg-white px-3 py-1 shadow">☰ List</span><span class="px-3 py-1 text-slate-500">▦ Calendar</span></div></div>
+      </header>
+      <div class="grid h-64 place-items-center px-8 text-center text-sm text-slate-400" @click="menu = false">Item list as in the dashboard and Item details prototypes. No All / Personal / Shared filter: everything is yours.</div>
+      <button v-if="S.device === 'phone'" class="absolute bottom-6 right-5 h-14 w-14 rounded-full bg-slate-900 text-3xl text-white shadow-lg" @click="say('Opens the add-Item form')">+</button>
+    </div>
+    <div v-else>
+      <AppBar title="Settings" back @back="page = 'home'; open = null" />
+      <div :class="['mx-auto space-y-5 p-3', S.device === 'computer' && 'max-w-xl py-6']">
+        <TzPrompt />
+        <section v-for="s in SECTIONS">
+          <h2 class="px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ s.title }}</h2>
+          <div v-for="l in s.lines">
+            <div :class="['line', open === l.k && 'open']" @click="open = open === l.k ? null : l.k">
+              <span :class="l.red && 'text-red-600'">{{ l.label }}</span>
+              <span class="truncate text-slate-500"><span v-if="l.warn" class="mr-1 text-amber-500">●</span>{{ l.value }} <span class="text-slate-300">›</span></span>
+            </div>
+            <div v-if="open === l.k" class="px-4 pb-3 pt-1"><component :is="l.ed" /></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>` };
+
+const VARIANTS = { F: VariantF, A: VariantA, B: VariantB, C: VariantC };
+const KEYS = Object.keys(VARIANTS);
+
+// ---------- floating switcher (not part of the design) ----------
+const Switcher = { setup() {
+  const setUrl = () => { const p = new URLSearchParams({ variant: S.variant, device: S.device, situation: S.situation, daytime: S.dayTimeMode }); history.replaceState(null, '', '?' + p); };
+  const step = d => { S.variant = KEYS[(KEYS.indexOf(S.variant) + d + KEYS.length) % KEYS.length]; setUrl(); };
+  addEventListener('keydown', e => { if (e.target.closest('input,textarea,select,[contenteditable]')) return; if (e.key === 'ArrowLeft') step(-1); if (e.key === 'ArrowRight') step(1); });
+  return { S, step, setUrl, VARIANTS, KEYS }; }, template: `
+  <div class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-2xl bg-fuchsia-700 px-3 py-2 text-sm text-white shadow-2xl">
+    <button class="px-2 text-lg" @click="step(-1)">←</button>
+    <span class="min-w-[150px] text-center font-semibold">{{ S.variant }} ({{ VARIANTS[S.variant].name }})</span>
+    <button class="px-2 text-lg" @click="step(1)">→</button>
+    <select class="!w-auto !border-0 !bg-fuchsia-800 !py-1 text-white" v-model="S.device" @change="setUrl">
+      <option value="phone">Phone</option><option value="computer">Computer</option></select>
+    <select class="!w-auto !border-0 !bg-fuchsia-800 !py-1 text-white" v-model="S.situation" @change="S.pushHere = false; setUrl()">
+      <option value="iphone-web">iPhone, not installed</option><option value="iphone-app">iPhone, installed</option><option value="android">Android</option><option value="computer">Computer</option></select>
+    <select class="!w-auto !border-0 !bg-fuchsia-800 !py-1 text-white" v-model="S.dayTimeMode" @change="setUrl">
+      <option value="fixed">Day Reminders: fixed 12:00</option><option value="setting">Day Reminders: own time</option></select>
+  </div>` };
+
+createApp({ components: { Switcher }, setup: () => ({ S, VARIANTS }), template: `
+  <div class="flex min-h-screen items-start justify-center p-4 pb-32">
+    <div :class="['frame relative overflow-y-auto bg-white shadow-xl', S.device === 'phone' ? 'h-[780px] w-[390px] rounded-[2rem]' : 'h-[720px] w-[1000px] rounded-xl']">
+      <component :is="VARIANTS[S.variant]" :key="S.variant + S.device" />
+      <div v-if="S.toast" class="sticky bottom-4 mx-auto w-fit rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">{{ S.toast }}</div>
+    </div>
+    <div class="ml-4 hidden w-56 text-xs text-slate-500 xl:block">
+      <p class="mb-1 font-semibold text-slate-700">State</p>
+      <pre class="whitespace-pre-wrap">push devices: {{ (S.pushHere ? 1 : 0) + S.devices.length }}
+email: {{ S.email }}
+day time: {{ S.dayTimeMode === 'fixed' ? '12:00 fixed' : S.dayTime }}
+time zone: {{ S.tz }} (device {{ S.browserTz }})
+calendar: {{ S.calendar.on ? S.calendar.secret : 'off' }}
+currency: {{ S.currency }}
+email pending: {{ S.account.pendingEmail || '—' }}</pre>
+      <p class="mb-1 mt-3 font-semibold text-slate-700">Last actions</p>
+      <p v-for="l in S.log">{{ l }}</p>
+    </div>
+    <Switcher />
+  </div>` }).mount('#app');
+</script>
+</body>
+</html>
