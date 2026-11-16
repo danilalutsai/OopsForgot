@@ -70,14 +70,30 @@ const CATEGORIES = {
   'Travel': { color: 'bg-cyan-100 text-cyan-700', icon: '✈️' }, 'Other': { color: 'bg-slate-100 text-slate-700', icon: '•' },
 };
 const REMINDER_OPTS = [
-  { k: '30m', label: '30 min before', time: true }, { k: '1h', label: '1 hour before', time: true },
-  { k: '2h', label: '2 hours before', time: true }, { k: '4h', label: '4 hours before', time: true },
-  { k: '1d', label: '1 day before' }, { k: '2d', label: '2 days before' }, { k: '1w', label: '1 week before' },
-  { k: '2w', label: '2 weeks before', once: true }, { k: '1mo', label: '1 month before', once: true },
+  { k: '30m', label: '30 min before', hours: 0.5 }, { k: '1h', label: '1 hour before', hours: 1 },
+  { k: '2h', label: '2 hours before', hours: 2 }, { k: '4h', label: '4 hours before', hours: 4 },
+  { k: '1d', label: '1 day before', days: 1 }, { k: '2d', label: '2 days before', days: 2 }, { k: '1w', label: '1 week before', days: 7 },
+  { k: '2w', label: '2 weeks before', days: 14 }, { k: '1mo', label: '1 month before', days: 30 },
 ];
-// hour Reminders need a time; 2 weeks / 1 month only for one-time Items; weekly Items stop at 2 days (1 week would hit the previous Due date)
-const remAllowed = (o, f) => !(o.time && !f.time) && !(o.once && f.recur) && !(f.recur === 'weekly' && o.k === '1w');
-const remHint = f => f.recur === 'weekly' ? 'Weekly Items can remind up to 2 days before.' : f.recur ? 'Repeating Items can remind up to 1 week before.' : '';
+REMINDER_OPTS.forEach(o => { o.time = !!o.hours; });
+// A Reminder must fit inside the time the Item covers:
+// - hour Reminders need a time; day Reminders go out at 12:00
+// - a repeating Item's Reminder must come after its previous Due date (shorter than one repeat: weekly 7, monthly 28, yearly 365 days)
+// - a one-time Item's Reminder must still be ahead of now
+const REPEAT_DAYS = { weekly: 7, monthly: 28, yearly: 365 };
+const DAY_REMINDER_HOUR = 12;
+function reminderMoment(o, f) {
+  const due = new Date(f.due + 'T' + (f.time || '00:00'));
+  if (o.hours) return new Date(due.getTime() - o.hours * 3600000);
+  const d = new Date(f.due + 'T00:00'); d.setDate(d.getDate() - o.days); d.setHours(DAY_REMINDER_HOUR); return d;
+}
+const remAllowed = (o, f) => {
+  if (o.hours && !f.time) return false;
+  if (f.recur) return (o.days || 0) < REPEAT_DAYS[f.recur];
+  return reminderMoment(o, f) > new Date();
+};
+const remHint = f => f.recur === 'weekly' ? 'Every week: up to 2 days before.' : f.recur === 'monthly' ? 'Every month: up to 2 weeks before.'
+  : f.recur === 'yearly' ? 'Every year: up to 1 month before.' : 'Only Reminders that are still ahead can be picked.';
 const remLabel = k => REMINDER_OPTS.find(o => o.k === k)?.label;
 const DAY_REMINDER_TIME = '12:00';
 const hasDayReminder = r => r.some(k => !REMINDER_OPTS.find(o => o.k === k)?.time);
