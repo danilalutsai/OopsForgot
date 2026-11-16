@@ -66,7 +66,7 @@ const seed = [
 ].map(i => ({ id: nextId++, recur: '', time: null, price: null, shared: false, owners: ['You'], for: null, handledBy: null,
   reminders: ['day'], notes: '', remind: 'family', archived: false, lastChangedBy: null, ...i, due: plus(i.due) }));
 
-const store = reactive({ items: seed, toast: null, log: [] });
+const store = reactive({ items: seed, toast: null, log: [], filter: 'all', view: new URLSearchParams(location.search).get('view') || 'list', calMode: 'week', cursor: new Date(today), picked: new Date(today) });
 const log = msg => { store.log.unshift(msg); store.log.length = Math.min(store.log.length, 8); };
 const toast = (text, undo) => { store.toast = { text, undo }; setTimeout(() => { if (store.toast?.text === text) store.toast = null; }, 4000); };
 
@@ -83,7 +83,7 @@ function countdown(i) {
   return `Due in ${d} day${d === 1 ? '' : 's'}`;
 }
 const group = i => daysTo(i.due) <= 0 ? 'today' : daysTo(i.due) <= 7 ? 'week' : 'later';
-const active = computed(() => store.items.filter(i => !i.archived).sort((a, b) => a.due - b.due));
+const active = computed(() => store.items.filter(i => !i.archived && (store.filter === 'all' || (store.filter === 'mine' ? !i.shared : i.shared))).sort((a, b) => a.due - b.due));
 const archived = computed(() => store.items.filter(i => i.archived));
 
 // ---------- actions (same rules in every variant) ----------
@@ -112,37 +112,86 @@ const A = {
 const formFrom = i => ({ name: i.name, category: i.category, due: isoDate(i.due), time: i.time || '', recur: i.recur, price: i.price ? (i.price / 100).toFixed(2) : '',
   shared: i.shared, owners: [...i.owners], for: i.for, remind: i.remind, notes: i.notes, reminders: [...i.reminders] });
 
+// The lines of the Item sheet, in order; Shared-only lines last.
+const sheetLines = i => [
+  { k: 'due', label: 'Due date', value: fmt(i.due, { weekday: 'short', day: 'numeric', month: 'long' }) },
+  { k: 'time', label: 'Time', value: i.time || 'No time' },
+  { k: 'recur', label: 'Repeats', value: RECUR[i.recur] },
+  { k: 'rem', label: 'Reminders', value: i.reminders.map(remLabel).join(', ') || 'None' },
+  { k: 'price', label: 'Price', value: i.price ? money(i.price) : 'Add price' },
+  { k: 'cat', label: 'Category', value: CATEGORIES[i.category].icon + ' ' + i.category },
+  ...(i.shared ? [
+    { k: 'owners', label: 'Owners', value: i.owners.join(', ') },
+    { k: 'for', label: 'For', value: i.for || 'Nobody in particular' },
+    { k: 'remind', label: 'Remind', value: i.remind === 'owners' ? 'Owners only' : 'Whole family' }] : []),
+  { k: 'notes', label: 'Notes', value: i.notes || 'Add notes' },
+];
 const startOpen = () => store.items.find(i => String(i.id) === new URLSearchParams(location.search).get('open'));
 const H = { CATEGORIES, REMINDER_OPTS, RECUR, MEMBERS, DEPENDENTS, store, active, archived, fmt, longDate, money, daysTo, isoDate, remLabel,
-  isExpired, isTrialDay, canRemove, dayColor, countdown, group, A, formFrom, today };
+  isExpired, isTrialDay, canRemove, sheetLines, dayColor, countdown, group, A, formFrom, today };
 
 // ---------- shared pieces ----------
 const CatBadge = { props: ['c', 'size'], setup: () => H,
   template: `<span :class="[CATEGORIES[c].color, size==='lg' ? 'w-14 h-14 text-3xl' : 'w-9 h-9 text-lg']" class="rounded-xl grid place-items-center shrink-0">{{ CATEGORIES[c].icon }}</span>` };
 
-// The chosen dashboard list (variant D), reduced: groups, colour bar, in-place Handled.
-const ItemList = { props: ['selected'], emits: ['pick'], components: { CatBadge }, setup() {
+// One list row of the chosen dashboard (variant D): colour bar, countdown, in-place Handled.
+const ListRow = { props: ['i', 'selected'], emits: ['pick'], components: { CatBadge }, setup: () => H,
+  template: `<div @click="$emit('pick', i)" :class="selected===i ? 'bg-slate-100' : ''" class="flex items-center gap-3 pr-4 py-2.5 cursor-pointer">
+    <span :class="dayColor(daysTo(i.due), i.handledBy).bar" class="w-1.5 self-stretch rounded-r-full"></span>
+    <CatBadge :c="i.category" />
+    <div class="flex-1 min-w-0">
+      <div class="font-medium truncate" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
+      <div class="text-xs truncate" :class="dayColor(daysTo(i.due), i.handledBy).text">{{ countdown(i) }}<span class="text-slate-400"> · Due {{ fmt(i.due) }}<span v-if="i.shared"> · 👥 {{ i.owners.join(', ') }}</span></span></div>
+    </div>
+    <span v-if="isExpired(i) || isTrialDay(i)" class="text-[10px] bg-red-600 text-white rounded-full px-2 py-0.5">{{ isTrialDay(i) ? 'Kept it?' : 'What now?' }}</span>
+    <button v-else @click.stop="A.handled(i)" :class="i.handledBy ? 'bg-slate-100 text-slate-500' : 'border'" class="text-xs rounded-full px-2.5 py-1 shrink-0">{{ i.handledBy ? 'Undo' : 'Handled' }}</button>
+  </div>` };
+
+// The chosen dashboard (variant D): List (Today / This week / Later) or Calendar (week / month, one dot per Due date).
+const ItemList = { props: ['selected'], emits: ['pick'], components: { CatBadge, ListRow }, setup() {
     const showArchived = ref(false);
     const groups = computed(() => [['today', 'Today', 'bg-red-500'], ['week', 'This week', 'bg-amber-400'], ['later', 'Later', 'bg-emerald-500']]
       .map(([k, label, dot]) => ({ k, label, dot, items: active.value.filter(i => group(i) === k) })));
-    return { ...H, groups, showArchived };
+    const sameDay = (a, b) => a.toDateString() === b.toDateString();
+    const on = d => active.value.filter(i => sameDay(i.due, d));
+    const weekDays = computed(() => { const s = new Date(store.cursor); s.setDate(s.getDate() - (s.getDay() + 6) % 7); return Array.from({ length: 7 }, (_, n) => new Date(s.getFullYear(), s.getMonth(), s.getDate() + n)); });
+    const monthDays = computed(() => { const m = new Date(store.cursor.getFullYear(), store.cursor.getMonth(), 1); return Array.from({ length: 42 }, (_, n) => new Date(m.getFullYear(), m.getMonth(), n - (m.getDay() + 6) % 7 + 1)); });
+    const calTitle = computed(() => store.calMode === 'month' ? fmt(store.cursor, { month: 'long', year: 'numeric' }) : `${fmt(weekDays.value[0])} – ${fmt(weekDays.value[6])}`);
+    const move = n => { const c = new Date(store.cursor); store.calMode === 'month' ? c.setMonth(c.getMonth() + n, 1) : c.setDate(c.getDate() + 7 * n); store.cursor = c; };
+    const goToday = () => { store.cursor = new Date(today); store.picked = new Date(today); };
+    return { ...H, groups, showArchived, sameDay, on, weekDays, monthDays, calTitle, move, goToday };
   },
   template: `<div>
-    <section v-for="g in groups" :key="g.k">
-      <h2 class="px-4 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide flex items-center gap-2"><span :class="g.dot" class="w-2 h-2 rounded-full"></span>{{ g.label }} <span class="text-slate-400">{{ g.items.length }}</span></h2>
-      <template v-for="i in g.items" :key="i.id"><slot name="row" :i="i">
-        <div @click="$emit('pick', i)" :class="selected===i ? 'bg-slate-100' : ''" class="flex items-center gap-3 pr-4 py-2.5 cursor-pointer">
-          <span :class="dayColor(daysTo(i.due), i.handledBy).bar" class="w-1.5 self-stretch rounded-r-full"></span>
-          <CatBadge :c="i.category" />
-          <div class="flex-1 min-w-0">
-            <div class="font-medium truncate" :class="i.handledBy ? 'line-through text-slate-400' : ''">{{ i.name }}</div>
-            <div class="text-xs truncate" :class="dayColor(daysTo(i.due), i.handledBy).text">{{ countdown(i) }}<span class="text-slate-400"> · Due {{ fmt(i.due) }}<span v-if="i.shared"> · 👥 {{ i.owners.join(', ') }}</span></span></div>
-          </div>
-          <span v-if="isExpired(i) || isTrialDay(i)" class="text-[10px] bg-red-600 text-white rounded-full px-2 py-0.5">{{ isTrialDay(i) ? 'Kept it?' : 'What now?' }}</span>
-          <button v-else @click.stop="A.handled(i)" :class="i.handledBy ? 'bg-slate-100 text-slate-500' : 'border'" class="text-xs rounded-full px-2.5 py-1 shrink-0">{{ i.handledBy ? 'Undo' : 'Handled' }}</button>
-        </div>
-      </slot></template>
-    </section>
+    <template v-if="store.view==='list'">
+      <section v-for="g in groups" :key="g.k">
+        <h2 class="px-4 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide flex items-center gap-2"><span :class="g.dot" class="w-2 h-2 rounded-full"></span>{{ g.label }} <span class="text-slate-400">{{ g.items.length }}</span></h2>
+        <div v-if="!g.items.length" class="px-4 py-2 text-sm text-slate-400">Nothing here</div>
+        <template v-for="i in g.items" :key="i.id"><slot name="row" :i="i"><ListRow :i="i" :selected="selected" @pick="$emit('pick', $event)" /></slot></template>
+      </section>
+    </template>
+    <template v-else>
+      <div class="px-4 pt-3 flex items-center gap-2">
+        <button @click="move(-1)" class="w-8 h-8 rounded-full border">‹</button>
+        <div class="font-semibold flex-1 text-center">{{ calTitle }}</div>
+        <button @click="move(1)" class="w-8 h-8 rounded-full border">›</button></div>
+      <div class="px-4 pt-2 flex items-center justify-between text-sm">
+        <button @click="goToday" class="text-slate-500 underline">Today</button>
+        <div class="inline-flex bg-slate-100 rounded-full p-1">
+          <button v-for="m in [['week','Week'],['month','Month']]" @click="store.calMode=m[0]" :class="store.calMode===m[0] ? 'bg-white shadow' : 'text-slate-500'" class="px-3 py-0.5 rounded-full">{{ m[1] }}</button></div></div>
+      <div class="px-2 pt-3">
+        <div class="grid grid-cols-7 text-center text-[11px] text-slate-400 mb-1"><span v-for="w in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']">{{ w }}</span></div>
+        <div class="grid grid-cols-7 gap-1">
+          <button v-for="d in (store.calMode==='week' ? weekDays : monthDays)" @click="store.picked=d"
+            :class="[sameDay(d,store.picked) ? 'bg-slate-900 text-white' : sameDay(d,today) ? 'ring-1 ring-slate-900' : 'bg-slate-50',
+                     store.calMode==='month' && d.getMonth()!==store.cursor.getMonth() ? 'opacity-30' : '', store.calMode==='week' ? 'min-h-20' : 'min-h-12']"
+            class="rounded-xl p-1 flex flex-col items-center">
+            <span class="text-sm font-medium">{{ d.getDate() }}</span>
+            <span class="flex flex-wrap justify-center gap-0.5 mt-1"><span v-for="i in on(d).slice(0,6)" :class="dayColor(daysTo(i.due), i.handledBy).bar" class="w-2.5 h-2.5 rounded-full"></span></span>
+          </button></div></div>
+      <h3 class="px-4 pt-5 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ sameDay(store.picked,today) ? 'Today' : fmt(store.picked,{weekday:'long', day:'numeric', month:'long'}) }}</h3>
+      <div v-if="!on(store.picked).length" class="px-4 py-2 text-sm text-slate-400">Nothing on this day</div>
+      <template v-for="i in on(store.picked)" :key="i.id"><slot name="row" :i="i"><ListRow :i="i" :selected="selected" @pick="$emit('pick', $event)" /></slot></template>
+    </template>
     <button @click="showArchived=!showArchived" class="mx-4 mt-6 text-sm text-slate-500 underline">Archived ({{ archived.length }})</button>
     <div v-if="showArchived" class="mx-4 mt-2 space-y-1">
       <div v-for="i in archived" :key="i.id" class="flex items-center justify-between text-sm text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
@@ -213,11 +262,19 @@ const Facts = { props: ['i'], setup: () => H,
     <div v-if="i.lastChangedBy" class="py-2.5 text-xs text-slate-400">Last changed by {{ i.lastChangedBy }}</div>
   </dl>` };
 
-const Shell = { props: ['title'], emits: ['add'],
+const Shell = { props: ['title'], emits: ['add'], setup() { const filterOpen = ref(false); return { store, filterOpen, FILTERS: { all: 'All', mine: 'Personal', family: 'Shared' } }; },
   template: `<div class="h-full flex bg-white">
     <div class="flex-1 @3xl:max-w-md @3xl:border-r h-full overflow-y-auto pb-28">
-      <header class="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 pt-5 pb-3 border-b flex justify-between items-center">
-        <h1 class="text-2xl font-bold">OopsProof</h1><span class="text-xs text-slate-400">{{ title }}</span></header>
+      <header class="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 pt-5 pb-3 border-b">
+        <div class="flex justify-between items-center"><h1 class="text-2xl font-bold">OopsProof</h1><span class="text-xs text-slate-400">{{ title }}</span></div>
+        <div class="mt-3 flex items-center gap-2">
+          <div class="relative">
+            <button @click="filterOpen=!filterOpen" class="border rounded-full px-3 py-1.5 text-sm">{{ FILTERS[store.filter] }} ▾</button>
+            <div v-if="filterOpen" class="absolute left-0 mt-1 w-36 bg-white border rounded-xl shadow-lg py-1 z-20">
+              <button v-for="(label,k) in FILTERS" @click="store.filter=k; filterOpen=false" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50">{{ store.filter===k ? '✓ ' : '' }}{{ label }}</button></div></div>
+          <div class="inline-flex bg-slate-100 rounded-full p-1 text-sm ml-auto">
+            <button v-for="v in [['list','☰ List'],['calendar','▦ Calendar']]" @click="store.view=v[0]" :class="store.view===v[0] ? 'bg-white shadow' : 'text-slate-500'" class="px-3 py-1 rounded-full">{{ v[1] }}</button></div>
+        </div></header>
       <slot name="list" /></div>
     <aside class="hidden @3xl:block flex-1 h-full overflow-y-auto bg-slate-50 p-8"><slot name="panel" /></aside>
     <slot name="overlay" />
@@ -278,9 +335,10 @@ const VariantY = { name: 'Sheet, tap to edit', components: { Shell, ItemList, Ca
     const pick = i => { open.value = i; field.value = null; confirmDel.value = false; };
     const startEdit = k => { field.value = k; draft.value = formFrom(open.value); };
     const commit = () => { A.save(open.value, draft.value); field.value = null; };
+    const toggle = k => { if (field.value === k) return commit(); if (field.value) commit(); startEdit(k); };
     watch(() => open.value && (open.value.archived || !store.items.includes(open.value)), gone => gone && (open.value = null));
     if (startOpen()) open.value = startOpen();
-    const ctx = { ...H, open, field, draft, confirmDel, pick, startEdit, commit, look: 'card', editing: ref(null), withEdit: false };
+    const ctx = { ...H, open, field, draft, confirmDel, pick, startEdit, commit, toggle, look: 'card', editing: ref(null), withEdit: false };
     provide('sheet', ctx);
     return ctx;
   },
@@ -299,35 +357,34 @@ VariantY.components.YBody = { components: { CatBadge, Question, EditForm }, setu
     <div v-if="withEdit" class="flex justify-end -mt-2 mb-2"><button @click="editing = formFrom(open)" class="text-sm font-medium border rounded-full px-3 py-1">Edit</button></div>
     <Question :i="open" :look="look" class="mb-4" />
     <div class="flex items-center gap-3 mb-1"><CatBadge :c="open.category" />
-      <input v-if="field==='name'" v-model="draft.name" @keydown.enter="commit" @blur="commit" class="flex-1 text-xl font-bold border-b-2 border-slate-900 outline-none" />
-      <h2 v-else @click="startEdit('name')" class="flex-1 text-xl font-bold cursor-text">{{ open.name }}</h2></div>
+      <input v-if="field==='name'" v-model="draft.name" @keydown.enter="commit" class="flex-1 min-w-0 text-xl font-bold border-b-2 border-slate-900 outline-none" />
+      <h2 v-else @click="toggle('name')" class="flex-1 text-xl font-bold cursor-text">{{ open.name }}</h2>
+      <button v-if="field==='name'" @click="commit" class="text-sm bg-slate-900 text-white rounded-lg px-3 py-1">OK</button></div>
     <div class="text-sm mb-4" :class="dayColor(daysTo(open.due), open.handledBy).text">{{ countdown(open) }}</div>
-    <div class="text-xs text-slate-400 mb-1">Tap a line to change it</div>
+    <div class="text-xs text-slate-400 mb-1">Tap a line to change it. Tap it again to close.</div>
     <div class="divide-y border rounded-2xl text-sm">
-      <div @click="field!=='due' && startEdit('due')" class="px-4 py-3 flex justify-between items-center gap-3"><span class="text-slate-500">Due date</span>
-        <span v-if="field==='due'" class="flex gap-2"><input type="date" v-model="draft.due" class="border rounded-lg px-2 py-1" /><input type="time" v-model="draft.time" class="border rounded-lg px-2 py-1 w-24" /><button @click.stop="commit" class="bg-slate-900 text-white rounded-lg px-3">OK</button></span>
-        <span v-else>{{ fmt(open.due, {weekday:'short', day:'numeric', month:'long'}) }}<span v-if="open.time">{{ ' ' + open.time }}</span> ›</span></div>
-      <div @click="field!=='recur' && startEdit('recur')" class="px-4 py-3 flex justify-between items-center"><span class="text-slate-500">Repeats</span>
-        <select v-if="field==='recur'" v-model="draft.recur" @change="commit" class="border rounded-lg px-2 py-1 bg-white"><option v-for="(l,k) in RECUR" :value="k">{{ l }}</option></select>
-        <span v-else>{{ RECUR[open.recur] }} ›</span></div>
-      <div @click="field!=='rem' && startEdit('rem')" class="px-4 py-3"><div class="flex justify-between"><span class="text-slate-500">Reminders</span><span v-if="field!=='rem'" class="text-right">{{ open.reminders.map(remLabel).join(', ') || 'None' }} ›</span></div>
-        <div v-if="field==='rem'" class="mt-2 flex flex-wrap gap-1.5">
-          <button v-for="o in REMINDER_OPTS" :disabled="o.time && !draft.time" @click.stop="draft.reminders.includes(o.k) ? draft.reminders.splice(draft.reminders.indexOf(o.k),1) : draft.reminders.push(o.k)"
-            :class="draft.reminders.includes(o.k) ? 'bg-slate-900 text-white' : 'bg-slate-50'" class="px-2.5 py-1 rounded-full text-xs disabled:opacity-30">{{ o.label }}</button>
-          <button @click.stop="commit" class="ml-auto bg-slate-900 text-white rounded-lg px-3 text-xs">Done</button></div></div>
-      <div @click="field!=='price' && startEdit('price')" class="px-4 py-3 flex justify-between items-center"><span class="text-slate-500">Price</span>
-        <input v-if="field==='price'" v-model="draft.price" @keydown.enter="commit" @blur="commit" inputmode="decimal" class="border rounded-lg px-2 py-1 w-28 text-right" />
-        <span v-else>{{ open.price ? money(open.price) : 'Add price' }} ›</span></div>
-      <div @click="field!=='cat' && startEdit('cat')" class="px-4 py-3"><div class="flex justify-between"><span class="text-slate-500">Category</span><span v-if="field!=='cat'">{{ CATEGORIES[open.category].icon }} {{ open.category }} ›</span></div>
-        <div v-if="field==='cat'" class="mt-2 flex flex-wrap gap-1.5"><button v-for="(v,k) in CATEGORIES" @click.stop="draft.category=k; commit()" :class="v.color" class="px-2.5 py-1 rounded-full text-xs">{{ v.icon }} {{ k }}</button></div></div>
-      <template v-if="open.shared">
-        <div @click="field!=='owners' && startEdit('owners')" class="px-4 py-3"><div class="flex justify-between"><span class="text-slate-500">Owners</span><span v-if="field!=='owners'">{{ open.owners.join(', ') }} ›</span></div>
-          <div v-if="field==='owners'" class="mt-2 flex gap-1.5"><button v-for="m in MEMBERS" @click.stop="draft.owners.includes(m) ? (draft.owners.length>1 && draft.owners.splice(draft.owners.indexOf(m),1)) : draft.owners.push(m)" :class="draft.owners.includes(m) ? 'bg-slate-900 text-white' : 'bg-slate-50'" class="px-2.5 py-1 rounded-full text-xs">{{ m }}</button><button @click.stop="commit" class="ml-auto bg-slate-900 text-white rounded-lg px-3 text-xs">Done</button></div></div>
-        <div class="px-4 py-3 flex justify-between"><span class="text-slate-500">For</span><span>{{ open.for || 'Nobody in particular' }}</span></div>
-      </template>
-      <div @click="field!=='notes' && startEdit('notes')" class="px-4 py-3"><div class="text-slate-500">Notes</div>
-        <textarea v-if="field==='notes'" v-model="draft.notes" @blur="commit" class="mt-1 w-full border rounded-lg px-2 py-1"></textarea>
-        <div v-else class="mt-1">{{ open.notes || 'Add notes' }}</div></div>
+      <div v-for="ln in sheetLines(open)" :key="ln.k" :class="field===ln.k ? 'bg-slate-50' : ''">
+        <button @click="toggle(ln.k)" class="w-full px-4 py-3 flex justify-between items-center gap-3 text-left">
+          <span class="text-slate-500 shrink-0" :class="field===ln.k ? 'font-semibold text-slate-900' : ''">{{ ln.label }}</span>
+          <span class="flex items-center gap-1 min-w-0"><span class="truncate">{{ ln.value }}</span>
+            <span class="text-slate-400 transition-transform" :class="field===ln.k ? 'rotate-90' : ''">›</span></span></button>
+        <div v-if="field===ln.k" class="px-4 pb-3">
+          <input v-if="ln.k==='due'" type="date" v-model="draft.due" class="w-full border rounded-lg px-3 py-2 bg-white" />
+          <div v-else-if="ln.k==='time'" class="flex gap-2"><input type="time" v-model="draft.time" class="flex-1 min-w-0 border rounded-lg px-3 py-2 bg-white" /><button @click="draft.time=''" class="border rounded-lg px-3 bg-white">No time</button></div>
+          <div v-else-if="ln.k==='recur'" class="flex flex-wrap gap-1.5"><button v-for="(l,k) in RECUR" @click="draft.recur=k; commit()" :class="draft.recur===k ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ l }}</button></div>
+          <div v-else-if="ln.k==='rem'"><div class="flex flex-wrap gap-1.5">
+            <button v-for="o in REMINDER_OPTS" :disabled="o.time && !draft.time" @click="draft.reminders.includes(o.k) ? draft.reminders.splice(draft.reminders.indexOf(o.k),1) : draft.reminders.push(o.k)"
+              :class="draft.reminders.includes(o.k) && !(o.time && !draft.time) ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-2.5 py-1 rounded-full text-xs disabled:opacity-30">{{ o.label }}</button></div>
+            <div v-if="!draft.time" class="text-xs text-slate-400 mt-1">Hour options need a time</div></div>
+          <input v-else-if="ln.k==='price'" v-model="draft.price" @keydown.enter="commit" inputmode="decimal" placeholder="€ 0.00" class="w-full border rounded-lg px-3 py-2 bg-white" />
+          <div v-else-if="ln.k==='cat'" class="flex flex-wrap gap-1.5"><button v-for="(v,k) in CATEGORIES" @click="draft.category=k; commit()" :class="draft.category===k ? 'ring-2 ring-slate-900 '+v.color : v.color" class="px-2.5 py-1 rounded-full text-xs">{{ v.icon }} {{ k }}</button></div>
+          <div v-else-if="ln.k==='owners'" class="flex flex-wrap gap-1.5"><button v-for="m in MEMBERS" @click="draft.owners.includes(m) ? (draft.owners.length>1 && draft.owners.splice(draft.owners.indexOf(m),1)) : draft.owners.push(m)" :class="draft.owners.includes(m) ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ m }}</button></div>
+          <div v-else-if="ln.k==='for'" class="flex flex-wrap gap-1.5"><button v-for="d in [null, ...MEMBERS, ...DEPENDENTS]" @click="draft.for=d; commit()" :class="draft.for===d ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ d || 'Nobody in particular' }}</button></div>
+          <div v-else-if="ln.k==='remind'" class="flex flex-wrap gap-1.5"><button v-for="r in [['family','Whole family'],['owners','Owners only']]" @click="draft.remind=r[0]; commit()" :class="draft.remind===r[0] ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ r[1] }}</button></div>
+          <div v-else-if="ln.k==='notes'"><textarea v-model="draft.notes" rows="3" class="w-full border rounded-lg px-3 py-2 bg-white"></textarea>
+            <div v-if="/\\d{8,}/.test(draft.notes)" class="text-xs text-amber-700">Don't store full card or document numbers here.</div></div>
+        </div>
+      </div>
     </div>
     <div v-if="open.lastChangedBy" class="text-xs text-slate-400 mt-2">Last changed by {{ open.lastChangedBy }}</div>
     <div class="mt-5 grid grid-cols-3 gap-2 text-sm">
@@ -345,6 +402,7 @@ const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge,
     const pick = i => { open.value = i; field.value = null; editing.value = null; confirmDel.value = false; };
     const startEdit = k => { field.value = k; draft.value = formFrom(open.value); };
     const commit = () => { A.save(open.value, draft.value); field.value = null; };
+    const toggle = k => { if (field.value === k) return commit(); if (field.value) commit(); startEdit(k); };
     const close = () => { open.value = null; editing.value = null; };
     watch(() => open.value && (open.value.archived || !store.items.includes(open.value)), gone => gone && close());
     const swipe = reactive({ id: null, x: 0, start: 0 });
@@ -352,8 +410,8 @@ const VariantW = { name: "Owner's mix", components: { Shell, ItemList, CatBadge,
     const move = e => { if (swipe.id != null) swipe.x = Math.max(-140, Math.min(100, e.clientX - swipe.start)); };
     const up = i => { if (swipe.id !== i.id) return; const x = swipe.x; swipe.id = null; swipe.x = 0;
       if (x > 70) A.handled(i); else if (x < -110 && canRemove(i)) A.archive(i); else if (Math.abs(x) < 5) pick(i); };
-    if (startOpen()) open.value = startOpen();
-    const ctx = { ...H, open, field, draft, confirmDel, editing, pick, startEdit, commit, close, swipe, down, move, up, look: 'banner', withEdit: true };
+    if (startOpen()) { open.value = startOpen(); const e = new URLSearchParams(location.search).get('edit'); if (e) startEdit(e); }
+    const ctx = { ...H, open, field, draft, confirmDel, editing, pick, startEdit, commit, toggle, close, swipe, down, move, up, look: 'banner', withEdit: true };
     provide('sheet', ctx);
     return ctx;
   },
