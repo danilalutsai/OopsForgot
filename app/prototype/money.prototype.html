@@ -1,0 +1,453 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Answers: "What does the Money screen look like, and how does the person get to it?"
+  Three structurally different Money screens, switchable with ?variant=A|B|C, the floating bar, or ← → keys.
+  Each variant ALSO tries a different way in from the dashboard:
+    A  Statement page. Dashboard shows a thin "November: €X spent · €Y still coming ›" strip under the top bar;
+       tapping it opens Money as its own page (‹ back). Big total, "Still coming" box, Category bars, then every
+       Expense grouped by day. Add with a floating "+ Expense" button. Computer: summary left, list right.
+    B  Two tabs. Phone: a bottom tab bar (Items | Money); computer: a slim left sidebar.
+       Ring chart of Categories with the total in the middle (still-coming as a dashed grey arc); tap a Category
+       to filter the list. Add with a "+ Expense" button in the top bar.
+    C  Third dashboard view. The dashboard's List / Calendar switch gains "Money": no new page at all.
+       Category-first: each Category is a row you open to see its Expenses, with still-coming bills shown faded
+       inside their Category. Add with a quick row at the top: type amount, pick Category, Add.
+  F  FINAL (chosen 2026-11-16): B's two tabs and ring. Gear + avatar on both tabs (phone) / top right (computer);
+     app opens on Items; Category filter clears on month change and pre-picks the Category for "+ Expense";
+     automatic Expenses keep their Item's Category (locked); "+ Expense" in a past month starts on its last day;
+     tapping a still-coming bill opens its Item; empty month = grey ring + "No Expenses this month".
+  All variants share the add / edit sheet (bottom sheet on phone, right panel on computer, like the Item sheet).
+  Today is fixed at 16 Nov 2026. Account started 5 Sep 2026. All data is fake and in memory; reload resets it.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OopsProof Money prototype</title>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+<style>
+  body { background: #e5e7eb; }
+  .line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; cursor: pointer; }
+  .line:hover, .line.open { background: #f1f5f9; }
+  .btn { padding: 8px 14px; border-radius: 10px; font-size: 14px; font-weight: 500; }
+  .btn-main { background: #0f172a; color: white; }
+  .btn-soft { background: #f1f5f9; color: #0f172a; }
+  .btn-red { background: #fee2e2; color: #b91c1c; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .chip { padding: 6px 12px; border-radius: 999px; font-size: 14px; background: #f1f5f9; white-space: nowrap; }
+  .chip.on { background: #0f172a; color: white; }
+  input[type=text], input[type=date], input[type=number], select { border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 10px; font-size: 14px; width: 100%; }
+</style>
+</head>
+<body class="font-sans text-slate-900">
+<div id="app"></div>
+
+<script>
+const { createApp, reactive, computed, ref, watch } = Vue;
+
+// ---------- fake state ----------
+const TODAY = '2026-11-16', THIS_MONTH = '2026-11', FIRST_MONTH = '2026-09';
+const CATS = {
+  Documents: { icon: '🪪', color: '#64748b' }, Cards: { icon: '💳', color: '#0ea5e9' }, Subscriptions: { icon: '🔁', color: '#8b5cf6' },
+  Vehicle: { icon: '🚗', color: '#f97316' }, Home: { icon: '🏠', color: '#10b981' }, Health: { icon: '🩺', color: '#ef4444' },
+  Purchases: { icon: '🛍️', color: '#eab308' }, Travel: { icon: '✈️', color: '#06b6d4' }, Other: { icon: '•', color: '#94a3b8' },
+}; // Free trials never hold Expenses, so it is not in this list
+const ITEMS = [
+  { id: 1, name: 'Rent', cat: 'Home', price: 75000, day: 1, every: 'month' },
+  { id: 2, name: 'Netflix', cat: 'Subscriptions', price: 1399, day: 3, every: 'month' },
+  { id: 3, name: 'Phone plan', cat: 'Subscriptions', price: 1500, day: 10, every: 'month' },
+  { id: 4, name: 'Gym', cat: 'Health', price: 3500, day: 18, every: 'month' },
+  { id: 5, name: 'Spotify', cat: 'Subscriptions', price: 1099, day: 22, every: 'month' },
+  { id: 6, name: 'Car insurance', cat: 'Vehicle', price: 42000, date: '2026-11-28', every: 'year' },
+  { id: 7, name: 'Passport', cat: 'Documents', price: null, date: '2027-03-02' }, // no price: never an Expense
+];
+let nextId = 100;
+const mk = (date, amount, cat, extra = {}) => ({ id: nextId++, date, amount, cat, itemId: null, desc: '', ...extra });
+const auto = (it, month) => mk(`${month}-${String(it.day).padStart(2, '0')}`, it.price, it.cat, { itemId: it.id });
+const EXPENSES = [];
+for (const m of ['2026-09', '2026-10', '2026-11']) for (const it of ITEMS.filter(i => i.every === 'month')) {
+  const e = auto(it, m); if (e.date >= '2026-09-05' && e.date <= TODAY) EXPENSES.push(e); // no back-filling before signup
+}
+EXPENSES.push(
+  mk('2026-09-12', 8990, 'Purchases', { desc: 'Running shoes' }), mk('2026-09-20', 5410, 'Other', { desc: 'Groceries' }),
+  mk('2026-10-04', 6230, 'Other', { desc: 'Groceries' }), mk('2026-10-15', 12000, 'Vehicle', { desc: 'Car service' }),
+  mk('2026-10-27', 18900, 'Travel', { desc: 'Train to Munich' }),
+  mk('2026-11-08', 1820, 'Health', { desc: 'Pharmacy' }), mk('2026-11-12', 2500, 'Other', { desc: 'Haircut' }),
+  mk('2026-11-14', 6240, 'Other', { desc: 'Groceries' }),
+);
+
+const params = new URLSearchParams(location.search);
+const S = reactive({
+  variant: params.get('variant') || 'F',
+  device: params.get('device') || 'phone',
+  empty: params.get('empty') === '1',
+  month: THIS_MONTH, currency: 'EUR',
+  expenses: EXPENSES, sheet: null, toast: null, log: [],
+});
+const say = t => { S.toast = t; S.log.unshift(t); S.log.length = Math.min(S.log.length, 6); setTimeout(() => { if (S.toast === t) S.toast = null; }, 2500); };
+
+const money = c => (c / 100).toLocaleString('en-GB', { style: 'currency', currency: S.currency });
+const monthName = m => new Date(m + '-01T12:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+const shortMonth = m => new Date(m + '-01T12:00').toLocaleDateString('en-GB', { month: 'long' });
+const dayLabel = d => d === TODAY ? 'Today' : new Date(d + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const shiftMonth = (m, d) => { const [y, mo] = m.split('-').map(Number); const t = new Date(y, mo - 1 + d, 1); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`; };
+const canBack = computed(() => S.month > FIRST_MONTH);
+const canFwd = computed(() => S.month < THIS_MONTH);
+const itemOf = e => ITEMS.find(i => i.id === e.itemId);
+const label = e => e.itemId ? `from ${itemOf(e).name}` : (e.desc || e.cat);
+
+const monthExpenses = computed(() => S.empty ? [] : S.expenses.filter(e => e.date.startsWith(S.month)).sort((a, b) => b.date.localeCompare(a.date)));
+const total = computed(() => monthExpenses.value.reduce((s, e) => s + e.amount, 0));
+const byCat = computed(() => {
+  const t = {}; for (const e of monthExpenses.value) t[e.cat] = (t[e.cat] || 0) + e.amount;
+  return Object.entries(t).map(([cat, sum]) => ({ cat, sum })).sort((a, b) => b.sum - a.sum);
+});
+const coming = computed(() => {
+  if (S.month !== THIS_MONTH || S.empty) return [];
+  return ITEMS.filter(i => i.price).map(i => ({ ...i, date: i.date || `${THIS_MONTH}-${String(i.day).padStart(2, '0')}` }))
+    .filter(i => i.date > TODAY && i.date.startsWith(THIS_MONTH)).sort((a, b) => a.date.localeCompare(b.date));
+});
+const comingTotal = computed(() => coming.value.reduce((s, i) => s + i.price, 0));
+const byDay = computed(() => { const g = {}; for (const e of monthExpenses.value) (g[e.date] ||= []).push(e); return Object.entries(g); });
+
+// ---------- shared: add / edit sheet ----------
+const lastDay = m => { const [y, mo] = m.split('-').map(Number); return `${m}-${String(new Date(y, mo, 0).getDate()).padStart(2, '0')}`; };
+const openAdd = (cat = null) => { S.sheet = { mode: 'add', draft: { amount: '', cat, date: S.month === THIS_MONTH ? TODAY : lastDay(S.month), desc: '' }, err: {} }; };
+const openEdit = e => { S.sheet = { mode: 'edit', id: e.id, itemId: e.itemId, draft: { amount: (e.amount / 100).toFixed(2), cat: e.cat, date: e.date, desc: e.desc }, err: {}, confirmDel: false }; };
+const save = () => {
+  const d = S.sheet.draft, err = {};
+  const n = Number(String(d.amount).replace(',', '.'));
+  if (!d.amount || !(n > 0)) err.amount = 'Enter an amount above 0';
+  else if (!/^\d+([.,]\d{1,2})?$/.test(String(d.amount).trim())) err.amount = 'Up to 2 decimals';
+  if (!d.cat) err.cat = 'Pick a Category';
+  if (!d.date) err.date = 'Pick a date'; else if (d.date > TODAY) err.date = 'Expenses can\'t be in the future';
+  S.sheet.err = err; if (Object.keys(err).length) return;
+  const amount = Math.round(n * 100);
+  if (S.sheet.mode === 'add') { S.expenses.push(mk(d.date, amount, d.cat, { desc: d.desc.trim() })); S.month = d.date.slice(0, 7); say(`Added ${money(amount)} · ${d.cat}`); }
+  else { Object.assign(S.expenses.find(e => e.id === S.sheet.id), { amount, cat: d.cat, date: d.date, desc: d.desc.trim() }); say('Expense saved'); }
+  S.sheet = null;
+};
+const del = () => { S.expenses.splice(S.expenses.findIndex(e => e.id === S.sheet.id), 1); S.sheet = null; say('Expense deleted'); };
+
+const Sheet = { setup: () => ({ S, CATS, save, del, say, ITEMS, TODAY }), template: `
+  <div v-if="S.sheet" class="absolute inset-0 z-30 bg-slate-900/30" @click.self="S.sheet = null">
+    <div :class="['absolute flex flex-col bg-white shadow-2xl', S.device === 'phone' ? 'inset-x-0 bottom-0 max-h-[88%] rounded-t-3xl' : 'inset-y-0 right-0 w-[420px]']">
+      <div v-if="S.device === 'phone'" class="mx-auto mt-2 h-1.5 w-10 rounded-full bg-slate-300"></div>
+      <div class="flex items-center justify-between border-b px-4 py-3">
+        <button class="text-slate-500" @click="S.sheet = null">Cancel</button>
+        <b>{{ S.sheet.mode === 'add' ? 'New Expense' : 'Expense' }}</b>
+        <button class="font-semibold text-sky-700" @click="save">Save</button>
+      </div>
+      <div class="space-y-4 overflow-y-auto p-4 text-sm">
+        <div v-if="S.sheet.itemId" class="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+          <span>Created automatically <b>from {{ ITEMS.find(i => i.id === S.sheet.itemId).name }}</b></span>
+          <button class="text-sky-700" @click="S.sheet = null; say('Opens the Item sheet')">Open Item ›</button>
+        </div>
+        <label class="block"><span class="mb-1 block text-slate-500">Amount</span>
+          <div class="flex items-center gap-2"><span class="text-2xl text-slate-400">€</span>
+            <input type="text" inputmode="decimal" placeholder="0.00" class="!text-2xl font-semibold" v-model="S.sheet.draft.amount" /></div>
+          <span v-if="S.sheet.err.amount" class="text-red-600">{{ S.sheet.err.amount }}</span></label>
+        <div v-if="S.sheet.itemId && S.variant === 'F'"><span class="mb-1 block text-slate-500">Category</span>
+          <span>{{ CATS[S.sheet.draft.cat].icon }} {{ S.sheet.draft.cat }}</span> <span class="text-slate-400">· same as the Item</span></div>
+        <div v-else><span class="mb-1 block text-slate-500">Category</span>
+          <div class="flex flex-wrap gap-2"><button v-for="(c, k) in CATS" :class="['chip', S.sheet.draft.cat === k && 'on']" @click="S.sheet.draft.cat = k">{{ c.icon }} {{ k }}</button></div>
+          <span v-if="S.sheet.err.cat" class="text-red-600">{{ S.sheet.err.cat }}</span></div>
+        <label class="block"><span class="mb-1 block text-slate-500">Date</span>
+          <input type="date" :max="TODAY" v-model="S.sheet.draft.date" />
+          <span v-if="S.sheet.err.date" class="text-red-600">{{ S.sheet.err.date }}</span></label>
+        <label v-if="!S.sheet.itemId" class="block"><span class="mb-1 block text-slate-500">Description (optional)</span>
+          <input type="text" maxlength="60" placeholder="e.g. Groceries" v-model="S.sheet.draft.desc" /></label>
+        <template v-if="S.sheet.mode === 'edit'">
+          <button v-if="!S.sheet.confirmDel" class="btn btn-red w-full" @click="S.sheet.confirmDel = true">Delete Expense</button>
+          <div v-else class="rounded-xl bg-red-50 p-3"><p class="mb-2">Delete this Expense? {{ S.sheet.itemId ? 'The Item stays; only this one Expense goes.' : '' }}</p>
+            <div class="flex gap-2"><button class="btn btn-red" @click="del">Delete</button><button class="btn btn-soft" @click="S.sheet.confirmDel = false">Keep</button></div></div>
+        </template>
+      </div>
+    </div>
+  </div>` };
+
+const MonthNav = { props: ['big'], setup: () => ({ S, canBack, canFwd, shiftMonth, monthName }), template: `
+  <div class="flex items-center justify-between">
+    <button :class="['grid h-9 w-9 place-items-center rounded-full text-xl hover:bg-slate-100', !canBack && 'invisible']" @click="S.month = shiftMonth(S.month, -1)">‹</button>
+    <span :class="big ? 'text-lg font-semibold' : 'font-medium'">{{ monthName(S.month) }}</span>
+    <button :class="['grid h-9 w-9 place-items-center rounded-full text-xl hover:bg-slate-100', !canFwd && 'invisible']" @click="S.month = shiftMonth(S.month, 1)">›</button>
+  </div>` };
+
+const ExpenseRow = { props: ['e'], setup: () => ({ CATS, money, label, openEdit, dayLabel }), template: `
+  <div class="line !px-3" @click="openEdit(e)">
+    <span class="flex min-w-0 items-center gap-3">
+      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-base" :style="{ background: CATS[e.cat].color + '22' }">{{ CATS[e.cat].icon }}</span>
+      <span class="min-w-0"><span class="block truncate">{{ label(e) }}</span><span class="text-xs text-slate-400">{{ e.cat }}<slot /></span></span>
+    </span>
+    <span class="shrink-0 font-medium tabular-nums">{{ money(e.amount) }}</span>
+  </div>` };
+
+const Empty = { setup: () => ({ openAdd }), template: `
+  <div class="px-6 py-10 text-center text-sm text-slate-500">
+    <p class="text-3xl">🧾</p><p class="mt-2 font-medium text-slate-700">No Expenses this month</p>
+    <p class="mt-1">Give your Items a price and they show up here by themselves on their Due date. Or add one by hand.</p>
+    <button class="btn btn-main mt-4" @click="openAdd()">+ Add Expense</button>
+  </div>` };
+
+const TopBar = { setup: () => ({ say }), template: `
+  <div class="flex items-center justify-between"><h1 class="text-2xl font-bold">OopsProof</h1>
+    <div class="flex items-center gap-2"><button class="grid h-9 w-9 place-items-center rounded-full text-xl hover:bg-slate-100" @click="say('Opens Settings')">⚙︎</button>
+      <span class="grid h-9 w-9 place-items-center rounded-full bg-sky-600 text-sm font-semibold text-white">DL</span></div></div>` };
+const ItemsStub = { template: `<div class="grid h-64 place-items-center px-8 text-center text-sm text-slate-400">Item list as in the dashboard prototype (Today / This week / Later).</div>` };
+
+// ---------- Variant A: statement page, reached from a strip on the dashboard ----------
+const VariantA = { name: 'Statement page', components: { Sheet, MonthNav, ExpenseRow, Empty, TopBar, ItemsStub }, setup() {
+  const page = ref('home'), showComing = ref(false);
+  return { S, page, showComing, money, total, byCat, coming, comingTotal, byDay, dayLabel, CATS, openAdd, shortMonth, THIS_MONTH, monthExpenses, say }; }, template: `
+  <div class="relative h-full">
+    <div v-if="page === 'home'" class="relative h-full">
+      <header class="border-b px-4 pb-3 pt-5"><TopBar />
+        <button class="mt-3 flex w-full items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-left text-sm hover:bg-slate-100" @click="S.month = THIS_MONTH; page = 'money'">
+          <span><b>{{ shortMonth(THIS_MONTH) }}:</b> {{ money(total) }} spent<span class="text-slate-500"> · {{ money(comingTotal) }} still coming</span></span><span class="text-slate-400">›</span></button>
+        <div class="mt-3 flex justify-end"><div class="inline-flex rounded-full bg-slate-100 p-1 text-sm"><span class="rounded-full bg-white px-3 py-1 shadow">☰ List</span><span class="px-3 py-1 text-slate-500">▦ Calendar</span></div></div>
+      </header>
+      <ItemsStub />
+      <button v-if="S.device === 'phone'" class="absolute bottom-6 right-5 h-14 w-14 rounded-full bg-slate-900 text-3xl text-white shadow-lg" @click="say('Opens the add-Item form')">+</button>
+    </div>
+    <div v-else class="relative min-h-full pb-24">
+      <div class="sticky top-0 z-10 flex items-center gap-2 border-b bg-white px-2 py-3"><button class="px-2 text-2xl" @click="page = 'home'">‹</button><b class="text-lg">Money</b>
+        <button v-if="S.device === 'computer'" class="btn btn-main ml-auto" @click="openAdd()">+ Expense</button></div>
+      <div :class="S.device === 'computer' ? 'grid grid-cols-[340px_1fr] gap-6 p-6' : 'p-3'">
+        <div class="space-y-4">
+          <MonthNav big />
+          <div class="text-center"><p class="text-sm text-slate-500">Spent</p><p class="text-4xl font-bold tabular-nums">{{ money(total) }}</p></div>
+          <div v-if="coming.length" class="rounded-xl bg-amber-50 p-3 text-sm">
+            <button class="flex w-full justify-between" @click="showComing = !showComing"><span>Still coming this month: <b>{{ money(comingTotal) }}</b></span><span>{{ showComing ? '−' : '+' }}</span></button>
+            <div v-if="showComing" class="mt-2 space-y-1"><div v-for="i in coming" class="flex justify-between text-amber-900"><span>{{ dayLabel(i.date) }} · {{ i.name }}</span><span class="tabular-nums">{{ money(i.price) }}</span></div></div>
+          </div>
+          <div v-if="byCat.length" class="space-y-2">
+            <div v-for="c in byCat" class="text-sm">
+              <div class="flex justify-between"><span>{{ CATS[c.cat].icon }} {{ c.cat }}</span><span class="tabular-nums">{{ money(c.sum) }}</span></div>
+              <div class="mt-1 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full" :style="{ width: (c.sum / byCat[0].sum * 100) + '%', background: CATS[c.cat].color }"></div></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <Empty v-if="!monthExpenses.length" />
+          <div v-for="[d, list] in byDay" class="mt-3">
+            <p class="px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ dayLabel(d) }}</p>
+            <ExpenseRow v-for="e in list" :e="e" :key="e.id" />
+          </div>
+        </div>
+      </div>
+      <div v-if="S.device === 'phone'" class="sticky bottom-6 flex justify-end pr-5"><button class="rounded-full bg-slate-900 px-5 py-4 font-semibold text-white shadow-lg" @click="openAdd()">+ Expense</button></div>
+    </div>
+    <Sheet />
+  </div>` };
+
+// ---------- Variant B: Items | Money tabs, ring chart ----------
+const Ring = { setup() {
+  const arcs = computed(() => {
+    const all = total.value + comingTotal.value || 1; let at = 0; const r = 70, C = 2 * Math.PI * r;
+    const out = byCat.value.map(c => { const len = c.sum / all * C; const a = { color: CATS[c.cat].color, dash: `${len} ${C - len}`, off: -at, cat: c.cat }; at += len; return a; });
+    if (comingTotal.value) { const len = comingTotal.value / all * C; out.push({ color: '#cbd5e1', dash: `${len} ${C - len}`, off: -at, coming: true }); }
+    return out;
+  });
+  return { arcs, money, total, comingTotal, coming }; }, props: ['pick'], emits: ['pick'], template: `
+  <div class="relative mx-auto h-48 w-48">
+    <svg viewBox="0 0 180 180" class="h-full w-full -rotate-90">
+      <circle cx="90" cy="90" r="70" fill="none" stroke="#f1f5f9" stroke-width="22" />
+      <circle v-for="a in arcs" cx="90" cy="90" r="70" fill="none" :stroke="a.color" stroke-width="22" :stroke-dasharray="a.dash" :stroke-dashoffset="a.off"
+        :opacity="pick && a.cat !== pick ? .25 : 1" :class="a.coming ? '' : 'cursor-pointer'" @click="!a.coming && $emit('pick', pick === a.cat ? null : a.cat)" />
+    </svg>
+    <div class="pointer-events-none absolute inset-0 grid place-items-center text-center"><div>
+      <p class="text-2xl font-bold tabular-nums">{{ money(total) }}</p><p class="text-xs text-slate-500">spent</p>
+      <p v-if="coming.length" class="mt-1 text-xs text-slate-400">+ {{ money(comingTotal) }} coming</p></div></div>
+  </div>` };
+
+const VariantB = { name: 'Two tabs', components: { Sheet, MonthNav, ExpenseRow, Empty, TopBar, ItemsStub, Ring }, setup() {
+  const tab = ref('money'), pick = ref(null);
+  const shown = computed(() => monthExpenses.value.filter(e => !pick.value || e.cat === pick.value));
+  return { S, tab, pick, shown, money, byCat, coming, comingTotal, dayLabel, CATS, openAdd, monthExpenses, say }; }, template: `
+  <div :class="['relative min-h-full', S.device === 'computer' && 'flex']">
+    <nav v-if="S.device === 'computer'" class="w-48 shrink-0 space-y-1 border-r bg-slate-50 p-3">
+      <h1 class="px-3 pb-3 text-xl font-bold">OopsProof</h1>
+      <div :class="['line', tab === 'items' && 'open']" @click="tab = 'items'">📋 Items</div>
+      <div :class="['line', tab === 'money' && 'open']" @click="tab = 'money'">💶 Money</div>
+    </nav>
+    <div class="min-w-0 flex-1 pb-4">
+      <template v-if="tab === 'items'"><header class="border-b px-4 pb-3 pt-5"><TopBar /></header><ItemsStub /></template>
+      <template v-else>
+        <div class="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-4 py-3">
+          <b class="text-xl">Money</b><button class="btn btn-main" @click="openAdd(pick)">+ Expense</button></div>
+        <div :class="S.device === 'computer' ? 'grid grid-cols-[320px_1fr] gap-6 p-6' : 'space-y-4 p-3'">
+          <div class="space-y-4">
+            <MonthNav />
+            <Ring :pick="pick" @pick="pick = $event" />
+            <div class="flex flex-wrap justify-center gap-2">
+              <button v-for="c in byCat" :class="['chip flex items-center gap-1', pick === c.cat && 'on']" @click="pick = pick === c.cat ? null : c.cat">
+                <span class="h-2.5 w-2.5 rounded-full" :style="{ background: CATS[c.cat].color }"></span>{{ c.cat }} {{ money(c.sum) }}</button>
+              <span v-if="coming.length" class="chip flex items-center gap-1 text-slate-500"><span class="h-2.5 w-2.5 rounded-full bg-slate-300"></span>Still coming {{ money(comingTotal) }}</span>
+            </div>
+          </div>
+          <div>
+            <Empty v-if="!monthExpenses.length" />
+            <p v-if="pick" class="px-3 pb-1 text-sm text-slate-500">Showing {{ pick }} only · <button class="text-sky-700" @click="pick = null">Show all</button></p>
+            <ExpenseRow v-for="e in shown" :e="e" :key="e.id"> · {{ dayLabel(e.date) }}</ExpenseRow>
+            <template v-if="coming.length && !pick">
+              <p class="mt-4 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Still coming this month</p>
+              <div v-for="i in coming" class="flex justify-between px-3 py-2 text-sm text-slate-400"><span>{{ dayLabel(i.date) }} · {{ i.name }}</span><span class="tabular-nums">{{ money(i.price) }}</span></div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div v-if="S.device === 'phone'" class="sticky bottom-0 z-20 grid grid-cols-2 border-t bg-white text-center text-xs">
+      <button :class="['py-3', tab === 'items' ? 'font-semibold text-slate-900' : 'text-slate-400']" @click="tab = 'items'"><span class="block text-xl">📋</span>Items</button>
+      <button :class="['py-3', tab === 'money' ? 'font-semibold text-slate-900' : 'text-slate-400']" @click="tab = 'money'"><span class="block text-xl">💶</span>Money</button>
+    </div>
+    <Sheet />
+  </div>` };
+
+// ---------- Variant C: Money as a third dashboard view, Category-first ----------
+const VariantC = { name: 'Third dashboard view', components: { Sheet, MonthNav, ExpenseRow, Empty, TopBar, ItemsStub }, setup() {
+  const view = ref('money'), open = ref(null);
+  const quick = reactive({ amount: '', cat: null });
+  const cats = computed(() => {
+    const m = {}; for (const c of byCat.value) m[c.cat] = { cat: c.cat, sum: c.sum, list: monthExpenses.value.filter(e => e.cat === c.cat), coming: [] };
+    for (const i of coming.value) (m[i.cat] ||= { cat: i.cat, sum: 0, list: [], coming: [] }).coming.push(i);
+    return Object.values(m).sort((a, b) => b.sum - a.sum);
+  });
+  const quickAdd = () => {
+    const n = Number(String(quick.amount).replace(',', '.'));
+    if (!(n > 0) || !quick.cat) return say(!(n > 0) ? 'Enter an amount first' : 'Pick a Category');
+    S.expenses.push(mk(TODAY, Math.round(n * 100), quick.cat)); S.month = THIS_MONTH; say(`Added ${money(Math.round(n * 100))} · ${quick.cat} today`); quick.amount = ''; quick.cat = null;
+  };
+  return { S, view, open, quick, quickAdd, cats, money, total, coming, comingTotal, dayLabel, CATS, openAdd, monthExpenses, THIS_MONTH, say }; }, template: `
+  <div class="relative h-full">
+    <header class="border-b px-4 pb-3 pt-5"><TopBar />
+      <div class="mt-3 flex justify-end"><div class="inline-flex rounded-full bg-slate-100 p-1 text-sm">
+        <button v-for="v in [['list', '☰ List'], ['calendar', '▦ Calendar'], ['money', '€ Money']]" :class="['rounded-full px-3 py-1', view === v[0] ? 'bg-white shadow' : 'text-slate-500']" @click="view = v[0]">{{ v[1] }}</button></div></div>
+    </header>
+    <ItemsStub v-if="view !== 'money'" />
+    <div v-else :class="['space-y-4 p-3 pb-24', S.device === 'computer' && 'p-6']">
+      <MonthNav />
+      <div>
+        <div class="flex items-baseline justify-between px-1"><span class="text-3xl font-bold tabular-nums">{{ money(total) }}</span>
+          <span v-if="coming.length" class="text-sm text-slate-500">+ {{ money(comingTotal) }} still coming</span></div>
+        <div v-if="coming.length" class="mt-2 flex h-2 overflow-hidden rounded-full bg-slate-100">
+          <div class="bg-slate-900" :style="{ width: total / (total + comingTotal) * 100 + '%' }"></div>
+          <div class="bg-[repeating-linear-gradient(45deg,#cbd5e1_0_4px,#e2e8f0_4px_8px)]" :style="{ width: comingTotal / (total + comingTotal) * 100 + '%' }"></div></div>
+      </div>
+      <div v-if="S.month === THIS_MONTH" class="rounded-2xl bg-slate-50 p-3">
+        <div class="flex gap-2"><div class="flex flex-1 items-center gap-1 rounded-xl border border-slate-300 bg-white px-2"><span class="text-slate-400">€</span>
+          <input type="text" inputmode="decimal" placeholder="Add Expense, e.g. 12.50" class="!border-0 !px-0" v-model="quick.amount" @keydown.enter="quickAdd" /></div>
+          <button class="btn btn-main" @click="quickAdd">Add</button></div>
+        <div class="mt-2 flex gap-2 overflow-x-auto pb-1"><button v-for="(c, k) in CATS" :class="['chip', quick.cat === k && 'on']" @click="quick.cat = k">{{ c.icon }} {{ k }}</button></div>
+        <p class="mt-1 text-xs text-slate-500">Dated today. Tap it afterwards to change the date or add a description · <button class="text-sky-700" @click="openAdd()">Full form</button></p>
+      </div>
+      <Empty v-if="!cats.length" />
+      <div :class="S.device === 'computer' ? 'grid grid-cols-3 items-start gap-3' : 'space-y-2'">
+        <div v-for="c in cats" class="rounded-2xl ring-1 ring-slate-200">
+          <button class="flex w-full items-center justify-between px-4 py-3" @click="open = open === c.cat ? null : c.cat">
+            <span class="flex items-center gap-2"><span class="h-3 w-3 rounded-full" :style="{ background: CATS[c.cat].color }"></span>{{ CATS[c.cat].icon }} {{ c.cat }}
+              <span class="text-xs text-slate-400">{{ c.list.length }}</span></span>
+            <span class="text-right"><b class="tabular-nums">{{ money(c.sum) }}</b><span v-if="c.coming.length" class="block text-xs text-slate-400">+ {{ money(c.coming.reduce((s, i) => s + i.price, 0)) }} coming</span></span>
+          </button>
+          <div v-if="open === c.cat || S.device === 'computer'" class="border-t px-1 pb-2">
+            <ExpenseRow v-for="e in c.list" :e="e" :key="e.id"> · {{ dayLabel(e.date) }}</ExpenseRow>
+            <div v-for="i in c.coming" class="flex justify-between px-3 py-2 text-sm text-slate-400"><span>{{ dayLabel(i.date) }} · {{ i.name }} (coming)</span><span class="tabular-nums">{{ money(i.price) }}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button v-if="S.device === 'phone' && view !== 'money'" class="absolute bottom-6 right-5 h-14 w-14 rounded-full bg-slate-900 text-3xl text-white shadow-lg" @click="say('Opens the add-Item form')">+</button>
+    <Sheet />
+  </div>` };
+
+// ---------- Variant F (FINAL): B's tabs and ring with the agreed details ----------
+const Icons = { setup: () => ({ say }), template: `
+  <span class="flex items-center gap-2"><button class="grid h-9 w-9 place-items-center rounded-full text-xl hover:bg-slate-100" @click="say('Opens Settings')">⚙︎</button>
+    <span class="grid h-9 w-9 place-items-center rounded-full bg-sky-600 text-sm font-semibold text-white">DL</span></span>` };
+const VariantF = { name: 'Final', components: { Sheet, MonthNav, ExpenseRow, Empty, ItemsStub, Ring, Icons }, setup() {
+  const tab = ref('items'), pick = ref(null);
+  watch(() => S.month, () => { pick.value = null; });
+  const shown = computed(() => monthExpenses.value.filter(e => !pick.value || e.cat === pick.value));
+  return { S, tab, pick, shown, money, byCat, coming, comingTotal, dayLabel, CATS, openAdd, monthExpenses, say }; }, template: `
+  <div :class="['relative flex min-h-full', S.device === 'phone' && 'flex-col']">
+    <nav v-if="S.device === 'computer'" class="w-48 shrink-0 space-y-1 border-r bg-slate-50 p-3">
+      <h1 class="px-3 pb-3 text-xl font-bold">OopsProof</h1>
+      <div :class="['line', tab === 'items' && 'open']" @click="tab = 'items'">📋 Items</div>
+      <div :class="['line', tab === 'money' && 'open']" @click="tab = 'money'">💶 Money</div>
+    </nav>
+    <div class="min-w-0 flex-1 pb-4">
+      <div class="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-white px-4 py-3">
+        <b class="text-2xl">{{ tab === 'items' ? (S.device === 'phone' ? 'OopsProof' : 'Items') : 'Money' }}</b>
+        <span class="flex items-center gap-2"><button v-if="tab === 'money'" class="btn btn-main" @click="openAdd(pick)">+ Expense</button><Icons /></span>
+      </div>
+      <template v-if="tab === 'items'"><ItemsStub /></template>
+      <div v-else :class="S.device === 'computer' ? 'grid grid-cols-[320px_1fr] gap-6 p-6' : 'space-y-4 p-3'">
+        <div class="space-y-4">
+          <MonthNav />
+          <Ring :pick="pick" @pick="pick = $event" />
+          <div class="flex flex-wrap justify-center gap-2">
+            <button v-for="c in byCat" :class="['chip flex items-center gap-1', pick === c.cat && 'on']" @click="pick = pick === c.cat ? null : c.cat">
+              <span class="h-2.5 w-2.5 rounded-full" :style="{ background: CATS[c.cat].color }"></span>{{ c.cat }} {{ money(c.sum) }}</button>
+            <span v-if="coming.length" class="chip flex items-center gap-1 text-slate-500"><span class="h-2.5 w-2.5 rounded-full bg-slate-300"></span>Still coming {{ money(comingTotal) }}</span>
+          </div>
+        </div>
+        <div>
+          <Empty v-if="!monthExpenses.length" />
+          <p v-if="pick" class="px-3 pb-1 text-sm text-slate-500">Showing {{ pick }} only · <button class="text-sky-700" @click="pick = null">Show all</button></p>
+          <ExpenseRow v-for="e in shown" :e="e" :key="e.id"> · {{ dayLabel(e.date) }}</ExpenseRow>
+          <template v-if="coming.length && !pick">
+            <p class="mt-4 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Still coming this month</p>
+            <div v-for="i in coming" class="line !px-3 !py-2 text-sm text-slate-400" @click="say('Opens the ' + i.name + ' Item sheet')"><span>{{ dayLabel(i.date) }} · {{ i.name }}</span><span class="tabular-nums">{{ money(i.price) }}</span></div>
+          </template>
+        </div>
+      </div>
+    </div>
+    <div v-if="S.device === 'phone' && tab === 'items'" class="sticky bottom-20 flex justify-end pr-5"><button class="h-14 w-14 rounded-full bg-slate-900 text-3xl text-white shadow-lg" @click="say('Opens the add-Item form')">+</button></div>
+    <div v-if="S.device === 'phone'" class="sticky bottom-0 z-20 grid grid-cols-2 border-t bg-white text-center text-xs">
+      <button :class="['py-3', tab === 'items' ? 'font-semibold text-slate-900' : 'text-slate-400']" @click="tab = 'items'"><span class="block text-xl">📋</span>Items</button>
+      <button :class="['py-3', tab === 'money' ? 'font-semibold text-slate-900' : 'text-slate-400']" @click="tab = 'money'"><span class="block text-xl">💶</span>Money</button>
+    </div>
+    <Sheet />
+  </div>` };
+
+const VARIANTS = { F: VariantF, A: VariantA, B: VariantB, C: VariantC };
+const KEYS = Object.keys(VARIANTS);
+
+// ---------- floating switcher (not part of the design) ----------
+const Switcher = { setup() {
+  const setUrl = () => { const p = new URLSearchParams({ variant: S.variant, device: S.device }); if (S.empty) p.set('empty', '1'); history.replaceState(null, '', '?' + p); };
+  const step = d => { S.variant = KEYS[(KEYS.indexOf(S.variant) + d + KEYS.length) % KEYS.length]; S.sheet = null; setUrl(); };
+  addEventListener('keydown', e => { if (e.target.closest('input,textarea,select,[contenteditable]')) return; if (e.key === 'ArrowLeft') step(-1); if (e.key === 'ArrowRight') step(1); });
+  return { S, step, setUrl, VARIANTS }; }, template: `
+  <div class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-2xl bg-fuchsia-700 px-3 py-2 text-sm text-white shadow-2xl">
+    <button class="px-2 text-lg" @click="step(-1)">←</button>
+    <span class="min-w-[180px] text-center font-semibold">{{ S.variant }} ({{ VARIANTS[S.variant].name }})</span>
+    <button class="px-2 text-lg" @click="step(1)">→</button>
+    <select class="!w-auto !border-0 !bg-fuchsia-800 !py-1 text-white" v-model="S.device" @change="setUrl">
+      <option value="phone">Phone</option><option value="computer">Computer</option></select>
+    <label class="flex items-center gap-1"><input type="checkbox" v-model="S.empty" @change="setUrl" /> New account (no Expenses)</label>
+  </div>` };
+
+createApp({ components: { Switcher }, setup: () => ({ S, VARIANTS, money, total, comingTotal, monthName }), template: `
+  <div class="flex min-h-screen items-start justify-center p-4 pb-32">
+    <div :class="['frame relative overflow-y-auto bg-white shadow-xl', S.device === 'phone' ? 'h-[780px] w-[390px] rounded-[2rem]' : 'h-[720px] w-[1000px] rounded-xl']">
+      <component :is="VARIANTS[S.variant]" :key="S.variant + S.device" />
+      <div v-if="S.toast" class="sticky bottom-4 z-40 mx-auto w-fit rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">{{ S.toast }}</div>
+    </div>
+    <div class="ml-4 hidden w-56 text-xs text-slate-500 xl:block">
+      <p class="mb-1 font-semibold text-slate-700">State</p>
+      <pre class="whitespace-pre-wrap">today: 16 Nov 2026
+month shown: {{ monthName(S.month) }}
+expenses stored: {{ S.expenses.length }}
+spent this month: {{ money(total) }}
+still coming: {{ money(comingTotal) }}
+sheet: {{ S.sheet ? S.sheet.mode : '—' }}</pre>
+      <p class="mb-1 mt-3 font-semibold text-slate-700">Last actions</p>
+      <p v-for="l in S.log">{{ l }}</p>
+    </div>
+    <Switcher />
+  </div>` }).mount('#app');
+</script>
+</body>
+</html>
