@@ -48,6 +48,8 @@ const REMINDER_OPTS = [
   { k: '1d', label: '1 day before' }, { k: '2d', label: '2 days before' }, { k: '1w', label: '1 week before' },
 ];
 const remLabel = k => REMINDER_OPTS.find(o => o.k === k)?.label;
+const DAY_REMINDER_TIME = '12:00';
+const hasDayReminder = r => r.some(k => !REMINDER_OPTS.find(o => o.k === k)?.time);
 const RECUR = { '': 'Once', weekly: 'Every week', monthly: 'Every month', yearly: 'Every year' };
 const MEMBERS = ['You', 'Anna', 'Max'];
 const DEPENDENTS = ['Mia', 'Rex'];
@@ -117,7 +119,7 @@ const sheetLines = i => [
   { k: 'due', label: 'Due date', value: fmt(i.due, { weekday: 'short', day: 'numeric', month: 'long' }) },
   { k: 'time', label: 'Time', value: i.time || 'No time' },
   { k: 'recur', label: 'Repeats', value: RECUR[i.recur] },
-  { k: 'rem', label: 'Reminders', value: i.reminders.map(remLabel).join(', ') || 'None' },
+  { k: 'rem', label: 'Reminders', value: i.reminders.map(remLabel).join(', ') || 'None', sub: hasDayReminder(i.reminders) ? `day Reminders at ${DAY_REMINDER_TIME}` : null },
   { k: 'price', label: 'Price', value: i.price ? money(i.price) : 'Add price' },
   { k: 'cat', label: 'Category', value: CATEGORIES[i.category].icon + ' ' + i.category },
   { k: 'share', label: 'Family', value: i.shared ? 'Shared' : 'Personal' },
@@ -367,7 +369,7 @@ VariantY.components.YBody = { components: { CatBadge, Question, EditForm }, setu
       <div v-for="ln in sheetLines(open)" :key="ln.k" :class="field===ln.k ? 'bg-slate-50' : ''">
         <button @click="toggle(ln.k)" class="w-full px-4 py-3 flex justify-between items-center gap-3 text-left">
           <span class="text-slate-500 shrink-0" :class="field===ln.k ? 'font-semibold text-slate-900' : ''">{{ ln.label }}</span>
-          <span class="flex items-center gap-1 min-w-0"><span class="truncate">{{ ln.value }}</span>
+          <span class="flex items-center gap-1 min-w-0"><span class="min-w-0 text-right"><span class="block truncate">{{ ln.value }}</span><span v-if="ln.sub" class="block text-[10px] text-slate-400">{{ ln.sub }}</span></span>
             <span class="text-slate-400 transition-transform" :class="field===ln.k ? 'rotate-90' : ''">›</span></span></button>
         <div v-if="field===ln.k" class="px-4 pb-3">
           <input v-if="ln.k==='due'" type="date" v-model="draft.due" class="w-full border rounded-lg px-3 py-2 bg-white" />
@@ -376,7 +378,7 @@ VariantY.components.YBody = { components: { CatBadge, Question, EditForm }, setu
           <div v-else-if="ln.k==='rem'"><div class="flex flex-wrap gap-1.5">
             <button v-for="o in REMINDER_OPTS" :disabled="o.time && !draft.time" @click="draft.reminders.includes(o.k) ? draft.reminders.splice(draft.reminders.indexOf(o.k),1) : draft.reminders.push(o.k)"
               :class="draft.reminders.includes(o.k) && !(o.time && !draft.time) ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-2.5 py-1 rounded-full text-xs disabled:opacity-30">{{ o.label }}</button></div>
-            <div v-if="!draft.time" class="text-xs text-slate-400 mt-1">Hour options need a time</div></div>
+            <div class="text-[11px] text-slate-400 mt-1">Day Reminders arrive at 12:00.<span v-if="!draft.time"> Add a time to use hour Reminders.</span></div></div>
           <input v-else-if="ln.k==='price'" v-model="draft.price" @keydown.enter="commit" inputmode="decimal" placeholder="€ 0.00" class="w-full border rounded-lg px-3 py-2 bg-white" />
           <div v-else-if="ln.k==='cat'" class="flex flex-wrap gap-1.5"><button v-for="(v,k) in CATEGORIES" @click="draft.category=k; commit()" :class="draft.category===k ? 'ring-2 ring-slate-900 '+v.color : v.color" class="px-2.5 py-1 rounded-full text-xs">{{ v.icon }} {{ k }}</button></div>
           <div v-else-if="ln.k==='share'" class="flex flex-wrap gap-1.5"><button v-for="o in [[false,'Personal (only you)'],[true,'Shared with Family']]" @click="draft.shared=o[0]; commit()" :class="draft.shared===o[0] ? 'bg-slate-900 text-white' : 'bg-white border'" class="px-3 py-1 rounded-full text-xs">{{ o[1] }}</button></div>
