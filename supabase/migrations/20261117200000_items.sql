@@ -8,7 +8,7 @@ create table public.items (
   ),
   due_date date not null,
   due_time time,
-  price_cents integer check (price_cents > 0),
+  price_cents integer check (price_cents between 1 and 99999999),
   notes text not null default '',
   created_at timestamptz not null default now()
 );

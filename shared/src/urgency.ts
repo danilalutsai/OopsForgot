@@ -1,5 +1,8 @@
 import { daysBetween } from './dates.ts'
 
+/** Items due within this many days count as due soon: yellow, and in This week. */
+export const DUE_SOON_DAYS = 7
+
 export type Urgency = 'red' | 'yellow' | 'green' | 'grey'
 
 export interface UrgencyInput {
@@ -12,5 +15,5 @@ export interface UrgencyInput {
 export function urgency(item: UrgencyInput, today: string): Urgency {
   if (item.handled) return 'grey'
   const days = daysBetween(today, item.dueDate)
-  return days <= 0 ? 'red' : days <= 7 ? 'yellow' : 'green'
+  return days <= 0 ? 'red' : days <= DUE_SOON_DAYS ? 'yellow' : 'green'
 }

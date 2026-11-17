@@ -17,6 +17,12 @@ const errors = ref<string[]>([])
 const add = useAddItem()
 const numberWarning = computed(() => looksLikeFullNumber(notes.value))
 
+/** The sheet stays open while a save is in flight, so it can't close a newer sheet when it finishes. */
+function setOpen(next: boolean) {
+  if (!next && add.isPending.value) return
+  open.value = next
+}
+
 watch(open, (isOpen) => {
   if (!isOpen) return
   name.value = dueDate.value = dueTime.value = price.value = notes.value = ''
@@ -53,14 +59,21 @@ const input = 'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-base 
 </script>
 
 <template>
-  <DialogRoot v-model:open="open">
+  <DialogRoot :open="open" @update:open="setOpen">
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-30 bg-black/40" />
       <DialogContent
         class="fixed inset-x-0 bottom-0 z-40 flex max-h-[92dvh] flex-col rounded-t-3xl bg-surface text-text shadow-2xl md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[420px] md:rounded-none"
       >
         <header class="flex items-center gap-2 border-b border-line px-4 py-3">
-          <button type="button" class="text-accent" @click="open = false">{{ $t('itemForm.cancel') }}</button>
+          <button
+            type="button"
+            class="text-accent disabled:opacity-50"
+            :disabled="add.isPending.value"
+            @click="setOpen(false)"
+          >
+            {{ $t('itemForm.cancel') }}
+          </button>
           <DialogTitle class="flex-1 text-center font-semibold">{{ $t('itemForm.title') }}</DialogTitle>
           <button
             type="submit"

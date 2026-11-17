@@ -14,7 +14,7 @@ test('add an Item and see it in the right group', async ({ page }) => {
 
   await page.getByLabel('Name').fill('Gym')
   await page.getByText('Health').click()
-  await page.getByLabel('Due date').fill(inDays(3))
+  await page.getByLabel('Due date').fill(await inDays(page, 3))
   await page.getByLabel('Price').fill('35,00')
   await page.getByRole('button', { name: 'Save' }).click()
 
@@ -35,7 +35,7 @@ test('an Item due today and an Item far ahead land in Today and Later', async ({
     await openAddSheet(page)
     await page.getByLabel('Name').fill(name)
     await page.getByText('Other').click()
-    await page.getByLabel('Due date').fill(inDays(days))
+    await page.getByLabel('Due date').fill(await inDays(page, days))
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByRole('dialog')).toBeHidden()
   }
@@ -56,4 +56,19 @@ test('the add form explains what is missing and warns about long numbers', async
   await expect(alert).toContainText('Pick a Category.')
   await expect(alert).toContainText('Pick a Due date.')
   await expect(alert).toContainText('Type a price like 12.50')
+})
+
+test("after Ana logs out, Ben never sees Ana's Items on the same device", async ({ page }) => {
+  await logInAsNewPerson(page, 'Ana')
+  await openAddSheet(page)
+  await page.getByLabel('Name').fill('Ana passport')
+  await page.getByText('Documents').click()
+  await page.getByLabel('Due date').fill(await inDays(page, 30))
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText('Ana passport')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Account' }).click()
+  await page.getByRole('menuitem', { name: 'Log out' }).click()
+  await logInAsNewPerson(page, 'Ben', 'Tester')
+  await expect(page.getByText('Ana passport')).toHaveCount(0)
 })

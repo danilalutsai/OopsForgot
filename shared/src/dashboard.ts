@@ -1,4 +1,5 @@
 import { daysBetween } from './dates.ts'
+import { DUE_SOON_DAYS } from './urgency.ts'
 
 export type DashboardGroup = 'today' | 'thisWeek' | 'later'
 
@@ -7,7 +8,7 @@ export type Countdown = { kind: 'dueToday' } | { kind: 'dueIn'; days: number } |
 /** Which dashboard group an Item's Due date falls in. `today` is YYYY-MM-DD in the person's time zone. */
 export function dashboardGroup(dueDate: string, today: string): DashboardGroup {
   const days = daysBetween(today, dueDate)
-  return days <= 0 ? 'today' : days <= 7 ? 'thisWeek' : 'later'
+  return days <= 0 ? 'today' : days <= DUE_SOON_DAYS ? 'thisWeek' : 'later'
 }
 
 /** The countdown shown on an Item's row. */

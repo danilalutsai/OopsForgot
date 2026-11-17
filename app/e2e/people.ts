@@ -26,9 +26,11 @@ export async function logInAsNewPerson(page: Page, name = 'Ana', surname = 'Garc
   await expect(page.getByText(`Welcome, ${name}`)).toBeVisible()
 }
 
-/** A date `days` from today as YYYY-MM-DD, in the browser's time zone. */
-export function inDays(days: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toLocaleDateString('en-CA')
+/** A date `days` from today as YYYY-MM-DD, worked out in the browser so it matches the app's idea of today. */
+export function inDays(page: Page, days: number): Promise<string> {
+  return page.evaluate((n) => {
+    const d = new Date()
+    d.setDate(d.getDate() + n)
+    return d.toLocaleDateString('en-CA')
+  }, days)
 }

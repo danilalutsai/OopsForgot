@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { dashboardGroup, type DashboardGroup } from '@oopsproof/shared'
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import TopBar from '../components/TopBar.vue'
 import AddItemSheet from '../items/AddItemSheet.vue'
 import { useItems } from '../items/api'
@@ -21,10 +21,13 @@ const groups = computed(() =>
   })).filter((g) => g.items.length),
 )
 
+let toastTimer: ReturnType<typeof setTimeout> | undefined
 function saved() {
+  clearTimeout(toastTimer)
   toast.value = 'itemForm.saved'
-  setTimeout(() => (toast.value = null), 2500)
+  toastTimer = setTimeout(() => (toast.value = null), 2500)
 }
+onBeforeUnmount(() => clearTimeout(toastTimer))
 </script>
 
 <template>
