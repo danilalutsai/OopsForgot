@@ -9,6 +9,7 @@ import CalendarView from '../items/CalendarView.vue'
 import { dueDateOf, handledNow, questionOf, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
 import ItemSheet from '../items/ItemSheet.vue'
+import { online } from '../online'
 import { usePushOff } from '../push/pushOff'
 import { useAuth } from '../stores/auth'
 import { useToasts } from '../stores/toasts'
@@ -19,6 +20,14 @@ const items = useItems()
 const actions = useItemActions()
 const toasts = useToasts()
 const pushOff = usePushOff()
+const lastUpdated = computed(() =>
+  new Date(items.dataUpdatedAt.value).toLocaleString(navigator.language, {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  }),
+)
 const adding = ref(false)
 const showArchived = ref(false)
 const mode = ref<'list' | 'calendar'>('list')
@@ -105,7 +114,10 @@ const groups = computed(() =>
     </button>
   </div>
 
-  <p v-if="pushOff" class="mx-4 mb-2 rounded-xl bg-urgent-yellow/15 px-3 py-2 text-sm">
+  <p v-if="!online" role="status" class="mx-4 mb-2 rounded-xl bg-line px-3 py-2 text-sm">
+    {{ items.dataUpdatedAt.value ? $t('offline.banner', { when: lastUpdated }) : $t('offline.bannerNever') }}
+  </p>
+  <p v-if="pushOff && online" class="mx-4 mb-2 rounded-xl bg-urgent-yellow/15 px-3 py-2 text-sm">
     {{ $t('push.offBanner') }}
     <RouterLink to="/settings" class="font-semibold text-accent underline">{{ $t('push.offBannerLink') }}</RouterLink>
   </p>
