@@ -32,6 +32,15 @@ jobs:
         with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec supabase start -x studio,imgproxy,vector,logflare
+      - name: Serve Edge Functions in test mode
+        run: |
+          nohup pnpm functions:serve > functions.log 2>&1 &
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:54321/functions/v1/send-reminders || true)
+            [ "$code" = "403" ] && exit 0
+            sleep 2
+          done
+          cat functions.log; exit 1
       - run: pnpm test:integration
 
   e2e:

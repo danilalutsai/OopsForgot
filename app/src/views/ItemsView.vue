@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CATEGORY_ICONS, dashboardGroup, type DashboardGroup } from '@oopsproof/shared'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import { useItemActions } from '../items/actions'
 import AddItemSheet from '../items/AddItemSheet.vue'
@@ -29,6 +30,20 @@ function switchMode() {
 }
 const openId = ref<string | null>(null)
 const openItem = computed(() => items.data.value?.find((i) => i.id === openId.value) ?? null)
+
+// A push Reminder opens the app at /?item=<id>: show that Item, then tidy the address.
+const route = useRoute()
+const router = useRouter()
+watch(
+  () => [route.query.item, items.data.value] as const,
+  ([id, list]) => {
+    if (typeof id !== 'string' || !list) return
+    if (list.some((i) => i.id === id)) openId.value = id
+    const { item: _opened, ...rest } = route.query
+    void router.replace({ query: rest })
+  },
+  { immediate: true },
+)
 
 const active = computed(() => (items.data.value ?? []).filter((i) => !i.archived_at))
 const archived = computed(() => (items.data.value ?? []).filter((i) => i.archived_at))
