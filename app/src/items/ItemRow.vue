@@ -4,7 +4,9 @@ import { computed } from 'vue'
 import { formatDate, formatMoney, formatTime } from '../format'
 import { currency, today } from '../today'
 import { type Item, recurrenceOf } from './api'
+import CountdownText from './CountdownText.vue'
 
+defineEmits<{ open: [] }>()
 const props = defineProps<{ item: Item; /** the Due date the Item is on today */ due: string }>()
 
 const repeats = computed(() => recurrenceOf(props.item))
@@ -20,28 +22,26 @@ const textColor = {
 </script>
 
 <template>
-  <li class="flex items-center gap-3 border-b border-line bg-surface px-4 py-3">
-    <span :class="['h-10 w-1 shrink-0 rounded-full', barColor[level]]" aria-hidden="true" />
-    <span class="text-xl" aria-hidden="true">{{ CATEGORY_ICONS[item.category] }}</span>
-    <div class="min-w-0 flex-1">
-      <p class="truncate font-semibold">{{ item.name }}</p>
-      <p class="flex flex-wrap gap-x-2 text-[13px]">
-        <span :class="['font-semibold', textColor[level]]">
-          {{
-            left.kind === 'dueToday'
-              ? $t('items.countdown.dueToday')
-              : $t(`items.countdown.${left.kind}`, { days: left.days }, left.days)
-          }}
-        </span>
-        <span class="text-muted">
-          {{ formatDate(due, today) }}<template v-if="item.due_time"> · {{ formatTime(item.due_time) }}</template
-          ><template v-if="item.price_cents"> · {{ formatMoney(item.price_cents, currency) }}</template
-          ><template v-if="repeats">
-            ·
-            {{ $t(`items.repeats.${repeats.unit}`, { n: repeats.every }, repeats.every) }}</template
-          >
-        </span>
-      </p>
-    </div>
+  <li class="border-b border-line bg-surface">
+    <button type="button" class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg" @click="$emit('open')">
+      <span :class="['h-10 w-1 shrink-0 rounded-full', barColor[level]]" aria-hidden="true" />
+      <span class="text-xl" aria-hidden="true">{{ CATEGORY_ICONS[item.category] }}</span>
+      <div class="min-w-0 flex-1">
+        <p class="truncate font-semibold">{{ item.name }}</p>
+        <p class="flex flex-wrap gap-x-2 text-[13px]">
+          <span :class="['font-semibold', textColor[level]]">
+            <CountdownText :countdown="left" />
+          </span>
+          <span class="text-muted">
+            {{ formatDate(due, today) }}<template v-if="item.due_time"> · {{ formatTime(item.due_time) }}</template
+            ><template v-if="item.price_cents"> · {{ formatMoney(item.price_cents, currency) }}</template
+            ><template v-if="repeats">
+              ·
+              {{ $t(`items.repeats.${repeats.unit}`, { n: repeats.every }, repeats.every) }}</template
+            >
+          </span>
+        </p>
+      </div>
+    </button>
   </li>
 </template>

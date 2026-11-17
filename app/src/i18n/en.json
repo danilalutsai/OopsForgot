@@ -146,5 +146,21 @@
     },
     "repeatHint": "Each next Due date is counted from this one.",
     "repeatUnit": "Repeat unit"
+  },
+  "itemSheet": {
+    "unsaved": "Unsaved changes",
+    "allSaved": "All changes saved",
+    "saved": "Changes saved ✅",
+    "close": "Close",
+    "noTime": "No time",
+    "none": "None",
+    "addNotes": "Add notes",
+    "leaveTitle": "Save your changes?",
+    "leaveBody": "You changed this Item but haven’t saved yet.",
+    "save": "Save",
+    "discard": "Discard",
+    "keepEditing": "Keep editing",
+    "edit": "Change {field}",
+    "fixRepeat": "Custom: type how often"
   }
 }

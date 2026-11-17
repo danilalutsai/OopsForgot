@@ -1,15 +1,11 @@
 <script setup lang="ts">
-import {
-  CATEGORIES,
-  CATEGORY_ICONS,
-  type Category,
-  looksLikeFullNumber,
-  parseAmount,
-  type Recurrence,
-} from '@oopsproof/shared'
+import { type Category, looksLikeFullNumber, parseAmount, type Recurrence } from '@oopsproof/shared'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { useAddItem } from './api'
+import CategoryChips from './CategoryChips.vue'
+import RepeatPicker from './RepeatPicker.vue'
+import { INPUT as input } from './ui'
 
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ saved: [] }>()
@@ -18,13 +14,11 @@ const name = ref('')
 const category = ref<Category | null>(null)
 const dueDate = ref('')
 const dueTime = ref('')
+const recurrence = ref<Recurrence | null | undefined>(null)
 const price = ref('')
 const notes = ref('')
-type RepeatChoice = 'none' | 'week' | 'month' | 'year' | 'custom'
-const repeat = ref<RepeatChoice>('none')
-const customEvery = ref('2')
-const customUnit = ref<Recurrence['unit']>('month')
 const errors = ref<string[]>([])
+const session = ref(0)
 const add = useAddItem()
 const numberWarning = computed(() => looksLikeFullNumber(notes.value))
 
@@ -38,36 +32,19 @@ watch(open, (isOpen) => {
   if (!isOpen) return
   name.value = dueDate.value = dueTime.value = price.value = notes.value = ''
   category.value = null
-  repeat.value = 'none'
-  customEvery.value = '2'
-  customUnit.value = 'month'
+  recurrence.value = null
   errors.value = []
+  session.value++
 })
-
-/** The custom repeat count when it is a plain whole number from 1 to 365, else null. */
-const customCount = computed(() => {
-  const text = customEvery.value.trim()
-  const n = Number(text)
-  return /^\d{1,3}$/.test(text) && n >= 1 && n <= 365 ? n : null
-})
-
-/** The chosen Recurrence, or null for a one-time Item; undefined when the custom number is invalid. */
-function chosenRecurrence(): Recurrence | null | undefined {
-  if (repeat.value === 'none') return null
-  if (repeat.value !== 'custom') return { unit: repeat.value, every: 1 }
-  const every = customCount.value
-  return every === null ? undefined : { unit: customUnit.value, every }
-}
 
 async function save() {
   const priceCents = price.value.trim() ? parseAmount(price.value) : null
-  const recurrence = chosenRecurrence()
   errors.value = [
     !name.value.trim() && 'name',
     !category.value && 'category',
     !dueDate.value && 'dueDate',
     price.value.trim() && priceCents === null && 'price',
-    recurrence === undefined && 'every',
+    recurrence.value === undefined && 'every',
   ].filter((e): e is string => !!e)
   if (errors.value.length) return
   try {
@@ -78,8 +55,8 @@ async function save() {
       due_time: dueTime.value || null,
       price_cents: priceCents,
       notes: notes.value.trim(),
-      recurrence_unit: recurrence?.unit ?? null,
-      recurrence_every: recurrence?.every ?? null,
+      recurrence_unit: recurrence.value?.unit ?? null,
+      recurrence_every: recurrence.value?.every ?? null,
     })
     open.value = false
     emit('saved')
@@ -87,8 +64,6 @@ async function save() {
     errors.value = ['save']
   }
 }
-
-const input = 'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-base outline-none focus:border-accent'
 </script>
 
 <template>
@@ -129,22 +104,7 @@ const input = 'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-base 
             <span class="font-medium">{{ $t('itemForm.name') }}</span>
             <input v-model="name" :class="input" :placeholder="$t('itemForm.namePlaceholder')" />
           </label>
-          <fieldset class="flex flex-col gap-2 text-sm">
-            <legend class="mb-1 font-medium">{{ $t('itemForm.category') }}</legend>
-            <div class="flex flex-wrap gap-2">
-              <label
-                v-for="c in CATEGORIES"
-                :key="c"
-                :class="[
-                  'cursor-pointer rounded-full border px-3 py-1.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent',
-                  category === c ? 'border-accent bg-accent text-on-accent' : 'border-line',
-                ]"
-              >
-                <input v-model="category" type="radio" name="category" :value="c" class="sr-only" />
-                {{ CATEGORY_ICONS[c] }} {{ $t(`categories.${c}`) }}
-              </label>
-            </div>
-          </fieldset>
+          <CategoryChips v-model="category" :legend="$t('itemForm.category')" name="add-category" />
           <div class="grid grid-cols-2 gap-3">
             <label class="flex flex-col gap-1 text-sm">
               <span class="font-medium">{{ $t('itemForm.dueDate') }}</span>
@@ -156,29 +116,7 @@ const input = 'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-base 
             </label>
           </div>
           <p class="-mt-3 text-sm text-muted">{{ $t('itemForm.timeHint') }}</p>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="font-medium">{{ $t('itemForm.repeats') }}</span>
-            <select v-model="repeat" :class="input">
-              <option v-for="o in ['none', 'week', 'month', 'year', 'custom'] as const" :key="o" :value="o">
-                {{ $t(`itemForm.repeatOptions.${o}`) }}
-              </option>
-            </select>
-          </label>
-          <div v-if="repeat === 'custom'" class="-mt-2 flex items-center gap-2 text-sm">
-            <span>{{ $t('itemForm.every') }}</span>
-            <input
-              v-model="customEvery"
-              inputmode="numeric"
-              :aria-label="$t('itemForm.every')"
-              :class="[input, 'w-20']"
-            />
-            <select v-model="customUnit" :aria-label="$t('itemForm.repeatUnit')" :class="[input, 'w-auto']">
-              <option v-for="u in ['day', 'week', 'month', 'year'] as const" :key="u" :value="u">
-                {{ $t(`itemForm.units.${u}`, customCount ?? 2) }}
-              </option>
-            </select>
-          </div>
-          <p v-if="repeat !== 'none'" class="-mt-3 text-sm text-muted">{{ $t('itemForm.repeatHint') }}</p>
+          <RepeatPicker :key="session" v-model="recurrence" />
           <label class="flex flex-col gap-1 text-sm">
             <span class="font-medium">{{ $t('itemForm.price') }}</span>
             <input v-model="price" inputmode="decimal" :class="input" placeholder="0.00" />
