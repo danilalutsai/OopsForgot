@@ -7,21 +7,28 @@ const props = defineProps<{
   parts: { category: Category; cents: number }[]
   selected: Category | null
   label: string
+  /** bills still due later this month, shown as a grey part after the spent ones */
+  coming?: number
 }>()
 defineEmits<{ pick: [category: Category] }>()
 
 const R = 70
 const C = 2 * Math.PI * R
 /** One arc per Category, in order around the ring, starting at the top. */
+const total = computed(() => props.parts.reduce((s, p) => s + p.cents, 0) + (props.coming ?? 0))
 const arcs = computed(() => {
-  const total = props.parts.reduce((s, p) => s + p.cents, 0)
   let start = 0
   return props.parts.map((p) => {
-    const length = total ? (p.cents / total) * C : 0
+    const length = total.value ? (p.cents / total.value) * C : 0
     const arc = { ...p, dash: `${Math.max(0, length - 2)} ${C}`, offset: -start }
     start += length
     return arc
   })
+})
+const comingArc = computed(() => {
+  if (!props.coming || !total.value) return null
+  const start = (1 - props.coming / total.value) * C
+  return { dash: `${Math.max(0, C - start - 2)} ${C}`, offset: -start }
 })
 </script>
 
@@ -43,6 +50,19 @@ const arcs = computed(() => {
       transform="rotate(-90 90 90)"
       class="cursor-pointer"
       @click="$emit('pick', a.category)"
+    />
+    <circle
+      v-if="comingArc"
+      cx="90"
+      cy="90"
+      :r="R"
+      fill="none"
+      class="stroke-urgent-grey"
+      stroke-width="18"
+      :stroke-dashoffset="comingArc.offset"
+      :style="{ strokeDasharray: comingArc.dash }"
+      transform="rotate(-90 90 90)"
+      opacity="0.6"
     />
     <slot />
   </svg>

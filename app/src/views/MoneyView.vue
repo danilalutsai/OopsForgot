@@ -1,9 +1,19 @@
 <script setup lang="ts">
-import { addDays, CATEGORY_ICONS, type Category, monthTotals, shiftMonth, todayIn } from '@oopsproof/shared'
+import {
+  addDays,
+  CATEGORY_ICONS,
+  type Category,
+  monthTotals,
+  shiftMonth,
+  stillComing,
+  todayIn,
+} from '@oopsproof/shared'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import { formatDate, formatMoney, formatMonth } from '../format'
+import { recurrenceOf, useItems } from '../items/api'
 import { type Expense, useExpenses } from '../money/api'
 import { CATEGORY_COLORS } from '../money/colors'
 import ExpenseSheet from '../money/ExpenseSheet.vue'
@@ -13,6 +23,8 @@ import { currency, timeZone, today } from '../today'
 
 const auth = useAuth()
 const expenses = useExpenses()
+const items = useItems()
+const router = useRouter()
 const { t } = useI18n()
 
 const thisMonth = computed(() => today.value.slice(0, 7))
@@ -37,6 +49,27 @@ watch(
     if (filter.value && !parts.some((p) => p.category === filter.value)) filter.value = null
   },
 )
+/** This month only: priced Items still due after today. */
+const coming = computed(() =>
+  month.value !== thisMonth.value
+    ? []
+    : stillComing(
+        (items.data.value ?? [])
+          .filter((i) => !i.archived_at)
+          .map((i) => ({
+            id: i.id,
+            name: i.name,
+            dueDate: i.due_date,
+            recurrence: recurrenceOf(i),
+            priceCents: i.price_cents,
+            category: i.category,
+            handledDueDate: i.handled_due_date,
+          })),
+        today.value,
+      ),
+)
+const comingTotal = computed(() => coming.value.reduce((s, c) => s + c.priceCents, 0))
+
 const shown = computed(() =>
   (expenses.data.value ?? []).filter(
     (e) => e.date.startsWith(month.value) && (!filter.value || e.category === filter.value),
@@ -116,6 +149,7 @@ function saved(date: string) {
       <RingChart
         :parts="totals.byCategory"
         :selected="filter"
+        :coming="comingTotal"
         :label="$t('money.total', { amount: formatMoney(totals.total, currency), month: monthName(month) })"
         @pick="pick"
       >
@@ -126,7 +160,7 @@ function saved(date: string) {
       </RingChart>
 
       <div
-        v-if="totals.byCategory.length"
+        v-if="totals.byCategory.length || comingTotal"
         class="mt-4 flex flex-wrap gap-2"
         role="group"
         :aria-label="$t('money.byCategory')"
@@ -149,6 +183,12 @@ function saved(date: string) {
           />
           {{ $t(`categories.${c.category}`) }} · {{ formatMoney(c.cents, currency) }}
         </button>
+        <span
+          v-if="comingTotal"
+          class="flex items-center gap-1.5 rounded-full border border-dashed border-line px-3 py-1 text-sm text-muted"
+        >
+          {{ $t('money.coming', { amount: formatMoney(comingTotal, currency) }) }}
+        </span>
       </div>
     </section>
 
@@ -159,7 +199,7 @@ function saved(date: string) {
           {{ $t('money.showAll') }}
         </button>
       </p>
-      <div v-if="expenses.isSuccess.value && !shown.length && !filter" class="py-6 text-center">
+      <div v-if="expenses.isSuccess.value && !shown.length && !filter && !coming.length" class="py-6 text-center">
         <p class="font-semibold">{{ $t('money.empty') }}</p>
         <p class="mt-1 text-sm text-muted">{{ $t('money.emptyHint') }}</p>
         <button
@@ -188,6 +228,24 @@ function saved(date: string) {
           </button>
         </li>
       </ul>
+      <template v-if="coming.length && !filter">
+        <h3 class="mt-6 mb-1 text-[13px] font-semibold tracking-wide text-muted uppercase">
+          {{ $t('money.comingTitle') }}
+        </h3>
+        <ul :aria-label="$t('money.comingTitle')">
+          <li v-for="c in coming" :key="`${c.id}-${c.date}`" class="border-b border-line">
+            <button
+              type="button"
+              class="flex w-full items-center gap-3 py-2.5 text-left text-muted hover:bg-bg"
+              @click="router.push(`/?item=${c.id}`)"
+            >
+              <span class="w-16 shrink-0 text-[13px]">{{ formatDate(c.date, today) }}</span>
+              <span class="min-w-0 flex-1 truncate">{{ c.name }}</span>
+              <span>{{ formatMoney(c.priceCents, currency) }}</span>
+            </button>
+          </li>
+        </ul>
+      </template>
     </section>
   </div>
 

@@ -110,20 +110,19 @@ export function useItemActions() {
     /** Answers "Kept it?" with Yes: a monthly Subscription from one month after the trial ended. */
     async keepTrial(item: Item) {
       const name = keptTrialName(item.name)
-      const changes = {
-        id: item.id,
-        name,
-        category: 'subscriptions' as const,
-        recurrence_unit: 'month' as const,
-        recurrence_every: 1,
-        due_date: addMonths(item.due_date, 1),
-        reminder_offsets: fittingOrDefault(item.reminder_offsets, {
-          dueDate: addMonths(item.due_date, 1),
-          dueTime: item.due_time,
-          recurrence: { unit: 'month', every: 1 },
-        }),
-      }
-      if (await run(() => update.mutateAsync(changes))) toasts.show('questions.kept', { name })
+      const reminders = fittingOrDefault(item.reminder_offsets, {
+        dueDate: addMonths(item.due_date, 1),
+        dueTime: item.due_time,
+        recurrence: { unit: 'month', every: 1 },
+      })
+      // one step on the server: the Subscription and its first charge on the trial's Due date
+      const kept = await run(async () => {
+        const { error } = await supabase.rpc('keep_trial', { p_item_id: item.id, p_name: name, p_reminders: reminders })
+        if (error) throw error
+      })
+      void queryClient.invalidateQueries({ queryKey: ['items'] })
+      void queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      if (kept) toasts.show('questions.kept', { name })
     },
     async restore(item: Item) {
       if (await run(() => update.mutateAsync({ id: item.id, archived_at: null }))) toasts.show('items.restored')
