@@ -298,5 +298,10 @@
     "failed": "Could not turn on push. Check your connection and try again.",
     "unnamed": "Unnamed device",
     "loadError": "Could not load your devices. Check your connection and try again."
+  },
+  "offline": {
+    "banner": "Offline, last updated {when}.",
+    "bannerNever": "Offline.",
+    "blocked": "You’re offline. Changes can be made once you’re back online."
   }
 }

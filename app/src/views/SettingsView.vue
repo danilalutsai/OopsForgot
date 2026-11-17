@@ -8,6 +8,7 @@ import { INPUT } from '../items/ui'
 import { removePhoto, squarePhoto, uploadPhoto } from '../settings/photo'
 import { keepSavedTimeZone, timeZoneDiffers } from '../settings/timeZoneCheck'
 import { browserTimeZone, type Profile, useAuth } from '../stores/auth'
+import { blockedOffline } from '../online'
 import { useToasts } from '../stores/toasts'
 import { dayReminderTime } from '../today'
 import AvatarImage from '../components/AvatarImage.vue'
@@ -48,6 +49,7 @@ const toggle = (line: string) => (openLine.value = openLine.value === line ? nul
 
 /** Every line saves as soon as it changes; returns whether it worked. */
 async function save(changes: Partial<Profile>, closeLine = false): Promise<boolean> {
+  if (blockedOffline()) return false
   error.value = null
   busy.value = true
   const failed = await auth.updateProfile(changes)
@@ -74,6 +76,7 @@ function saveName() {
 
 const photoInput = ref<HTMLInputElement>()
 async function pickPhoto(e: Event) {
+  if (blockedOffline()) return
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file || !auth.session) return
   try {
@@ -94,6 +97,7 @@ async function pickPhoto(e: Event) {
   }
 }
 async function dropPhoto() {
+  if (blockedOffline()) return
   const path = profile.value?.photo_path
   if (!path) return
   if (await save({ photo_path: null })) await removePhoto(path)

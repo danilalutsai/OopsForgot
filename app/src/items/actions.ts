@@ -1,5 +1,6 @@
 import { addMonths, keptTrialName } from '@oopsproof/shared'
 import { useQueryClient } from '@tanstack/vue-query'
+import { blockedOffline } from '../online'
 import { supabase } from '../supabase'
 import { fittingOrDefault } from './reminderFit'
 import { useToasts } from '../stores/toasts'
@@ -17,6 +18,7 @@ export function useItemActions() {
   const queryClient = useQueryClient()
 
   async function run(action: () => Promise<unknown>): Promise<boolean> {
+    if (blockedOffline()) return false
     try {
       await action()
       return true
@@ -43,6 +45,7 @@ export function useItemActions() {
 
   /** Flips Handled on screen at once and saves it behind any earlier change to the same Item. */
   function queueHandled(item: Item, next: string | null, then?: () => void) {
+    if (blockedOffline()) return Promise.resolve()
     showNow(item.id, { handled_due_date: next })
     const step = (handledQueue.get(item.id) ?? Promise.resolve()).then(async () => {
       if (await saveHandled(item, next)) then?.()
@@ -126,6 +129,7 @@ export function useItemActions() {
       if (await run(() => update.mutateAsync({ id: item.id, archived_at: null }))) toasts.show('items.restored')
     },
     async delete(item: Item) {
+      if (blockedOffline()) return
       // The full row (Reminders included, as they live on it) and when it was added, so Undo brings it back exactly.
       // Rows in other tables that belong to the Item (Expenses) must be copied here too once they exist.
       const { data: copy, error } = await supabase.from('items').select('*').eq('id', item.id).single()

@@ -38,6 +38,7 @@ import RepeatPicker from './RepeatPicker.vue'
 import ToastBar from '../components/ToastBar.vue'
 import { fittingReminders } from './reminderFit'
 import ReminderChips from './ReminderChips.vue'
+import { blockedOffline } from '../online'
 import SheetLine from './SheetLine.vue'
 import { INPUT as input } from './ui'
 import CountdownText from './CountdownText.vue'
@@ -155,6 +156,7 @@ const toggle = (line: string) => (openLine.value = openLine.value === line ? nul
 const pick = () => (openLine.value = null)
 
 async function save(): Promise<boolean> {
+  if (blockedOffline()) return false
   errors.value = [
     !draft.name.trim() && 'name',
     !draft.due_date && 'dueDate',
