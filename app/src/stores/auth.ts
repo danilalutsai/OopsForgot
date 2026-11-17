@@ -62,6 +62,27 @@ export const useAuth = defineStore('auth', () => {
 
   let fromSavedCopy = false
 
+  /**
+   * Opening the app while logged in counts as use, so unused-account deletion starts over.
+   * Told to the server at most once a day per person.
+   */
+  async function noteActivity(userId: string) {
+    const key = `oopsproof-active-${userId}`
+    const day = new Date().toISOString().slice(0, 10)
+    try {
+      if (localStorage.getItem(key) === day) return
+    } catch {
+      // no memory: tell the server anyway
+    }
+    const { error } = await supabase.rpc('touch_activity')
+    if (error) return
+    try {
+      localStorage.setItem(key, day)
+    } catch {
+      // fine: told again next time
+    }
+  }
+
   /** Keeps the copy saved on the device in step with the profile on screen. */
   function saveProfileCopy() {
     const userId = session.value?.user.id
@@ -95,6 +116,7 @@ export const useAuth = defineStore('auth', () => {
     profile.value = data
     fromSavedCopy = false
     saveProfileCopy()
+    void noteActivity(userId)
   }
 
   // Registered before anything is awaited: Supabase fires PASSWORD_RECOVERY while it starts up.

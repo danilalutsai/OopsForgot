@@ -3,6 +3,7 @@
 // database cascades from it); the profile photo is removed from storage; the ID is kept in
 // deleted_accounts so a restored backup can be cleaned again.
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0'
+import { deleteAccount } from '../_shared/deleteAccount.ts'
 
 const env = (name: string) => Deno.env.get(name) ?? ''
 const URL = env('SUPABASE_URL')
@@ -42,24 +43,6 @@ Deno.serve(async (req) => {
   // the check made a session of its own: end it
   await check.auth.signOut()
 
-  const id = me.user.id
-  // Photos are listed before anything changes, so a storage problem stops the deletion cleanly.
-  const { data: photos, error: listing } = await admin.storage.from('avatars').list(id)
-  if (listing) return answer(503, { error: 'busy' })
-
-  // The account itself goes first; everything after only happens once it really is gone.
-  const { error: gone } = await admin.auth.admin.deleteUser(id)
-  if (gone) return answer(500, { error: 'failed' })
-
-  // Now (and only now) the ID joins the deleted list, for cleaning a restored backup.
-  await admin.from('deleted_accounts').upsert({ user_id: id })
-  if (photos?.length) {
-    const names = photos.map((p) => `${id}/${p.name}`)
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const { error } = await admin.storage.from('avatars').remove(names)
-      if (!error) break
-      if (attempt === 2) console.error(`Photo of deleted account ${id} left in storage`, error)
-    }
-  }
+  if (!(await deleteAccount(admin, me.user.id))) return answer(500, { error: 'failed' })
   return answer(200, { deleted: true })
 })
