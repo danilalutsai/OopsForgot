@@ -1,0 +1,48 @@
+// Calendar feed: calendar apps fetch it with the secret token in the link. No login, no other key.
+import { createClient } from 'npm:@supabase/supabase-js@2.119.0'
+import { calendarFeed, type FeedItem, todayIn } from '../../../shared/src/index.ts'
+
+const env = (name: string) => Deno.env.get(name) ?? ''
+const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
+const APP_URL = env('APP_URL') || 'https://oopsproof.pages.dev'
+
+Deno.serve(async (req) => {
+  const token = new URL(req.url).searchParams.get('token') ?? ''
+  // tokens are 48 hex characters; anything else is not worth a database call
+  if (!/^[0-9a-f]{48}$/.test(token)) return new Response('Not found', { status: 404 })
+
+  const { data: person } = await db.from('profiles').select('id, time_zone').eq('calendar_token', token).maybeSingle()
+  if (!person) return new Response('Not found', { status: 404 })
+
+  const { data: items, error } = await db
+    .from('items')
+    .select('id, name, category, due_date, due_time, recurrence_unit, recurrence_every, handled_due_date')
+    .eq('user_id', person.id)
+    .is('archived_at', null)
+  if (error) return new Response('Try again later', { status: 503 })
+
+  let timeZone = person.time_zone
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone })
+  } catch {
+    timeZone = 'UTC'
+  }
+  const now = new Date()
+  const feedItems: FeedItem[] = items.map((i) => ({
+    id: i.id,
+    name: i.name,
+    category: i.category,
+    dueDate: i.due_date,
+    dueTime: i.due_time?.slice(0, 5) ?? null,
+    recurrence: i.recurrence_unit ? { unit: i.recurrence_unit, every: i.recurrence_every } : null,
+    handledDueDate: i.handled_due_date,
+  }))
+  const body = calendarFeed(feedItems, { today: todayIn(timeZone, now), timeZone, appUrl: APP_URL, now })
+  return new Response(body, {
+    headers: {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': 'inline; filename="oopsproof.ics"',
+      'Cache-Control': 'private, max-age=900',
+    },
+  })
+})

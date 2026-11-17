@@ -431,3 +431,7 @@ enabled = true
 # The Reminder sender checks the service key itself (Cron sends it), so the gateway's JWT check is off.
 [functions.send-reminders]
 verify_jwt = false
+
+# The Calendar feed is opened by calendar apps with only the secret link: no login.
+[functions.calendar-feed]
+verify_jwt = false

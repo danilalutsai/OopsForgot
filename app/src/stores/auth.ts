@@ -19,9 +19,11 @@ export interface Profile {
   /** "12:00:00" */
   day_reminder_time: string
   photo_path: string | null
+  /** the Calendar feed's secret, or null when the feed is off */
+  calendar_token: string | null
 }
 
-const PROFILE_COLUMNS = 'name, surname, time_zone, currency, day_reminder_time, photo_path'
+const PROFILE_COLUMNS = 'name, surname, time_zone, currency, day_reminder_time, photo_path, calendar_token'
 
 /** The profile is saved on the device next to the offline copy, so dates and money stay right offline. */
 const PROFILE_KEY = 'oopsproof-profile'
@@ -184,6 +186,19 @@ export const useAuth = defineStore('auth', () => {
     return error
   }
 
+  /** Feed changes go through the server (the token is made there); the local copy follows. */
+  async function setCalendarFeed(on: boolean) {
+    if (!session.value || !profile.value) return new Error('Not logged in')
+    if (on) {
+      const { data, error } = await supabase.rpc('new_calendar_link')
+      if (!error) profile.value = { ...profile.value, calendar_token: data as string }
+      return error
+    }
+    const { error } = await supabase.rpc('turn_off_calendar_feed')
+    if (!error) profile.value = { ...profile.value, calendar_token: null }
+    return error
+  }
+
   return {
     session,
     profile,
@@ -198,5 +213,6 @@ export const useAuth = defineStore('auth', () => {
     sendPasswordReset,
     setNewPassword,
     updateProfile,
+    setCalendarFeed,
   }
 })

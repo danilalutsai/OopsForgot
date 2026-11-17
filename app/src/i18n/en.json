@@ -348,5 +348,28 @@
   },
   "moneyList": {
     "from": "from {name}"
+  },
+  "calendarFeed": {
+    "section": "Calendar",
+    "line": "Calendar feed",
+    "on": "On",
+    "off": "Off",
+    "intro": "See your Due dates in Google, Apple or Outlook Calendar. It updates by itself.",
+    "setUp": "Set up Calendar feed",
+    "link": "Your Calendar feed link",
+    "copy": "Copy link",
+    "copied": "Link copied ✅",
+    "warning": "Anyone with this link can see your Item names and Due dates. Don’t share it.",
+    "guidesTitle": "Add it to your calendar",
+    "google": "Google Calendar (on a computer): Other calendars → + → From URL → paste the link.",
+    "apple": "Apple Calendar: on iPhone, Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar; on Mac, File → New Calendar Subscription.",
+    "outlook": "Outlook: Add calendar → Subscribe from web → paste the link.",
+    "delay": "Calendars check for changes on their own schedule; updates can take up to a day.",
+    "reset": "Reset link",
+    "resetTitle": "Reset the Calendar feed link?",
+    "resetBody": "The old link stops working at once. You’ll add the new one to your calendars again.",
+    "turnOff": "Turn off",
+    "cancel": "Cancel",
+    "failed": "Could not change the Calendar feed. Check your connection and try again."
   }
 }
