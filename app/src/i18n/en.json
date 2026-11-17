@@ -248,5 +248,27 @@
     "dayEmpty": "{date}, no Items",
     "nothingDue": "Nothing due on {date}.",
     "more": "+{n}"
+  },
+  "reminders": {
+    "title": "Reminders",
+    "none": "No Reminders",
+    "offsets": {
+      "30m": "30 min",
+      "1h": "1 hour",
+      "2h": "2 hours",
+      "4h": "4 hours",
+      "1d": "1 day",
+      "2d": "2 days",
+      "1w": "1 week",
+      "2w": "2 weeks",
+      "1M": "1 month"
+    },
+    "before": "{when} before",
+    "reasons": {
+      "needsTime": "Hour Reminders need a time.",
+      "longerThanRepeat": "Some are longer than one repeat.",
+      "alreadyPast": "Some would already be past."
+    },
+    "dayTime": "Day Reminders arrive at {time}."
   }
 }

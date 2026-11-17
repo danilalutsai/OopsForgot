@@ -4,8 +4,8 @@ import { supabase } from '../supabase'
 import { useToasts } from '../stores/toasts'
 import { type Item, useDeleteItem, useRestoreDeletedItem, useUpdateItem } from './api'
 
-/** Items with a Handled change still on its way; more taps on them wait. */
-const pendingHandled = new Set<string>()
+/** Handled changes per Item run one after another, so quick taps toggle in order instead of racing. */
+const handledQueue = new Map<string, Promise<unknown>>()
 
 /** Handled, Archive, Restore and Delete, each with its message and (where it helps) Undo. */
 export function useItemActions() {
@@ -42,16 +42,19 @@ export function useItemActions() {
   return {
     /** Flips Handled for the Due date the Item is on now (`due`). */
     async toggleHandled(item: Item, due: string) {
-      if (pendingHandled.has(item.id)) return
-      pendingHandled.add(item.id)
-      const before = item.handled_due_date
+      // Decide from what is on screen now (it already includes earlier taps), flip it at once,
+      // then save in order behind any earlier taps on the same Item.
+      const before = (queryClient.getQueryData<Item[]>(['items'])?.find((i) => i.id === item.id) ?? item)
+        .handled_due_date
       const next = before === due ? null : due
-      try {
+      showNow(item.id, { handled_due_date: next })
+      const step = (handledQueue.get(item.id) ?? Promise.resolve()).then(async () => {
         if (!(await setHandledFor(item, next))) return
-      } finally {
-        pendingHandled.delete(item.id)
-      }
-      toasts.show(next ? 'toasts.handled' : 'toasts.unhandled', {}, () => setHandledFor(item, before))
+        toasts.show(next ? 'toasts.handled' : 'toasts.unhandled', {}, () => setHandledFor(item, before))
+      })
+      handledQueue.set(item.id, step)
+      await step
+      if (handledQueue.get(item.id) === step) handledQueue.delete(item.id)
     },
     /** Returns false when archiving failed, so a swiped row can slide back. */
     async archive(item: Item): Promise<boolean> {

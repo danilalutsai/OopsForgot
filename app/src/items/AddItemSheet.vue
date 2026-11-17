@@ -1,10 +1,19 @@
 <script setup lang="ts">
-import { type Category, looksLikeFullNumber, parseAmount, type Recurrence } from '@oopsproof/shared'
+import {
+  type Category,
+  DEFAULT_REMINDERS,
+  looksLikeFullNumber,
+  parseAmount,
+  type Recurrence,
+  type ReminderOffset,
+} from '@oopsproof/shared'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { useAddItem } from './api'
 import ToastBar from '../components/ToastBar.vue'
 import CategoryChips from './CategoryChips.vue'
+import { fittingReminders } from './reminderFit'
+import ReminderChips from './ReminderChips.vue'
 import RepeatPicker from './RepeatPicker.vue'
 import { INPUT as input } from './ui'
 
@@ -18,6 +27,7 @@ const dueTime = ref('')
 const recurrence = ref<Recurrence | null | undefined>(null)
 const price = ref('')
 const notes = ref('')
+const reminders = ref<ReminderOffset[]>([...DEFAULT_REMINDERS])
 const errors = ref<string[]>([])
 const session = ref(0)
 const add = useAddItem()
@@ -34,6 +44,7 @@ watch(open, (isOpen) => {
   name.value = dueDate.value = dueTime.value = price.value = notes.value = ''
   category.value = null
   recurrence.value = null
+  reminders.value = [...DEFAULT_REMINDERS]
   errors.value = []
   session.value++
 })
@@ -58,6 +69,11 @@ async function save() {
       notes: notes.value.trim(),
       recurrence_unit: recurrence.value?.unit ?? null,
       recurrence_every: recurrence.value?.every ?? null,
+      reminder_offsets: fittingReminders(reminders.value, {
+        dueDate: dueDate.value,
+        dueTime: dueTime.value || null,
+        recurrence: recurrence.value ?? null,
+      }),
     })
     open.value = false
     emit('saved')
@@ -118,6 +134,7 @@ async function save() {
           </div>
           <p class="-mt-3 text-sm text-muted">{{ $t('itemForm.timeHint') }}</p>
           <RepeatPicker :key="session" v-model="recurrence" />
+          <ReminderChips v-model="reminders" :due-date="dueDate" :due-time="dueTime || null" :recurrence="recurrence" />
           <label class="flex flex-col gap-1 text-sm">
             <span class="font-medium">{{ $t('itemForm.price') }}</span>
             <input v-model="price" inputmode="decimal" :class="input" placeholder="0.00" />
