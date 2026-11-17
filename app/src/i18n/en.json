@@ -1,10 +1,78 @@
 {
-  "app": { "name": "oopsproof" },
-  "nav": { "items": "Items", "money": "Money", "settings": "Settings", "account": "Account" },
+  "app": {
+    "name": "oopsproof"
+  },
+  "nav": {
+    "items": "Items",
+    "money": "Money",
+    "settings": "Settings",
+    "account": "Account",
+    "logOut": "Log out"
+  },
   "items": {
     "list": "List",
     "calendar": "Calendar",
-    "empty": "Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before it is due."
+    "empty": "Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before it is due.",
+    "welcome": "Welcome, {name} 👋"
   },
-  "money": { "title": "Money" }
+  "money": {
+    "title": "Money"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "newPassword": "New password",
+    "name": "Name",
+    "surname": "Surname",
+    "passwordHint": "At least 8 characters.",
+    "age": "I am 16 or older",
+    "accept": "By signing up you accept the {privacy}.",
+    "privacyNotice": "privacy notice",
+    "signUp": "Sign up",
+    "signUpTitle": "Create your account",
+    "logIn": "Log in",
+    "logInTitle": "Welcome back",
+    "haveAccount": "Already have an account?",
+    "noAccount": "New here?",
+    "forgot": "Forgot your password?",
+    "checkEmailTitle": "Almost there, {name} 👋",
+    "checkEmail": "We sent a link to {email}. Open it to confirm your email, then log in.",
+    "resetTitle": "Reset your password",
+    "resetIntro": "Type your email and we will send you a link to set a new password.",
+    "sendLink": "Send link",
+    "resetSent": "If an account uses {email}, a link to set a new password is on its way.",
+    "newPasswordTitle": "Set a new password",
+    "savePassword": "Save password",
+    "passwordSaved": "Password saved ✅",
+    "backToLogIn": "Back to log in",
+    "errors": {
+      "generic": "Something went wrong. Check your connection and try again.",
+      "wrongLogin": "That email and password don't match an account.",
+      "notConfirmed": "Please confirm your email first. Look for our link in your inbox.",
+      "taken": "An account already uses this email. Try logging in.",
+      "weakPassword": "Use at least 8 characters.",
+      "required": "Please fill in every field.",
+      "age": "OopsProof is for people 16 or older."
+    },
+    "linkExpiredTitle": "This link no longer works",
+    "linkExpired": "Reset links work once and only for a short time. Ask for a new one and use it straight away.",
+    "newLink": "Send a new link"
+  },
+  "privacy": {
+    "title": "Privacy notice",
+    "updated": "Last updated 17 November 2026",
+    "whoTitle": "Who runs OopsProof",
+    "who": "OopsProof is a free personal project run by {owner}. Questions or requests: {contact}.",
+    "whatTitle": "What we store",
+    "what": "Your email, Name, Surname, profile photo if you add one, time zone, currency, your Items, Reminders, Expenses and the devices you allow to get push. We never ask for full card or document numbers.",
+    "whyTitle": "Why",
+    "why": "Only to remind you before things are due and to show your spending. Nothing else.",
+    "whereTitle": "Where",
+    "where": "Your data is kept by Supabase in Frankfurt (EU). The app is served by Cloudflare. Login emails are sent through Gmail. Push messages pass through your browser's push service (Google, Apple or Mozilla). Encrypted backups may be stored outside the EU.",
+    "howLongTitle": "How long",
+    "howLong": "Until you delete your account, or after 12 months without use (we email you 30 and 7 days before). A deleted account disappears from our backups within 30 days.",
+    "rightsTitle": "Your rights",
+    "rights": "You can see, change and delete your data in the app at any time. For a copy of your data, email {contact} and you will get it within 30 days.",
+    "noTracking": "No ads, no tracking, no selling. We use no analytics and only the storage that logging in needs, so there is no cookie banner."
+  }
 }

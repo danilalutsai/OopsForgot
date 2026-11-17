@@ -26,6 +26,7 @@
     "@oopsproof/shared": "workspace:*",
     "@supabase/supabase-js": "^2.119.0",
     "pinia": "^4.1.0",
+    "reka-ui": "^2.11.0",
     "vue": "^3.5.45",
     "vue-i18n": "^11.4.20",
     "vue-router": "^5.5.1"
