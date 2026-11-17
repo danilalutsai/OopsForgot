@@ -1,3 +1,4 @@
+import { addMonths, keptTrialName } from '@oopsproof/shared'
 import { useQueryClient } from '@tanstack/vue-query'
 import { supabase } from '../supabase'
 import { useToasts } from '../stores/toasts'
@@ -59,6 +60,29 @@ export function useItemActions() {
         run(() => update.mutateAsync({ id: item.id, archived_at: null })),
       )
       return true
+    },
+    /** Answers "What now?" with a new Due date. */
+    async setNewDueDate(item: Item, dueDate: string) {
+      if (await run(() => update.mutateAsync({ id: item.id, due_date: dueDate, handled_due_date: null })))
+        toasts.show('settings.saved')
+    },
+    /** Answers "What now?" by repeating; the next Due date is counted forward from the old one. */
+    async makeRepeat(item: Item, unit: 'week' | 'month' | 'year') {
+      if (await run(() => update.mutateAsync({ id: item.id, recurrence_unit: unit, recurrence_every: 1 })))
+        toasts.show('settings.saved')
+    },
+    /** Answers "Kept it?" with Yes: a monthly Subscription from one month after the trial ended. */
+    async keepTrial(item: Item) {
+      const name = keptTrialName(item.name)
+      const changes = {
+        id: item.id,
+        name,
+        category: 'subscriptions' as const,
+        recurrence_unit: 'month' as const,
+        recurrence_every: 1,
+        due_date: addMonths(item.due_date, 1),
+      }
+      if (await run(() => update.mutateAsync(changes))) toasts.show('questions.kept', { name })
     },
     async restore(item: Item) {
       if (await run(() => update.mutateAsync({ id: item.id, archived_at: null }))) toasts.show('items.restored')

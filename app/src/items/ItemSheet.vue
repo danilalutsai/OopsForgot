@@ -29,9 +29,11 @@ import { formatDate, formatMoney, formatTime } from '../format'
 import { duration } from '../motion'
 import { currency, today } from '../today'
 import { useItemActions } from './actions'
-import { dueDateOf, handledNow, type Item, recurrenceOf, useUpdateItem } from './api'
+import { dueDateOf, handledNow, type Item, questionOf, recurrenceOf, useUpdateItem } from './api'
+import QuestionBox from './QuestionBox.vue'
 import CategoryChips from './CategoryChips.vue'
 import RepeatPicker from './RepeatPicker.vue'
+import ToastBar from '../components/ToastBar.vue'
 import SheetLine from './SheetLine.vue'
 import { INPUT as input } from './ui'
 import CountdownText from './CountdownText.vue'
@@ -42,6 +44,7 @@ const { t } = useI18n()
 const update = useUpdateItem()
 const actions = useItemActions()
 const confirmingDelete = ref(false)
+const question = computed(() => (props.item ? questionOf(props.item, today.value) : null))
 /** Captured when the question opens, so the title stays right while the sheet closes. */
 const deletingName = ref('')
 
@@ -93,6 +96,18 @@ watch(
     session.value++
   },
   { immediate: true },
+)
+
+// The saved Item can change under the sheet (an answered question, Handled, a refetch). Follow it while
+// nothing is being edited, so the sheet never shows stale values or saves them back over the change.
+watch(
+  () => props.item && toDraft(props.item),
+  (fresh) => {
+    if (!fresh || !saved.value || dirty.value || sameDraft(fresh, saved.value)) return
+    Object.assign(draft, fresh)
+    saved.value = fresh
+    session.value++
+  },
 )
 
 /** Two drafts mean the same Item, ignoring spaces around text and how the Recurrence object was built. */
@@ -299,6 +314,7 @@ const lineText = {
           >
             <span v-for="e in errors" :key="e" class="block">{{ $t(`itemForm.errors.${e}`) }}</span>
           </p>
+          <QuestionBox v-if="question" :item="item" :question="question" :disabled="dirty" @archived="emit('close')" />
           <div class="flex items-center gap-3 px-3 pt-1 pb-3">
             <span class="text-3xl" aria-hidden="true">{{ draft.category ? CATEGORY_ICONS[draft.category] : '' }}</span>
             <div class="min-w-0 flex-1">
@@ -390,8 +406,10 @@ const lineText = {
           </SheetLine>
 
           <p v-if="dirty" class="mt-4 px-3 text-sm text-muted">{{ $t('itemSheet.saveFirst') }}</p>
-          <div class="mt-4 grid grid-cols-3 gap-2 px-3 pb-4">
+          <div :class="['mt-4 grid gap-2 px-3 pb-4', question ? 'grid-cols-2' : 'grid-cols-3']">
+            <!-- no Handled while a question is open: answer it instead -->
             <button
+              v-if="!question"
               type="button"
               class="rounded-xl border border-line py-2.5 text-sm font-semibold"
               :aria-pressed="handledNow(item, today)"
@@ -417,6 +435,7 @@ const lineText = {
             </button>
           </div>
         </div>
+        <ToastBar in-sheet />
       </DialogContent>
     </DialogPortal>
   </DialogRoot>

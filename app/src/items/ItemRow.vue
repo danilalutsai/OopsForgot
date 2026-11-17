@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CATEGORY_ICONS, countdown, urgency } from '@oopsproof/shared'
+import { CATEGORY_ICONS, countdown, type OpenQuestion, urgency } from '@oopsproof/shared'
 import { gsap } from 'gsap'
 import { computed, ref } from 'vue'
 import { formatDate, formatMoney, formatTime } from '../format'
@@ -14,6 +14,8 @@ const props = defineProps<{
   /** the Due date the Item is on today */
   due: string
   handled: boolean
+  /** a question waiting for an answer; the row shows it instead of the Handled button */
+  question: OpenQuestion | null
   /** Archives the Item; resolves false when that failed, so the row slides back. */
   archive: () => Promise<boolean>
 }>()
@@ -65,7 +67,7 @@ function up(e: PointerEvent) {
     return
   }
   gsap.to(slider.value, { x: 0, duration: duration(0.2), ease: 'power2.out' })
-  if (dx > SWIPE) emit('toggleHandled')
+  if (dx > SWIPE && !props.question) emit('toggleHandled')
 }
 /** A gesture the browser cancelled never archives or marks Handled: it just springs back. */
 function cancel() {
@@ -119,6 +121,15 @@ function click(e: MouseEvent) {
         </div>
       </button>
       <button
+        v-if="question"
+        type="button"
+        class="mx-3 shrink-0 rounded-full bg-urgent-red px-3 py-1.5 text-xs font-bold text-white"
+        @click="$emit('open')"
+      >
+        {{ question === 'expired' ? $t('questions.whatNow') : $t('questions.keptIt') }}
+      </button>
+      <button
+        v-else
         type="button"
         :class="[
           'mx-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm',

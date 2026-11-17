@@ -1,4 +1,11 @@
-import { type Category, currentDueDate, isHandled, type Recurrence } from '@oopsproof/shared'
+import {
+  type Category,
+  currentDueDate,
+  isHandled,
+  type OpenQuestion,
+  openQuestion,
+  type Recurrence,
+} from '@oopsproof/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { supabase } from '../supabase'
 
@@ -99,4 +106,17 @@ export function useRestoreDeletedItem() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] }),
   })
+}
+
+/** The question the Item is waiting on, if any ("What now?" / "Kept it?"). */
+export function questionOf(item: Item, today: string): OpenQuestion | null {
+  return openQuestion(
+    {
+      dueDate: item.due_date,
+      recurrence: recurrenceOf(item),
+      handledDueDate: item.handled_due_date,
+      category: item.category,
+    },
+    today,
+  )
 }
