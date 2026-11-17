@@ -33,13 +33,13 @@ export interface PushMessage {
   tag: string
 }
 
-const dayLabel = (date: string) =>
-  new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  })
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** "Fri 20 Nov", built by hand: servers may lack the locale data for formatting dates. */
+function dayLabel(date: string): string {
+  const d = new Date(`${date}T12:00:00Z`)
+  return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`
+}
 
 function when(dueDate: string, dueTime: string | null, today: string): string {
   const days = daysBetween(today, dueDate)
@@ -47,19 +47,38 @@ function when(dueDate: string, dueTime: string | null, today: string): string {
   return dueTime ? `${day} at ${dueTime.slice(0, 5)}` : day
 }
 
-/** One push for everything due for a person in one run. `today` is their local date. */
-export function pushMessage(person: SenderPerson, entries: MessageEntry[], today: string): PushMessage {
-  const tag = 'reminders'
+const isQuestion = (kind: ReminderKind) => kind === 'expired' || kind === 'trial'
+
+/** The one entry that speaks for an Item: its question if it has one, else its nearest Reminder. */
+function perItem(entries: MessageEntry[]): MessageEntry[] {
+  const byItem = new Map<string, MessageEntry>()
+  for (const e of entries) {
+    const kept = byItem.get(e.item.id)
+    if (!kept || (isQuestion(e.kind) && !isQuestion(kept.kind))) byItem.set(e.item.id, e)
+  }
+  return [...byItem.values()]
+}
+
+/**
+ * One push for everything due for a person in one run. `today` is their local date.
+ * Each Item has its own tag, so a later push never hides an earlier one the person hasn't seen.
+ */
+export function pushMessage(person: SenderPerson, all: MessageEntry[], today: string): PushMessage {
+  const entries = perItem(all)
   if (entries.length > 1) {
+    const attention = entries.some((e) => isQuestion(e.kind))
     return {
-      title: `${person.name}, ${entries.length} Items need you soon 🔔`,
+      title: attention
+        ? `${person.name}, ${entries.length} Items need your attention`
+        : `${person.name}, ${entries.length} Items need you soon 🔔`,
       body: entries.map((e) => e.item.name).join(', '),
       url: '/',
-      tag,
+      tag: `bundle-${entries.map((e) => e.item.id).join('-')}`,
     }
   }
   const { item, dueDate, kind } = entries[0]!
   const url = `/?item=${item.id}`
+  const tag = `item-${item.id}`
   if (kind === 'expired') {
     const ago = daysBetween(dueDate, today)
     const since = ago <= 1 ? 'yesterday' : `${ago} days ago`

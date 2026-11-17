@@ -86,4 +86,12 @@ describe('dueReminders', () => {
     ])
     expect(dueReminders(noon, [item()], ...window('2026-11-19T10:15Z', '2026-11-19T10:30Z'))).toEqual([])
   })
+
+  it('sends the trial question and the Expired message only on their own day, never late', () => {
+    const trial = item({ id: 'trial', category: 'free_trials', reminderOffsets: [] })
+    // runs failed all of the Due date; the next run (next morning) must not say "ends today"
+    expect(dueReminders(ana, [trial], ...window('2026-11-20T08:00Z', '2026-11-21T08:00Z'))).toEqual([])
+    const passport = item({ id: 'passport', category: 'documents', reminderOffsets: [] })
+    expect(dueReminders(ana, [passport], ...window('2026-11-21T08:00Z', '2026-11-23T08:00Z'))).toEqual([])
+  })
 })

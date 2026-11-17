@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AuthCard from '../../components/AuthCard.vue'
 import TextField from '../../components/TextField.vue'
 import { useAuth } from '../../stores/auth'
@@ -8,6 +8,7 @@ import { authErrorKey } from './errors'
 
 const auth = useAuth()
 const router = useRouter()
+const route = useRoute()
 const email = ref('')
 const password = ref('')
 const error = ref<string | null>(null)
@@ -19,7 +20,12 @@ async function submit() {
   const failed = await auth.logIn(email.value.trim(), password.value)
   busy.value = false
   if (failed) error.value = authErrorKey(failed)
-  else await router.replace('/')
+  else {
+    // only paths inside the app, never another site
+    const next =
+      typeof route.query.next === 'string' && route.query.next.startsWith('/') && !route.query.next.startsWith('//')
+    await router.replace(next ? (route.query.next as string) : '/')
+  }
 }
 </script>
 

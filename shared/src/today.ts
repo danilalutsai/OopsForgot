@@ -9,11 +9,12 @@ function partsIn(timeZone: string, now: Date) {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
     })
       .formatToParts(now)
       .map((p) => [p.type, p.value]),
   )
-  return parts as Record<'year' | 'month' | 'day' | 'hour' | 'minute', string>
+  return parts as Record<'year' | 'month' | 'day' | 'hour' | 'minute' | 'second', string>
 }
 
 /** The calendar date (YYYY-MM-DD) that `now` falls on in `timeZone`. The rules never read the clock themselves. */
@@ -30,21 +31,8 @@ export function nowIn(timeZone: string, now: Date): string {
 
 /** How far `timeZone` is ahead of UTC at instant `ms`, in milliseconds. */
 function zoneOffset(ms: number, timeZone: string): number {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-      .formatToParts(new Date(ms))
-      .map((p) => [p.type, p.value]),
-  )
-  const asUtc = Date.UTC(+parts.year!, +parts.month! - 1, +parts.day!, +parts.hour!, +parts.minute!, +parts.second!)
+  const p = partsIn(timeZone, new Date(ms))
+  const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second)
   return asUtc - Math.floor(ms / 1000) * 1000
 }
 

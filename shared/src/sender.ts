@@ -62,8 +62,12 @@ export function dueReminders(person: SenderPerson, items: SenderItem[], from: Da
           consider(due, offset, reminderSendAt(due, item.dueTime, offset, dayReminderTime))
         }
       }
-      if (oneTime && item.category === 'free_trials') consider(due, 'trial', `${due}T${dayReminderTime}`)
-      else if (oneTime) consider(due, 'expired', `${addDays(due, 1)}T${dayReminderTime}`)
+      // the trial question and the Expired message only make sense on their own day, never late
+      if (oneTime && item.category === 'free_trials') {
+        if (today === due) consider(due, 'trial', `${due}T${dayReminderTime}`)
+      } else if (oneTime && today === addDays(due, 1)) {
+        consider(due, 'expired', `${addDays(due, 1)}T${dayReminderTime}`)
+      }
     }
   }
   return out.sort((a, b) => a.sendAt.getTime() - b.sendAt.getTime())

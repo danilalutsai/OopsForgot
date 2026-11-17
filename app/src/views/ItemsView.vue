@@ -39,7 +39,8 @@ watch(
   ([id, list]) => {
     if (typeof id !== 'string' || !list) return
     if (list.some((i) => i.id === id)) openId.value = id
-    void router.replace({ query: {} })
+    const { item: _opened, ...rest } = route.query
+    void router.replace({ query: rest })
   },
   { immediate: true },
 )

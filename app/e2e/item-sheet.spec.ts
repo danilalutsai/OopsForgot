@@ -134,3 +134,25 @@ test('a push Reminder link (/?item=<id>) opens that Item', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Gym' })).toBeVisible()
   await expect(page).toHaveURL(/\/$/)
 })
+
+test('a Reminder link opened while logged out opens its Item after logging in', async ({ page }) => {
+  const person = await logInAsNewPerson(page)
+  await addGym(page)
+  const id = await page.evaluate(async () => {
+    const key = Object.keys(localStorage).find((k) => k.endsWith('-auth-token'))!
+    const { access_token } = JSON.parse(localStorage.getItem(key)!)
+    const res = await fetch('http://127.0.0.1:54321/rest/v1/items?select=id&name=eq.Gym', {
+      headers: { apikey: 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH', Authorization: `Bearer ${access_token}` },
+    })
+    return ((await res.json()) as { id: string }[])[0]!.id
+  })
+  await page.getByRole('button', { name: /Account/ }).click()
+  await page.getByRole('menuitem', { name: 'Log out' }).click()
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  await page.goto(`/?item=${id}`)
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  await page.getByLabel('Email').fill(person.email)
+  await page.getByLabel('Password').fill(person.password)
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await expect(page.getByRole('dialog', { name: 'Gym' })).toBeVisible()
+})
