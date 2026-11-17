@@ -17,16 +17,16 @@ test('change an Item line by line and save', async ({ page }) => {
   await addGym(page)
   await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
-  await expect(sheet.getByRole('status')).toHaveText('All changes saved')
+  await expect(sheet.locator('header').getByRole('status')).toHaveText('All changes saved')
   await expectAccessible(page)
 
   await sheet.getByRole('button', { name: /^Price/ }).click()
   await sheet.getByLabel('Price').fill('39.90')
   await sheet.getByRole('button', { name: /^Due date/ }).click()
   await sheet.getByLabel('Due date').fill(await inDays(page, 2))
-  await expect(sheet.getByRole('status')).toHaveText('Unsaved changes')
+  await expect(sheet.locator('header').getByRole('status')).toHaveText('Unsaved changes')
   await sheet.getByRole('button', { name: 'Save' }).click()
-  await expect(sheet.getByRole('status')).toHaveText('Changes saved ✅')
+  await expect(sheet.locator('header').getByRole('status')).toHaveText('Changes saved ✅')
   await expect(sheet.getByText('Due in 2 days')).toBeVisible()
 
   await sheet.getByRole('button', { name: 'Close' }).filter({ visible: true }).click()
@@ -74,7 +74,7 @@ test('on a phone, dragging the top bar down closes the sheet; a short drag sprin
   await addGym(page)
   await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
-  const bar = sheet.getByRole('status')
+  const bar = sheet.locator('header').getByRole('status')
   const box = (await bar.boundingBox())!
   const sheetBox = (await sheet.boundingBox())!
 

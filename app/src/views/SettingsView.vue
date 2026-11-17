@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import { DEFAULT_DAY_REMINDER_TIME, roundToQuarterHour } from '@oopsproof/shared'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { computed, ref, watch } from 'vue'
 import { formatTime } from '../format'
 import SheetLine from '../items/SheetLine.vue'
 import { INPUT } from '../items/ui'
 import { removePhoto, squarePhoto, uploadPhoto } from '../settings/photo'
 import { keepSavedTimeZone, timeZoneDiffers } from '../settings/timeZoneCheck'
 import { browserTimeZone, type Profile, useAuth } from '../stores/auth'
+import { useToasts } from '../stores/toasts'
 import AvatarImage from '../components/AvatarImage.vue'
 
 const auth = useAuth()
-const { t } = useI18n()
+const toasts = useToasts()
 const openLine = ref<string | null>(null)
-const toast = ref<string | null>(null)
 const error = ref<string | null>(null)
 const busy = ref(false)
 const here = browserTimeZone()
@@ -42,9 +41,6 @@ const redraw = ref(0)
 
 const toggle = (line: string) => (openLine.value = openLine.value === line ? null : line)
 
-let toastTimer: ReturnType<typeof setTimeout> | undefined
-onBeforeUnmount(() => clearTimeout(toastTimer))
-
 /** Every line saves as soon as it changes; returns whether it worked. */
 async function save(changes: Partial<Profile>, closeLine = false): Promise<boolean> {
   error.value = null
@@ -57,9 +53,7 @@ async function save(changes: Partial<Profile>, closeLine = false): Promise<boole
     return false
   }
   if (closeLine) openLine.value = null
-  clearTimeout(toastTimer)
-  toast.value = 'settings.saved'
-  toastTimer = setTimeout(() => (toast.value = null), 2000)
+  toasts.show('settings.saved')
   return true
 }
 
@@ -259,12 +253,4 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
       <span>{{ $t('settings.privacyNotice') }}</span><span class="text-muted" aria-hidden="true">›</span>
     </RouterLink>
   </div>
-
-  <p
-    v-if="toast"
-    role="status"
-    class="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-text px-4 py-2 text-sm text-bg shadow-lg md:bottom-8"
-  >
-    {{ t(toast) }}
-  </p>
 </template>

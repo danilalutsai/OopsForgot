@@ -12,6 +12,8 @@ export interface Toast {
 /** Short messages at the bottom of the screen, one at a time; ones with Undo stay a little longer. */
 export const useToasts = defineStore('toasts', () => {
   const current = ref<Toast | null>(null)
+  /** How many open sheets show messages themselves. */
+  const sheetsOpen = ref(0)
   /** A plain message that arrived while an Undo was on screen; it shows once the Undo is gone. */
   let waiting: Toast | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -47,5 +49,5 @@ export const useToasts = defineStore('toasts', () => {
     await action?.()
   }
 
-  return { current, show, undo }
+  return { current, sheetsOpen, show, undo }
 })

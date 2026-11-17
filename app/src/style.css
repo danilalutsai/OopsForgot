@@ -17,6 +17,7 @@
   /* darker shades for small text on light backgrounds (WCAG AA 4.5:1); bars and dots keep the colours above */
   --c-yellow-text: #b45309;
   --c-green-text: #047857;
+  --c-red-text: #b91c1c;
   color-scheme: light dark;
 }
 
@@ -35,6 +36,7 @@
     --c-grey: #64748b;
     --c-yellow-text: #fbbf24;
     --c-green-text: #34d399;
+    --c-red-text: #fca5a5;
   }
 }
 
@@ -53,6 +55,7 @@
   --color-urgent-grey: var(--c-grey);
   --color-urgent-yellow-text: var(--c-yellow-text);
   --color-urgent-green-text: var(--c-green-text);
+  --color-urgent-red-text: var(--c-red-text);
 }
 
 body {

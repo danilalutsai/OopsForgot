@@ -4,7 +4,7 @@ import { computed, ref } from 'vue'
 import TopBar from '../components/TopBar.vue'
 import { useItemActions } from '../items/actions'
 import AddItemSheet from '../items/AddItemSheet.vue'
-import { dueDateOf, handledNow, useItems } from '../items/api'
+import { dueDateOf, handledNow, questionOf, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
 import ItemSheet from '../items/ItemSheet.vue'
 import { useAuth } from '../stores/auth'
@@ -31,7 +31,7 @@ const rows = computed(() =>
   active.value
     .map((item) => {
       const due = dueDateOf(item, today.value)
-      return { item, due, handled: handledNow(item, today.value, due) }
+      return { item, due, handled: handledNow(item, today.value, due), question: questionOf(item, today.value, due) }
     })
     .sort((a, b) => a.due.localeCompare(b.due) || (a.item.due_time ?? '99').localeCompare(b.item.due_time ?? '99')),
 )
@@ -82,9 +82,10 @@ const groups = computed(() =>
         :item="r.item"
         :due="r.due"
         :handled="r.handled"
+        :question="r.question"
+        :archive="() => actions.archive(r.item)"
         @open="openId = r.item.id"
         @toggle-handled="actions.toggleHandled(r.item, r.due)"
-        :archive="() => actions.archive(r.item)"
       />
     </ul>
   </section>

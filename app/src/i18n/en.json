@@ -217,5 +217,25 @@
     "deleted": "{name} deleted",
     "undo": "Undo",
     "failed": "Could not do that. Check your connection and try again."
+  },
+  "questions": {
+    "whatNow": "What now?",
+    "keptIt": "Kept it?",
+    "expiredTitle": "Expired {days} day ago. What now? | Expired {days} days ago. What now?",
+    "newDueDate": "New Due date",
+    "setDate": "Set date",
+    "makeRepeat": "Make it repeat",
+    "repeatEvery": "Repeat",
+    "every": {
+      "week": "Every week",
+      "month": "Every month",
+      "year": "Every year"
+    },
+    "archive": "Archive",
+    "trialTitle": "Did you keep {name}?",
+    "yes": "Yes, I kept it",
+    "no": "No, I cancelled",
+    "kept": "{name} is now a monthly Subscription ✅",
+    "answerFirst": "Answer the question above first."
   }
 }
