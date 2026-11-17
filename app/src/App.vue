@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import AppLogo from './components/AppLogo.vue'
+import ToastBar from './components/ToastBar.vue'
 
 const route = useRoute()
 const inApp = computed(() => !route.meta.public)
@@ -34,5 +35,6 @@ const inApp = computed(() => !route.meta.public)
         {{ $t('nav.money') }}
       </RouterLink>
     </nav>
+    <ToastBar />
   </div>
 </template>

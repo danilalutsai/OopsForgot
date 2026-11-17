@@ -32,7 +32,14 @@
       "week": "Every week | Every {n} weeks",
       "month": "Every month | Every {n} months",
       "year": "Every year | Every {n} years"
-    }
+    },
+    "handled": "Handled",
+    "markHandled": "Mark {name} Handled",
+    "undoHandled": "Undo Handled for {name}",
+    "archivedCount": "Archived ({n})",
+    "hideArchived": "Hide archived",
+    "restore": "Restore",
+    "restored": "Restored ✅"
   },
   "money": {
     "title": "Money"
@@ -161,7 +168,16 @@
     "discard": "Discard",
     "keepEditing": "Keep editing",
     "edit": "Change {field}",
-    "fixRepeat": "Custom: type how often"
+    "fixRepeat": "Custom: type how often",
+    "handled": "Handled",
+    "undoHandled": "Undo Handled",
+    "archive": "Archive",
+    "delete": "Delete",
+    "deleteTitle": "Delete {name}?",
+    "deleteBody": "Gone for good. Past Expenses stay in history.",
+    "deleteConfirm": "Delete",
+    "cancel": "Cancel",
+    "saveFirst": "Save or discard your changes before archiving or deleting."
   },
   "settings": {
     "title": "Settings",
@@ -193,5 +209,13 @@
     "photoError": "Could not use that photo. Try a JPEG or PNG image.",
     "privacyNotice": "Privacy notice",
     "problem": "Needs your attention"
+  },
+  "toasts": {
+    "handled": "Marked as Handled ✅",
+    "unhandled": "No longer Handled",
+    "archived": "{name} archived",
+    "deleted": "{name} deleted",
+    "undo": "Undo",
+    "failed": "Could not do that. Check your connection and try again."
   }
 }
