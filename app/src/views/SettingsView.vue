@@ -13,6 +13,7 @@ import { useToasts } from '../stores/toasts'
 import { dayReminderTime } from '../today'
 import AvatarImage from '../components/AvatarImage.vue'
 import PushSettings from '../push/PushSettings.vue'
+import CalendarFeed from '../settings/CalendarFeed.vue'
 import { usePushDevices } from '../push/devices'
 
 const auth = useAuth()
@@ -195,6 +196,16 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
         <option v-for="z in timeZones" :key="z" :value="z">{{ z }}</option>
       </select>
       <p class="mt-2 text-sm text-muted">{{ $t('settings.timeZoneHint', { here }) }}</p>
+    </SheetLine>
+
+    <h2 :class="heading">{{ $t('calendarFeed.section') }}</h2>
+    <SheetLine
+      :label="$t('calendarFeed.line')"
+      :value="profile.calendar_token ? $t('calendarFeed.on') : $t('calendarFeed.off')"
+      :open="openLine === 'calendar'"
+      @toggle="toggle('calendar')"
+    >
+      <CalendarFeed />
     </SheetLine>
 
     <h2 :class="heading">{{ $t('settings.sections.money') }}</h2>

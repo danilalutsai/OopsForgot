@@ -19,9 +19,11 @@ export interface Profile {
   /** "12:00:00" */
   day_reminder_time: string
   photo_path: string | null
+  /** the Calendar feed's secret, or null when the feed is off */
+  calendar_token: string | null
 }
 
-const PROFILE_COLUMNS = 'name, surname, time_zone, currency, day_reminder_time, photo_path'
+const PROFILE_COLUMNS = 'name, surname, time_zone, currency, day_reminder_time, photo_path, calendar_token'
 
 /** The profile is saved on the device next to the offline copy, so dates and money stay right offline. */
 const PROFILE_KEY = 'oopsproof-profile'
@@ -60,6 +62,17 @@ export const useAuth = defineStore('auth', () => {
 
   let fromSavedCopy = false
 
+  /** Keeps the copy saved on the device in step with the profile on screen. */
+  function saveProfileCopy() {
+    const userId = session.value?.user.id
+    if (!userId || !profile.value) return
+    try {
+      localStorage.setItem(PROFILE_KEY, JSON.stringify({ userId, profile: profile.value }))
+    } catch {
+      // no saved copy, nothing breaks
+    }
+  }
+
   /** Loads the profile of whoever is logged in now; a slower answer for an earlier person is dropped. */
   async function loadProfile() {
     const userId = session.value?.user.id
@@ -81,11 +94,7 @@ export const useAuth = defineStore('auth', () => {
     }
     profile.value = data
     fromSavedCopy = false
-    try {
-      localStorage.setItem(PROFILE_KEY, JSON.stringify({ userId, profile: data }))
-    } catch {
-      // no saved copy, nothing breaks
-    }
+    saveProfileCopy()
   }
 
   // Registered before anything is awaited: Supabase fires PASSWORD_RECOVERY while it starts up.
@@ -180,7 +189,25 @@ export const useAuth = defineStore('auth', () => {
       .eq('id', userId)
       .select(PROFILE_COLUMNS)
       .single()
-    if (!error) profile.value = data
+    if (!error) {
+      profile.value = data
+      saveProfileCopy()
+    }
+    return error
+  }
+
+  /** Feed changes go through the server (the token is made there); the local copy follows. */
+  async function setCalendarFeed(on: boolean) {
+    if (!session.value || !profile.value) return new Error('Not logged in')
+    if (on) {
+      const { data, error } = await supabase.rpc('new_calendar_link')
+      if (!error) profile.value = { ...profile.value, calendar_token: data as string }
+      saveProfileCopy()
+      return error
+    }
+    const { error } = await supabase.rpc('turn_off_calendar_feed')
+    if (!error) profile.value = { ...profile.value, calendar_token: null }
+    saveProfileCopy()
     return error
   }
 
@@ -198,5 +225,6 @@ export const useAuth = defineStore('auth', () => {
     sendPasswordReset,
     setNewPassword,
     updateProfile,
+    setCalendarFeed,
   }
 })

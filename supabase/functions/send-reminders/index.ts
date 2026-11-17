@@ -11,6 +11,7 @@ import {
   type SenderItem,
   type SenderPerson,
   todayIn,
+  usableTimeZone,
 } from '../../../shared/src/index.ts'
 
 const env = (name: string) => Deno.env.get(name) ?? ''
@@ -60,16 +61,6 @@ function groupByUser<T extends Row>(rows: T[]): Map<string, T[]> {
     else map.set(r.user_id, [r])
   }
   return map
-}
-
-/** A time zone the runtime can work with; anything else counts as UTC rather than stopping the run. */
-function usableTimeZone(zone: string): string {
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: zone })
-    return zone
-  } catch {
-    return 'UTC'
-  }
 }
 
 type Outcome = 'delivered' | 'gone' | 'failed'
