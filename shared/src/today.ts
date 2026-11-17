@@ -48,3 +48,13 @@ export function localToInstant(local: string, timeZone: string): Date {
   const candidates = [wall - before, wall - after].filter((t) => wall - t === zoneOffset(t, timeZone))
   return new Date(candidates.length ? Math.min(...candidates) : wall - before)
 }
+
+/** A time zone the runtime can work with; anything it doesn't know counts as UTC rather than failing. */
+export function usableTimeZone(zone: string): string {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: zone })
+    return zone
+  } catch {
+    return 'UTC'
+  }
+}

@@ -370,6 +370,7 @@
     "resetBody": "The old link stops working at once. You’ll add the new one to your calendars again.",
     "turnOff": "Turn off",
     "cancel": "Cancel",
-    "failed": "Could not change the Calendar feed. Check your connection and try again."
+    "failed": "Could not change the Calendar feed. Check your connection and try again.",
+    "copyByHand": "Couldn’t copy. The link is selected: copy it by hand."
   }
 }

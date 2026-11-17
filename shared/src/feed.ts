@@ -22,8 +22,8 @@ interface FeedOptions {
   now: Date
 }
 
-/** Calendar text needs commas, semicolons, backslashes and newlines escaped. */
-const escape = (text: string) => text.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\r?\n/g, '\\n')
+/** Calendar text needs commas, semicolons, backslashes and every kind of line break escaped. */
+const escape = (text: string) => text.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\r\n|\r|\n/g, '\\n')
 
 const utcStamp = (d: Date) =>
   d
@@ -32,17 +32,22 @@ const utcStamp = (d: Date) =>
     .replace(/\.\d{3}/, '')
 
 /** Long lines are folded at 75 bytes, as the calendar format asks. */
+const encoder = new TextEncoder()
 function fold(line: string): string {
-  const bytes = new TextEncoder().encode(line)
-  if (bytes.length <= 75) return line
+  if (encoder.encode(line).length <= 75) return line
   const parts: string[] = []
   let current = ''
+  let size = 0
   for (const ch of line) {
-    const limit = parts.length ? 74 : 75
-    if (new TextEncoder().encode(current + ch).length > limit) {
+    const width = encoder.encode(ch).length
+    // continuation lines start with a space, so they hold one byte less
+    if (size + width > (parts.length ? 74 : 75)) {
       parts.push(current)
-      current = ch
-    } else current += ch
+      current = ''
+      size = 0
+    }
+    current += ch
+    size += width
   }
   parts.push(current)
   return parts.join('\r\n ')

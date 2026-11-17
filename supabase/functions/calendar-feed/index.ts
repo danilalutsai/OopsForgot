@@ -1,6 +1,6 @@
 // Calendar feed: calendar apps fetch it with the secret token in the link. No login, no other key.
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0'
-import { calendarFeed, type FeedItem, todayIn } from '../../../shared/src/index.ts'
+import { calendarFeed, type FeedItem, todayIn, usableTimeZone } from '../../../shared/src/index.ts'
 
 const env = (name: string) => Deno.env.get(name) ?? ''
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
@@ -11,7 +11,13 @@ Deno.serve(async (req) => {
   // tokens are 48 hex characters; anything else is not worth a database call
   if (!/^[0-9a-f]{48}$/.test(token)) return new Response('Not found', { status: 404 })
 
-  const { data: person } = await db.from('profiles').select('id, time_zone').eq('calendar_token', token).maybeSingle()
+  const { data: person, error: lookup } = await db
+    .from('profiles')
+    .select('id, time_zone')
+    .eq('calendar_token', token)
+    .maybeSingle()
+  // a database hiccup must not look like a dead link: calendar apps may drop a subscription on 404
+  if (lookup) return new Response('Try again later', { status: 503 })
   if (!person) return new Response('Not found', { status: 404 })
 
   const { data: items, error } = await db
@@ -21,12 +27,7 @@ Deno.serve(async (req) => {
     .is('archived_at', null)
   if (error) return new Response('Try again later', { status: 503 })
 
-  let timeZone = person.time_zone
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone })
-  } catch {
-    timeZone = 'UTC'
-  }
+  const timeZone = usableTimeZone(person.time_zone)
   const now = new Date()
   const feedItems: FeedItem[] = items.map((i) => ({
     id: i.id,
@@ -42,7 +43,8 @@ Deno.serve(async (req) => {
     headers: {
       'Content-Type': 'text/calendar; charset=utf-8',
       'Content-Disposition': 'inline; filename="oopsproof.ics"',
-      'Cache-Control': 'private, max-age=900',
+      // never kept anywhere: a reset or turned-off link stops showing anything at once
+      'Cache-Control': 'no-store',
     },
   })
 })

@@ -19,6 +19,7 @@ const auth = useAuth()
 const toasts = useToasts()
 const busy = ref(false)
 const confirmingReset = ref(false)
+const linkBox = ref<HTMLInputElement>()
 
 const link = computed(() =>
   auth.profile?.calendar_token
@@ -36,8 +37,14 @@ async function set(on: boolean) {
 
 async function copy() {
   if (!link.value) return
-  await navigator.clipboard.writeText(link.value)
-  toasts.show('calendarFeed.copied')
+  try {
+    await navigator.clipboard.writeText(link.value)
+    toasts.show('calendarFeed.copied')
+  } catch {
+    // some browsers refuse: the link is selected in its box instead, ready to copy by hand
+    linkBox.value?.select()
+    toasts.show('calendarFeed.copyByHand')
+  }
 }
 </script>
 
@@ -56,11 +63,18 @@ async function copy() {
     <template v-else>
       <label class="flex flex-col gap-1">
         <span class="font-medium">{{ $t('calendarFeed.link') }}</span>
-        <input :value="link" readonly :class="INPUT" @focus="($event.target as HTMLInputElement).select()" />
+        <input
+          ref="linkBox"
+          :value="link"
+          readonly
+          :class="INPUT"
+          @focus="($event.target as HTMLInputElement).select()"
+        />
       </label>
       <button
         type="button"
-        class="self-start rounded-full bg-accent px-4 py-1.5 font-semibold text-on-accent"
+        class="self-start rounded-full bg-accent px-4 py-1.5 font-semibold text-on-accent disabled:opacity-50"
+        :disabled="busy"
         @click="copy"
       >
         {{ $t('calendarFeed.copy') }}

@@ -55,4 +55,9 @@ describe('calendarFeed', () => {
     const [e] = events(feed([item({ name: 'Car; insurance, renew\\now' })]))
     expect(e).toContain('SUMMARY:Car\\; insurance\\, renew\\\\now — Due\r\n')
   })
+
+  it('never lets a line break inside a name split the event', () => {
+    const [e] = events(feed([item({ name: 'Old\rMac\r\nname' })]))
+    expect(e).toContain('SUMMARY:Old\\nMac\\nname — Due\r\n')
+  })
 })

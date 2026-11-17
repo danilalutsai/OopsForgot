@@ -62,6 +62,17 @@ export const useAuth = defineStore('auth', () => {
 
   let fromSavedCopy = false
 
+  /** Keeps the copy saved on the device in step with the profile on screen. */
+  function saveProfileCopy() {
+    const userId = session.value?.user.id
+    if (!userId || !profile.value) return
+    try {
+      localStorage.setItem(PROFILE_KEY, JSON.stringify({ userId, profile: profile.value }))
+    } catch {
+      // no saved copy, nothing breaks
+    }
+  }
+
   /** Loads the profile of whoever is logged in now; a slower answer for an earlier person is dropped. */
   async function loadProfile() {
     const userId = session.value?.user.id
@@ -83,11 +94,7 @@ export const useAuth = defineStore('auth', () => {
     }
     profile.value = data
     fromSavedCopy = false
-    try {
-      localStorage.setItem(PROFILE_KEY, JSON.stringify({ userId, profile: data }))
-    } catch {
-      // no saved copy, nothing breaks
-    }
+    saveProfileCopy()
   }
 
   // Registered before anything is awaited: Supabase fires PASSWORD_RECOVERY while it starts up.
@@ -182,7 +189,10 @@ export const useAuth = defineStore('auth', () => {
       .eq('id', userId)
       .select(PROFILE_COLUMNS)
       .single()
-    if (!error) profile.value = data
+    if (!error) {
+      profile.value = data
+      saveProfileCopy()
+    }
     return error
   }
 
@@ -192,10 +202,12 @@ export const useAuth = defineStore('auth', () => {
     if (on) {
       const { data, error } = await supabase.rpc('new_calendar_link')
       if (!error) profile.value = { ...profile.value, calendar_token: data as string }
+      saveProfileCopy()
       return error
     }
     const { error } = await supabase.rpc('turn_off_calendar_feed')
     if (!error) profile.value = { ...profile.value, calendar_token: null }
+    saveProfileCopy()
     return error
   }
 
