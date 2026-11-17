@@ -1,7 +1,199 @@
 <script setup lang="ts">
+import { addDays, CATEGORY_ICONS, type Category, monthTotals, shiftMonth, todayIn } from '@oopsproof/shared'
+import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import TopBar from '../components/TopBar.vue'
+import { formatDate, formatMoney } from '../format'
+import { type Expense, useExpenses } from '../money/api'
+import { CATEGORY_COLORS } from '../money/colors'
+import ExpenseSheet from '../money/ExpenseSheet.vue'
+import RingChart from '../money/RingChart.vue'
+import { useAuth } from '../stores/auth'
+import { currency, timeZone, today } from '../today'
+
+const auth = useAuth()
+const expenses = useExpenses()
+const { t } = useI18n()
+
+const thisMonth = computed(() => today.value.slice(0, 7))
+/** The month the account was created: the furthest back the arrows go. */
+const firstMonth = computed(() => {
+  const created = auth.session?.user.created_at
+  return created ? todayIn(timeZone.value, new Date(created)).slice(0, 7) : thisMonth.value
+})
+const month = ref(thisMonth.value)
+const filter = ref<Category | null>(null)
+
+// a new month shows everything again
+watch(month, () => (filter.value = null))
+
+const monthName = (m: string) =>
+  new Date(`${m}-15T12:00:00Z`).toLocaleDateString(navigator.language, {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+
+const all = computed(() => (expenses.data.value ?? []).map((e) => ({ ...e, amountCents: e.amount_cents })))
+const totals = computed(() => monthTotals(all.value, month.value))
+const shown = computed(() =>
+  (expenses.data.value ?? []).filter(
+    (e) => e.date.startsWith(month.value) && (!filter.value || e.category === filter.value),
+  ),
+)
+
+function pick(category: Category) {
+  filter.value = filter.value === category ? null : category
+}
+
+const label = (e: Expense) =>
+  e.item_name ? t('moneyList.from', { name: e.item_name }) : e.description || t(`categories.${e.category}`)
+
+// the add / edit sheet
+const sheetOpen = ref(false)
+const editing = ref<Expense | null>(null)
+/** A new Expense starts today, or on the last day of the month on screen when that month is over. */
+const startDate = computed(() =>
+  month.value === thisMonth.value ? today.value : addDays(`${shiftMonth(month.value, 1)}-01`, -1),
+)
+function openNew() {
+  editing.value = null
+  sheetOpen.value = true
+}
+function openExpense(e: Expense) {
+  editing.value = e
+  sheetOpen.value = true
+}
+/** After saving, show the month the Expense is in. */
+function saved(date: string) {
+  month.value = date.slice(0, 7)
+}
 </script>
 
 <template>
-  <TopBar :title="$t('money.title')" />
+  <TopBar :title="$t('money.title')">
+    <template #actions>
+      <button
+        type="button"
+        class="mr-2 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-on-accent"
+        :aria-label="$t('money.addLong')"
+        @click="openNew"
+      >
+        + {{ $t('money.add') }}
+      </button>
+    </template>
+  </TopBar>
+
+  <p v-if="expenses.isError.value" role="alert" class="px-6 py-10 text-center text-urgent-red">
+    {{ $t('money.loadError') }}
+  </p>
+  <div v-else class="grid gap-6 px-4 pb-28 md:grid-cols-2 md:pb-8">
+    <section>
+      <div class="flex items-center gap-2 py-2">
+        <button
+          type="button"
+          class="rounded-full px-2 text-xl disabled:opacity-30"
+          :aria-label="$t('money.previous')"
+          :disabled="month <= firstMonth"
+          @click="month = shiftMonth(month, -1)"
+        >
+          ‹
+        </button>
+        <h2 class="flex-1 text-center font-semibold" aria-live="polite">{{ monthName(month) }}</h2>
+        <button
+          type="button"
+          class="rounded-full px-2 text-xl disabled:opacity-30"
+          :aria-label="$t('money.next')"
+          :disabled="month >= thisMonth"
+          @click="month = shiftMonth(month, 1)"
+        >
+          ›
+        </button>
+      </div>
+
+      <RingChart
+        :parts="totals.byCategory"
+        :selected="filter"
+        :label="$t('money.total', { amount: formatMoney(totals.total, currency), month: monthName(month) })"
+        @pick="pick"
+      >
+        <text x="90" y="88" text-anchor="middle" class="fill-text text-[17px] font-bold">
+          {{ formatMoney(totals.total, currency) }}
+        </text>
+        <text x="90" y="108" text-anchor="middle" class="fill-muted text-[11px]">{{ $t('money.spent') }}</text>
+      </RingChart>
+
+      <div
+        v-if="totals.byCategory.length"
+        class="mt-4 flex flex-wrap gap-2"
+        role="group"
+        :aria-label="$t('money.byCategory')"
+      >
+        <button
+          v-for="c in totals.byCategory"
+          :key="c.category"
+          type="button"
+          :aria-pressed="filter === c.category"
+          :class="[
+            'flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm',
+            filter === c.category ? 'border-accent bg-accent/10 font-semibold' : 'border-line',
+          ]"
+          @click="pick(c.category)"
+        >
+          <span
+            class="h-2.5 w-2.5 rounded-full"
+            :style="{ background: CATEGORY_COLORS[c.category] }"
+            aria-hidden="true"
+          />
+          {{ $t(`categories.${c.category}`) }} · {{ formatMoney(c.cents, currency) }}
+        </button>
+      </div>
+    </section>
+
+    <section :aria-label="monthName(month)">
+      <p v-if="filter" class="mb-2 text-sm">
+        {{ $t('money.showing', { category: $t(`categories.${filter}`) }) }} ·
+        <button type="button" class="font-semibold text-accent" @click="filter = null">
+          {{ $t('money.showAll') }}
+        </button>
+      </p>
+      <div v-if="expenses.isSuccess.value && !shown.length && !filter" class="py-6 text-center">
+        <p class="font-semibold">{{ $t('money.empty') }}</p>
+        <p class="mt-1 text-sm text-muted">{{ $t('money.emptyHint') }}</p>
+        <button
+          type="button"
+          class="mt-3 rounded-full bg-accent px-4 py-1.5 font-semibold text-on-accent"
+          @click="openNew"
+        >
+          + {{ $t('money.addLong') }}
+        </button>
+      </div>
+      <ul>
+        <li v-for="e in shown" :key="e.id" class="border-b border-line">
+          <button
+            type="button"
+            class="flex w-full items-center gap-3 py-3 text-left hover:bg-bg"
+            @click="openExpense(e)"
+          >
+            <span class="text-xl" aria-hidden="true">{{ CATEGORY_ICONS[e.category] }}</span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate font-medium">{{ label(e) }}</span>
+              <span class="block text-[13px] text-muted">
+                {{ $t(`categories.${e.category}`) }} · {{ formatDate(e.date, today) }}
+              </span>
+            </span>
+            <span class="font-semibold">{{ formatMoney(e.amount_cents, currency) }}</span>
+          </button>
+        </li>
+      </ul>
+    </section>
+  </div>
+
+  <ExpenseSheet
+    v-model:open="sheetOpen"
+    :expense="editing"
+    :start-date="startDate"
+    :start-category="filter"
+    @saved="saved"
+  />
 </template>

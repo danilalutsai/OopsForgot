@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { CATEGORIES, CATEGORY_ICONS, type Category } from '@oopsproof/shared'
 
-defineProps<{ legend: string; name: string }>()
+withDefaults(defineProps<{ legend: string; name: string; options?: readonly Category[] }>(), {
+  options: () => CATEGORIES,
+})
 const model = defineModel<Category | null>({ required: true })
 </script>
 
@@ -10,7 +12,7 @@ const model = defineModel<Category | null>({ required: true })
     <legend class="mb-1 font-medium">{{ legend }}</legend>
     <div class="flex flex-wrap gap-2">
       <label
-        v-for="c in CATEGORIES"
+        v-for="c in options"
         :key="c"
         :class="[
           'cursor-pointer rounded-full border px-3 py-1.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent',

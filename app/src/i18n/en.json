@@ -42,7 +42,41 @@
     "restored": "Restored ✅"
   },
   "money": {
-    "title": "Money"
+    "title": "Money",
+    "add": "Expense",
+    "addLong": "Add Expense",
+    "previous": "Previous month",
+    "next": "Next month",
+    "spent": "spent",
+    "total": "{amount} spent in {month}",
+    "empty": "No Expenses this month",
+    "emptyHint": "Add what you spend by hand, or give Items a price and they’ll appear here on their Due date.",
+    "showing": "Showing {category} only",
+    "showAll": "Show all",
+    "loadError": "Could not load your Expenses. Check your connection and try again.",
+    "byCategory": "Spending by Category",
+    "sheet": {
+      "new": "New Expense",
+      "edit": "Expense",
+      "amount": "Amount",
+      "category": "Category",
+      "date": "Date",
+      "description": "Description",
+      "descriptionHint": "Optional, like “Groceries”.",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "deleteTitle": "Delete this Expense?",
+      "deleteBody": "It leaves your monthly totals.",
+      "saved": "Expense saved ✅",
+      "deleted": "Expense deleted",
+      "errors": {
+        "amount": "Type an amount like 12.50.",
+        "category": "Pick a Category.",
+        "date": "Pick a date, today or earlier.",
+        "save": "Could not save. Check your connection and try again."
+      }
+    }
   },
   "auth": {
     "email": "Email",
@@ -303,5 +337,8 @@
     "banner": "Offline, last updated {when}.",
     "bannerNever": "Offline.",
     "blocked": "You’re offline. Changes can be made once you’re back online."
+  },
+  "moneyList": {
+    "from": "from {name}"
   }
 }
