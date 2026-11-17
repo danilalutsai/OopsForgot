@@ -33,3 +33,22 @@ describe('push devices', () => {
     expect(error).not.toBeNull()
   })
 })
+
+describe('one browser, several people', () => {
+  it("turning push on takes the browser over from whoever had it, so Ana's Reminders stop going there", async () => {
+    const ana = await signUpPerson('Ana')
+    const ben = await signUpPerson('Ben')
+    const shared = device()
+    const claim = (client: typeof ana.client) =>
+      client.rpc('claim_push_device', {
+        p_endpoint: shared.endpoint,
+        p_p256dh: shared.p256dh,
+        p_auth: shared.auth,
+        p_label: shared.label,
+      })
+    expect((await claim(ana.client)).error).toBeNull()
+    expect((await claim(ben.client)).error).toBeNull()
+    expect((await ana.client.from('push_devices').select('id')).data).toEqual([])
+    expect((await ben.client.from('push_devices').select('endpoint')).data).toEqual([{ endpoint: shared.endpoint }])
+  })
+})

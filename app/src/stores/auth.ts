@@ -5,7 +5,7 @@ import { computed, ref, watch } from 'vue'
 import { queryClient } from '../query'
 import { guessCurrency } from '../currency'
 import { photoUrl as signedPhotoUrl } from '../settings/photo'
-import { forgetThisDevice } from '../push/forget'
+import { forgetThisDevice, unsubscribeThisBrowser } from '../push/forget'
 import { supabase } from '../supabase'
 
 export const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -59,11 +59,14 @@ export const useAuth = defineStore('auth', () => {
   supabase.auth.onAuthStateChange((event, next) => {
     if (event === 'PASSWORD_RECOVERY') recovering.value = true
     if (event === 'SIGNED_OUT') recovering.value = false
+    const hadUser = !!session.value
     const changedUser = next?.user.id !== session.value?.user.id
     session.value = next
     if (changedUser) {
-      // Never show one person's data to the next person on the same device.
+      // Never show one person's data to the next person on the same device,
+      // and never let the previous person's Reminders keep arriving in this browser.
       queryClient.clear()
+      if (hadUser) void unsubscribeThisBrowser()
       void loadProfile()
     }
   })

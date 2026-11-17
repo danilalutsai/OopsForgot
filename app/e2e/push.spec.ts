@@ -6,17 +6,19 @@ import { logInAsNewPerson } from './people'
 // push subscription are stood in for, everything else (saving the device, the screens) is real.
 async function fakePush(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
-    const endpoint = `https://push.example.test/${crypto.randomUUID()}`
-    let subscribed = false
+    // like a real subscription, it survives page loads (kept in sessionStorage)
+    const endpoint = (sessionStorage.fakeEndpoint ??= `https://push.example.test/${crypto.randomUUID()}`)
+    const isOn = () => sessionStorage.fakeSubscribed === '1'
     const sub = {
       endpoint,
       toJSON: () => ({ endpoint, keys: { p256dh: 'BTestKey', auth: 'TestAuth' } }),
-      unsubscribe: async () => ((subscribed = false), true),
+      unsubscribe: async () => ((sessionStorage.fakeSubscribed = '0'), true),
     }
     Object.defineProperty(Notification, 'permission', { get: () => 'default', configurable: true })
     Notification.requestPermission = async () => 'granted'
-    PushManager.prototype.subscribe = async () => ((subscribed = true), sub) as unknown as PushSubscription
-    PushManager.prototype.getSubscription = async () => (subscribed ? sub : null) as unknown as PushSubscription
+    PushManager.prototype.subscribe = async () =>
+      ((sessionStorage.fakeSubscribed = '1'), sub) as unknown as PushSubscription
+    PushManager.prototype.getSubscription = async () => (isOn() ? sub : null) as unknown as PushSubscription
   })
 }
 
@@ -58,7 +60,7 @@ test('an iPhone not added to the Home Screen gets the steps instead', async ({ p
 test("logging out removes this device from the person's push list", async ({ page }, info) => {
   test.skip(info.project.name === 'phone-webkit', 'iPhone needs the Home Screen app first')
   await fakePush(page)
-  await logInAsNewPerson(page)
+  const person = await logInAsNewPerson(page)
   await page.getByRole('link', { name: 'Turn it on' }).click()
   await page.getByRole('button', { name: /^Push/ }).click()
   await page.getByRole('button', { name: 'Turn on here' }).click()
@@ -67,4 +69,10 @@ test("logging out removes this device from the person's push list", async ({ pag
   await page.getByRole('button', { name: /Account/ }).click()
   await page.getByRole('menuitem', { name: 'Log out' }).click()
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+
+  // Back in as the same person: this browser is no longer one of their push devices
+  await page.getByLabel('Email').fill(person.email)
+  await page.getByLabel('Password').fill(person.password)
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await expect(page.getByText('Push is off, so Reminders can’t reach you yet.')).toBeVisible()
 })

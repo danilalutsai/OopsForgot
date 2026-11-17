@@ -2,7 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { formatDate } from '../format'
 import { useToasts } from '../stores/toasts'
-import { today } from '../today'
+import { todayIn } from '@oopsproof/shared'
+import { timeZone, today } from '../today'
 import { pushSupport, thisDeviceEndpoint, useRemoveDevice, usePushDevices, useTurnOnPush } from './devices'
 
 const devices = usePushDevices()
@@ -39,15 +40,18 @@ async function enable() {
       <p class="mt-2 text-muted">{{ $t('push.iphoneLater') }}</p>
     </section>
 
-    <p v-if="!devices.data.value?.length" class="text-muted">{{ $t('push.none') }}</p>
+    <p v-if="devices.isError.value" role="alert" class="font-medium text-urgent-red">{{ $t('push.loadError') }}</p>
+    <p v-else-if="devices.isSuccess.value && !devices.data.value?.length" class="text-muted">{{ $t('push.none') }}</p>
     <ul v-else :aria-label="$t('push.devices')">
       <li v-for="d in devices.data.value" :key="d.id" class="flex items-center gap-3 border-b border-line py-2">
         <div class="min-w-0 flex-1">
           <p class="font-medium">
-            {{ d.label || $t('push.thisDevice') }}
+            {{ d.label || $t('push.unnamed') }}
             <span v-if="d.endpoint === here" class="text-muted">· {{ $t('push.thisDevice') }}</span>
           </p>
-          <p class="text-muted">{{ $t('push.added', { date: formatDate(d.created_at.slice(0, 10), today) }) }}</p>
+          <p class="text-muted">
+            {{ $t('push.added', { date: formatDate(todayIn(timeZone, new Date(d.created_at)), today) }) }}
+          </p>
         </div>
         <button
           type="button"

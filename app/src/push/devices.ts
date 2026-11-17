@@ -41,11 +41,11 @@ export function pushSupport(): PushSupport {
 
 /** A short name for this device, like "Chrome on Mac". */
 export function deviceLabel(ua = navigator.userAgent): string {
-  const browser = /Edg\//.test(ua)
+  const browser = /Edg(iOS)?\//.test(ua)
     ? 'Edge'
-    : /Firefox\//.test(ua)
+    : /(Firefox|FxiOS)\//.test(ua)
       ? 'Firefox'
-      : /Chrome\//.test(ua)
+      : /(Chrome|CriOS)\//.test(ua)
         ? 'Chrome'
         : /Safari\//.test(ua)
           ? 'Safari'
@@ -86,7 +86,11 @@ export function useTurnOnPush() {
       const key = import.meta.env.VITE_VAPID_PUBLIC_KEY
       if (!key) throw new Error('Push is not set up')
       if ((await Notification.requestPermission()) !== 'granted') throw new Error('denied')
-      const reg = await navigator.serviceWorker.ready
+      // without a working service worker, `ready` never settles: give up after a while
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('No service worker')), 10_000)),
+      ])
       const sub =
         (await reg.pushManager.getSubscription()) ??
         (await reg.pushManager.subscribe({
@@ -94,15 +98,13 @@ export function useTurnOnPush() {
           applicationServerKey: keyBytes(key).buffer as ArrayBuffer,
         }))
       const json = sub.toJSON()
-      const { error } = await supabase.from('push_devices').upsert(
-        {
-          endpoint: sub.endpoint,
-          p256dh: json.keys?.p256dh ?? '',
-          auth: json.keys?.auth ?? '',
-          label: deviceLabel(),
-        },
-        { onConflict: 'endpoint', ignoreDuplicates: true },
-      )
+      // takes the browser over from anyone who had it before (see claim_push_device)
+      const { error } = await supabase.rpc('claim_push_device', {
+        p_endpoint: sub.endpoint,
+        p_p256dh: json.keys?.p256dh ?? '',
+        p_auth: json.keys?.auth ?? '',
+        p_label: deviceLabel(),
+      })
       if (error) throw error
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['push_devices'] }),

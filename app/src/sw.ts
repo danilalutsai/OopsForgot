@@ -1,7 +1,8 @@
 /// <reference lib="webworker" />
 // The app's service worker: keeps the app files for fast loading and shows push Reminders.
 import { clientsClaim } from 'workbox-core'
-import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
+import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
+import { NavigationRoute, registerRoute } from 'workbox-routing'
 
 declare const self: ServiceWorkerGlobalScope
 
@@ -9,6 +10,8 @@ self.skipWaiting()
 clientsClaim()
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
+// any page of the app (/settings, /items/…) opens the app shell, also offline
+registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')))
 
 interface PushMessage {
   title: string
@@ -20,7 +23,13 @@ interface PushMessage {
 }
 
 self.addEventListener('push', (event) => {
-  const message: PushMessage = event.data?.json() ?? { title: 'OopsProof' }
+  let message: PushMessage = { title: 'OopsProof' }
+  try {
+    message = event.data?.json() ?? message
+  } catch {
+    // a push must always show something
+    message = { title: 'OopsProof', body: event.data?.text() }
+  }
   event.waitUntil(
     self.registration.showNotification(message.title, {
       body: message.body,
@@ -37,13 +46,19 @@ self.addEventListener('notificationclick', (event) => {
   const url = new URL((event.notification.data as { url?: string })?.url ?? '/', self.location.origin).href
   event.waitUntil(
     (async () => {
-      const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      // only windows this worker controls can be sent to another page
+      const open = await self.clients.matchAll({ type: 'window' })
       const existing = open.find((c) => c.url.startsWith(self.location.origin)) as WindowClient | undefined
       if (existing) {
-        await existing.focus()
-        return existing.navigate(url)
+        try {
+          await existing.focus()
+          await existing.navigate(url)
+          return
+        } catch {
+          // fall through to a new window
+        }
       }
-      return self.clients.openWindow(url)
+      await self.clients.openWindow(url)
     })(),
   )
 })
