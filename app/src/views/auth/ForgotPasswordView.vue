@@ -8,9 +8,13 @@ const auth = useAuth()
 const email = ref('')
 const sent = ref(false)
 const error = ref(false)
+const busy = ref(false)
 
 async function submit() {
+  if (busy.value) return
+  busy.value = true
   error.value = !!(await auth.sendPasswordReset(email.value.trim()))
+  busy.value = false
   sent.value = !error.value
 }
 </script>
@@ -22,7 +26,11 @@ async function submit() {
       <p>{{ $t('auth.resetIntro') }}</p>
       <TextField v-model="email" :label="$t('auth.email')" type="email" autocomplete="email" />
       <p v-if="error" role="alert" class="text-sm font-medium text-urgent-red">{{ $t('auth.errors.generic') }}</p>
-      <button type="submit" class="rounded-xl bg-accent py-3 font-semibold text-on-accent">
+      <button
+        type="submit"
+        :disabled="busy"
+        class="rounded-xl bg-accent py-3 font-semibold text-on-accent disabled:opacity-50"
+      >
         {{ $t('auth.sendLink') }}
       </button>
     </form>

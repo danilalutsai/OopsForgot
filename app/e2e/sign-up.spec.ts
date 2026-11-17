@@ -77,3 +77,10 @@ test('a forgotten password can be reset by email', async ({ page }) => {
   await page.getByRole('button', { name: 'Log in' }).click()
   await expect(page.getByText('Welcome, Ben')).toBeVisible()
 })
+
+test('an expired reset link offers a new one', async ({ page }) => {
+  await page.goto('/reset-password#error=access_denied&error_code=otp_expired')
+  await expect(page.getByRole('heading', { name: 'This link no longer works' })).toBeVisible()
+  await page.getByRole('link', { name: 'Send a new link' }).click()
+  await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
+})

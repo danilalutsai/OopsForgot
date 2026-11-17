@@ -13,5 +13,8 @@ const auth = useAuth()
     </span>
     <span role="tab" aria-selected="false" class="py-1.5 text-center text-muted">{{ $t('items.calendar') }}</span>
   </div>
-  <p class="px-6 py-10 text-center text-muted">{{ $t('items.empty', { name: auth.profile?.name ?? '' }) }}</p>
+  <div class="px-6 py-10 text-center">
+    <p v-if="auth.profile" class="mb-2 text-lg font-semibold">{{ $t('items.welcome', { name: auth.profile.name }) }}</p>
+    <p class="text-muted">{{ $t('items.empty') }}</p>
+  </div>
 </template>

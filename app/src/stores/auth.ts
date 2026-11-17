@@ -14,22 +14,29 @@ export const useAuth = defineStore('auth', () => {
   const recovering = ref(false)
   const loggedIn = computed(() => session.value !== null)
 
+  /** Loads the profile of whoever is logged in now; a slower answer for an earlier person is dropped. */
   async function loadProfile() {
-    if (!session.value) return (profile.value = null)
-    const { data } = await supabase.from('profiles').select('name, surname').single()
+    const userId = session.value?.user.id
+    if (!userId) return (profile.value = null)
+    const { data, error } = await supabase.from('profiles').select('name, surname').single()
+    if (session.value?.user.id !== userId) return
+    if (error) console.error('Could not load profile', error)
     profile.value = data
   }
+
+  // Registered before anything is awaited: Supabase fires PASSWORD_RECOVERY while it starts up.
+  supabase.auth.onAuthStateChange((event, next) => {
+    if (event === 'PASSWORD_RECOVERY') recovering.value = true
+    if (event === 'SIGNED_OUT') recovering.value = false
+    const changedUser = next?.user.id !== session.value?.user.id
+    session.value = next
+    if (changedUser) void loadProfile()
+  })
 
   /** Resolves once the saved session (if any) is known. */
   const ready = (async () => {
     session.value = (await supabase.auth.getSession()).data.session
     await loadProfile()
-    supabase.auth.onAuthStateChange((event, next) => {
-      if (event === 'PASSWORD_RECOVERY') recovering.value = true
-      const changedUser = next?.user.id !== session.value?.user.id
-      session.value = next
-      if (changedUser) void loadProfile()
-    })
   })()
 
   const origin = () => window.location.origin
@@ -46,9 +53,9 @@ export const useAuth = defineStore('auth', () => {
     return error
   }
 
+  /** The profile loads through the SIGNED_IN event. */
   async function logIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (!error) await loadProfile()
     return error
   }
 
@@ -56,6 +63,7 @@ export const useAuth = defineStore('auth', () => {
     await supabase.auth.signOut({ scope: 'local' })
     session.value = null
     profile.value = null
+    recovering.value = false
   }
 
   async function sendPasswordReset(email: string) {

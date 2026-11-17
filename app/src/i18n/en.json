@@ -1,12 +1,23 @@
 {
-  "app": { "name": "oopsproof" },
-  "nav": { "items": "Items", "money": "Money", "settings": "Settings", "account": "Account", "logOut": "Log out" },
+  "app": {
+    "name": "oopsproof"
+  },
+  "nav": {
+    "items": "Items",
+    "money": "Money",
+    "settings": "Settings",
+    "account": "Account",
+    "logOut": "Log out"
+  },
   "items": {
     "list": "List",
     "calendar": "Calendar",
-    "empty": "Welcome, {name} 👋 Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before it is due."
+    "empty": "Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before it is due.",
+    "welcome": "Welcome, {name} 👋"
   },
-  "money": { "title": "Money" },
+  "money": {
+    "title": "Money"
+  },
   "auth": {
     "email": "Email",
     "password": "Password",
@@ -42,7 +53,10 @@
       "weakPassword": "Use at least 8 characters.",
       "required": "Please fill in every field.",
       "age": "OopsProof is for people 16 or older."
-    }
+    },
+    "linkExpiredTitle": "This link no longer works",
+    "linkExpired": "Reset links work once and only for a short time. Ask for a new one and use it straight away.",
+    "newLink": "Send a new link"
   },
   "privacy": {
     "title": "Privacy notice",

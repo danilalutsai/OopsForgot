@@ -24,6 +24,7 @@ const inApp = computed(() => !route.meta.public)
     </main>
     <!-- phone: bottom tab bar -->
     <nav
+      v-if="inApp"
       class="fixed inset-x-0 bottom-0 grid grid-cols-2 border-t border-line bg-surface text-center text-xs md:hidden"
     >
       <RouterLink to="/" class="py-3 text-muted" exact-active-class="font-semibold !text-accent">
