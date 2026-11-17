@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { initials } from '@oopsproof/shared'
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -7,13 +6,12 @@ import {
   DropdownMenuRoot,
   DropdownMenuTrigger,
 } from 'reka-ui'
-import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../stores/auth'
+import AvatarImage from './AvatarImage.vue'
 
 const auth = useAuth()
 const router = useRouter()
-const letters = computed(() => (auth.profile ? initials(auth.profile.name, auth.profile.surname) : ''))
 
 async function logOut() {
   await auth.logOut()
@@ -23,11 +21,8 @@ async function logOut() {
 
 <template>
   <DropdownMenuRoot>
-    <DropdownMenuTrigger
-      class="ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-bold text-on-accent"
-      :aria-label="`${letters} ${$t('nav.account')}`.trim()"
-    >
-      {{ letters }}
+    <DropdownMenuTrigger class="ml-2 rounded-full" :aria-label="`${auth.initials} ${$t('nav.account')}`.trim()">
+      <AvatarImage />
     </DropdownMenuTrigger>
     <DropdownMenuPortal>
       <DropdownMenuContent

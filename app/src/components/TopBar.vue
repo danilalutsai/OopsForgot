@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLogo from './AppLogo.vue'
+import { timeZoneDiffers } from '../settings/timeZoneCheck'
 import AvatarMenu from './AvatarMenu.vue'
 
 defineProps<{ title?: string }>()
@@ -11,7 +12,14 @@ defineProps<{ title?: string }>()
     <h1 v-else class="text-[19px] font-bold">{{ title }}</h1>
     <span class="flex-1" />
     <slot name="actions" />
-    <button type="button" class="text-xl text-muted" :aria-label="$t('nav.settings')">⚙︎</button>
+    <RouterLink to="/settings" class="relative text-xl text-muted" :aria-label="$t('nav.settings')">
+      ⚙︎
+      <span
+        v-if="timeZoneDiffers"
+        class="absolute -top-0.5 -right-1 h-2.5 w-2.5 rounded-full bg-urgent-yellow"
+        :title="$t('settings.problem')"
+      />
+    </RouterLink>
     <AvatarMenu />
   </header>
 </template>

@@ -1,12 +1,15 @@
 import { todayIn } from '@oopsproof/shared'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { browserTimeZone, useAuth } from './stores/auth'
 
-// TODO(#39): use the time zone saved on the profile once Settings exists.
-const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
+const now = ref(new Date())
+setInterval(() => (now.value = new Date()), 60_000)
+
+/** The person's saved time zone (the browser's until the profile has loaded). */
+export const timeZone = computed(() => useAuth().profile?.time_zone ?? browserTimeZone())
 
 /** Today's date in the person's time zone; refreshed every minute so countdowns roll over at midnight. */
-export const today = ref(todayIn(timeZone(), new Date()))
-setInterval(() => (today.value = todayIn(timeZone(), new Date())), 60_000)
+export const today = computed(() => todayIn(timeZone.value, now.value))
 
-// TODO(#39): use the currency saved on the profile once Settings exists.
-export const currency = 'EUR'
+/** The person's currency; amounts are never converted. */
+export const currency = computed(() => useAuth().profile?.currency ?? 'EUR')

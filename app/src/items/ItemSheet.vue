@@ -216,7 +216,7 @@ const lineText = {
       : draft.recurrence
         ? t(`items.repeats.${draft.recurrence.unit}`, { n: draft.recurrence.every }, draft.recurrence.every)
         : t('itemForm.repeatOptions.none'),
-  price: () => (priceCents.value != null ? formatMoney(priceCents.value, currency) : t('itemSheet.none')),
+  price: () => (priceCents.value != null ? formatMoney(priceCents.value, currency.value) : t('itemSheet.none')),
   category: () => (draft.category ? `${CATEGORY_ICONS[draft.category]} ${t(`categories.${draft.category}`)}` : ''),
   notes: () => draft.notes.trim() || t('itemSheet.addNotes'),
 }

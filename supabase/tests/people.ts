@@ -20,14 +20,14 @@ export interface Person {
 }
 
 /** A fake person with a confirmed account, logged in on their own client. */
-export async function signUpPerson(name: string, surname = 'Tester'): Promise<Person> {
+export async function signUpPerson(name: string, surname = 'Tester', extra: object = {}): Promise<Person> {
   const email = `${name.toLowerCase()}.${crypto.randomUUID()}@example.test`
   const password = 'correct-horse-battery'
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { name, surname, confirmed_16_plus: true },
+    user_metadata: { name, surname, confirmed_16_plus: true, ...extra },
   })
   if (error) throw error
   const client = anonymous()
