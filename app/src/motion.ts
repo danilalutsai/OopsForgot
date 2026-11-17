@@ -20,3 +20,13 @@ export const heightTransition = {
     gsap.to(el, { height: 0, opacity: 0, duration: duration(0.15), ease: 'power2.out', onComplete: done })
   },
 }
+
+/** Vue <Transition> hooks that fade one view out and the next in. */
+export const fadeTransition = {
+  onEnter(el: Element, done: () => void) {
+    gsap.from(el, { opacity: 0, duration: duration(0.15), ease: 'power2.out', clearProps: 'opacity', onComplete: done })
+  },
+  onLeave(el: Element, done: () => void) {
+    gsap.to(el, { opacity: 0, duration: duration(0.1), ease: 'power2.out', onComplete: done })
+  },
+}
