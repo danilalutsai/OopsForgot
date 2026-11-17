@@ -9,12 +9,15 @@ import { authErrorKey } from './errors'
 const auth = useAuth()
 const router = useRouter()
 const route = useRoute()
+/** Set by Delete account through page state; cleared once the person tries to log in. */
+const accountDeleted = ref(!!(history.state as { accountDeleted?: boolean } | null)?.accountDeleted)
 const email = ref('')
 const password = ref('')
 const error = ref<string | null>(null)
 const busy = ref(false)
 
 async function submit() {
+  accountDeleted.value = false
   error.value = null
   busy.value = true
   const failed = await auth.logIn(email.value.trim(), password.value)
@@ -31,6 +34,7 @@ async function submit() {
 
 <template>
   <AuthCard :title="$t('auth.logInTitle')">
+    <p v-if="accountDeleted" role="status" class="rounded-xl bg-bg p-3 text-sm">{{ $t('deleteAccount.done') }}</p>
     <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
       <TextField v-model="email" :label="$t('auth.email')" type="email" autocomplete="email" />
       <TextField v-model="password" :label="$t('auth.password')" type="password" autocomplete="current-password" />

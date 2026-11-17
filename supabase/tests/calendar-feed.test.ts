@@ -16,7 +16,7 @@ describe('Calendar feed', () => {
       name: 'Ana passport',
       category: 'documents',
       due_date: inDays(30),
-      price_cents: 9900,
+      price_cents: 4321,
       notes: 'secret note',
     })
     await ben.client.from('items').insert({ name: 'Ben car', category: 'vehicle', due_date: inDays(30) })
@@ -28,7 +28,8 @@ describe('Calendar feed', () => {
     expect(text).toContain('Ana passport — Due')
     expect(text).not.toContain('Ben car')
     expect(text).not.toContain('secret note')
-    expect(text).not.toContain('99')
+    // a price shows as 43.21; random IDs never contain a dot
+    expect(text).not.toContain('43.21')
   })
 
   it('resetting the link kills the old one; turning it off kills it too', async () => {
