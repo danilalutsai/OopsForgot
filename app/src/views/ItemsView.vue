@@ -1,25 +1,38 @@
 <script setup lang="ts">
-import { dashboardGroup, type DashboardGroup } from '@oopsproof/shared'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { CATEGORY_ICONS, dashboardGroup, type DashboardGroup } from '@oopsproof/shared'
+import { computed, ref } from 'vue'
 import TopBar from '../components/TopBar.vue'
+import { useItemActions } from '../items/actions'
 import AddItemSheet from '../items/AddItemSheet.vue'
-import { dueDateOf, useItems } from '../items/api'
+import { dueDateOf, handledNow, type Item, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
 import ItemSheet from '../items/ItemSheet.vue'
 import { useAuth } from '../stores/auth'
+import { useToasts } from '../stores/toasts'
 import { today } from '../today'
 
 const auth = useAuth()
 const items = useItems()
+const actions = useItemActions()
+const toasts = useToasts()
 const adding = ref(false)
+const showArchived = ref(false)
 const openId = ref<string | null>(null)
 const openItem = computed(() => items.data.value?.find((i) => i.id === openId.value) ?? null)
-const toast = ref<string | null>(null)
 
-/** Each Item with the Due date it is on today, worked out once, in pure Due-date order (no-time Items last). */
+const active = computed(() => (items.data.value ?? []).filter((i) => !i.archived_at))
+const archived = computed(() => (items.data.value ?? []).filter((i) => i.archived_at))
+
+/**
+ * Each active Item with the Due date it is on today and whether it is Handled, worked out once,
+ * in pure Due-date order (no-time Items last). Handled Items keep their place.
+ */
 const rows = computed(() =>
-  (items.data.value ?? [])
-    .map((item) => ({ item, due: dueDateOf(item, today.value) }))
+  active.value
+    .map((item) => {
+      const due = dueDateOf(item, today.value)
+      return { item, due, handled: handledNow(item, today.value) }
+    })
     .sort((a, b) => a.due.localeCompare(b.due) || (a.item.due_time ?? '99').localeCompare(b.item.due_time ?? '99')),
 )
 
@@ -31,13 +44,9 @@ const groups = computed(() =>
   })).filter((g) => g.rows.length),
 )
 
-let toastTimer: ReturnType<typeof setTimeout> | undefined
-function saved() {
-  clearTimeout(toastTimer)
-  toast.value = 'itemForm.saved'
-  toastTimer = setTimeout(() => (toast.value = null), 2500)
+function toggleHandled(item: Item, due: string, handled: boolean) {
+  void actions.setHandled(item, handled ? null : due)
 }
-onBeforeUnmount(() => clearTimeout(toastTimer))
 </script>
 
 <template>
@@ -71,9 +80,42 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       {{ $t(`items.groups.${g.key}`) }}
     </h2>
     <ul>
-      <ItemRow v-for="r in g.rows" :key="r.item.id" :item="r.item" :due="r.due" @open="openId = r.item.id" />
+      <ItemRow
+        v-for="r in g.rows"
+        :key="r.item.id"
+        :item="r.item"
+        :due="r.due"
+        :handled="r.handled"
+        @open="openId = r.item.id"
+        @toggle-handled="toggleHandled(r.item, r.due, r.handled)"
+        @archive="actions.archive(r.item)"
+      />
     </ul>
   </section>
+
+  <div v-if="archived.length" class="px-4 pt-6 pb-24">
+    <button
+      type="button"
+      class="text-sm font-semibold text-accent"
+      :aria-expanded="showArchived"
+      @click="showArchived = !showArchived"
+    >
+      {{ showArchived ? $t('items.hideArchived') : $t('items.archivedCount', { n: archived.length }) }}
+    </button>
+    <ul v-if="showArchived" class="mt-2" :aria-label="$t('items.archivedCount', { n: archived.length })">
+      <li v-for="item in archived" :key="item.id" class="flex items-center gap-3 border-b border-line py-3">
+        <span class="text-xl" aria-hidden="true">{{ CATEGORY_ICONS[item.category] }}</span>
+        <span class="flex-1 truncate text-muted">{{ item.name }}</span>
+        <button
+          type="button"
+          class="rounded-full border border-line px-3 py-1 text-sm font-semibold"
+          @click="actions.restore(item)"
+        >
+          {{ $t('items.restore') }}
+        </button>
+      </li>
+    </ul>
+  </div>
 
   <button
     type="button"
@@ -83,13 +125,6 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
   >
     +
   </button>
-  <AddItemSheet v-model:open="adding" @saved="saved" />
+  <AddItemSheet v-model:open="adding" @saved="toasts.show('itemForm.saved')" />
   <ItemSheet :item="openItem" @close="openId = null" />
-  <p
-    v-if="toast"
-    role="status"
-    class="fixed bottom-36 left-1/2 -translate-x-1/2 rounded-full bg-text px-4 py-2 text-sm text-bg shadow-lg md:bottom-8"
-  >
-    {{ $t(toast) }}
-  </p>
 </template>

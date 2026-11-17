@@ -15,7 +15,7 @@ async function addGym(page: Page) {
 test('change an Item line by line and save', async ({ page }) => {
   await logInAsNewPerson(page)
   await addGym(page)
-  await page.getByRole('button', { name: /Gym/ }).click()
+  await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
   await expect(sheet.getByRole('status')).toHaveText('All changes saved')
   await expectAccessible(page)
@@ -38,7 +38,7 @@ test('change an Item line by line and save', async ({ page }) => {
 test('closing with unsaved changes asks first; Discard keeps the old values', async ({ page }) => {
   await logInAsNewPerson(page)
   await addGym(page)
-  await page.getByRole('button', { name: /Gym/ }).click()
+  await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
   await sheet.getByRole('button', { name: 'Change Name' }).click()
   await sheet.getByLabel('Name', { exact: true }).fill('Gym and pool')
@@ -57,7 +57,7 @@ test('closing with unsaved changes asks first; Discard keeps the old values', as
 test('Save in the leave question saves, then closes', async ({ page }) => {
   await logInAsNewPerson(page)
   await addGym(page)
-  await page.getByRole('button', { name: /Gym/ }).click()
+  await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
   await sheet.getByRole('button', { name: /^Category/ }).click()
   await sheet.getByText('Home').click()
@@ -72,7 +72,7 @@ test('on a phone, dragging the top bar down closes the sheet; a short drag sprin
   test.skip(info.project.name.startsWith('computer'), 'phone only')
   await logInAsNewPerson(page)
   await addGym(page)
-  await page.getByRole('button', { name: /Gym/ }).click()
+  await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
   const bar = sheet.getByRole('status')
   const box = (await bar.boundingBox())!
@@ -94,7 +94,7 @@ test('on a phone, dragging the top bar down closes the sheet; a short drag sprin
 test('tapping outside with unsaved changes asks before leaving', async ({ page }) => {
   await logInAsNewPerson(page)
   await addGym(page)
-  await page.getByRole('button', { name: /Gym/ }).click()
+  await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
   await sheet.getByRole('button', { name: /^Price/ }).click()
   await sheet.getByLabel('Price').fill('40')
@@ -105,7 +105,7 @@ test('tapping outside with unsaved changes asks before leaving', async ({ page }
 test('an unfinished custom repeat is never saved as "doesn\'t repeat"', async ({ page }) => {
   await logInAsNewPerson(page)
   await addGym(page)
-  await page.getByRole('button', { name: /Gym/ }).click()
+  await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
   await sheet.getByRole('button', { name: /^Repeats/ }).click()
   await sheet.getByRole('combobox', { name: 'Repeats' }).selectOption({ label: 'Custom…' })

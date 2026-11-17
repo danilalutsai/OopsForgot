@@ -61,3 +61,23 @@ describe('repeating Items', () => {
     ).not.toBeNull()
   })
 })
+
+describe('Handled and Archived', () => {
+  it('a person marks an Item Handled for a Due date, archives and restores it', async () => {
+    const ana = await signUpPerson('Ana')
+    const { data: item } = await ana.client.from('items').insert(passport).select('id').single()
+    const set = (changes: object) => ana.client.from('items').update(changes).eq('id', item!.id).select('id')
+    expect((await set({ handled_due_date: '2027-03-02' })).data).toHaveLength(1)
+    expect((await set({ archived_at: new Date().toISOString() })).data).toHaveLength(1)
+    expect((await set({ archived_at: null })).data).toHaveLength(1)
+  })
+
+  it('a deleted Item can be put back with the same id (Undo)', async () => {
+    const ana = await signUpPerson('Ana')
+    const { data: item } = await ana.client.from('items').insert(passport).select('*').single()
+    await ana.client.from('items').delete().eq('id', item!.id)
+    const { user_id: _owner, created_at: _created, ...back } = item!
+    expect((await ana.client.from('items').insert(back)).error).toBeNull()
+    expect((await ana.client.from('items').select('id')).data).toEqual([{ id: item!.id }])
+  })
+})

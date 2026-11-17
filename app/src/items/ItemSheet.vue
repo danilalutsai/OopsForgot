@@ -28,7 +28,8 @@ import { useI18n } from 'vue-i18n'
 import { formatDate, formatMoney, formatTime } from '../format'
 import { duration } from '../motion'
 import { currency, today } from '../today'
-import { dueDateOf, type Item, recurrenceOf, useUpdateItem } from './api'
+import { useItemActions } from './actions'
+import { dueDateOf, handledNow, type Item, recurrenceOf, useUpdateItem } from './api'
 import CategoryChips from './CategoryChips.vue'
 import RepeatPicker from './RepeatPicker.vue'
 import SheetLine from './SheetLine.vue'
@@ -39,6 +40,8 @@ const props = defineProps<{ item: Item | null }>()
 const emit = defineEmits<{ close: [] }>()
 const { t } = useI18n()
 const update = useUpdateItem()
+const actions = useItemActions()
+const confirmingDelete = ref(false)
 
 interface Draft {
   name: string
@@ -153,6 +156,25 @@ async function save(): Promise<boolean> {
     errors.value = ['save']
     return false
   }
+}
+
+/** Handled / Archive / Delete act on the saved Item straight away; Archive and Delete close the sheet. */
+function toggleHandled() {
+  if (!props.item) return
+  const due = dueDateOf(props.item, today.value)
+  void actions.setHandled(props.item, handledNow(props.item, today.value) ? null : due)
+}
+async function archive() {
+  if (!props.item) return
+  const item = props.item
+  emit('close')
+  await actions.archive(item)
+}
+async function remove() {
+  if (!props.item) return
+  const item = props.item
+  emit('close')
+  await actions.delete(item)
 }
 
 /** A tap outside with unsaved changes asks too, instead of doing nothing. */
@@ -362,10 +384,53 @@ const lineText = {
               {{ $t('itemForm.numberWarning') }}
             </p>
           </SheetLine>
+
+          <div class="mt-4 grid grid-cols-3 gap-2 px-3 pb-4">
+            <button
+              type="button"
+              class="rounded-xl border border-line py-2.5 text-sm font-semibold"
+              :aria-pressed="handledNow(item, today)"
+              @click="toggleHandled"
+            >
+              {{ handledNow(item, today) ? $t('itemSheet.undoHandled') : $t('itemSheet.handled') }}
+            </button>
+            <button type="button" class="rounded-xl border border-line py-2.5 text-sm font-semibold" @click="archive">
+              {{ $t('itemSheet.archive') }}
+            </button>
+            <button
+              type="button"
+              class="rounded-xl border border-line py-2.5 text-sm font-semibold text-urgent-red"
+              @click="confirmingDelete = true"
+            >
+              {{ $t('itemSheet.delete') }}
+            </button>
+          </div>
         </div>
       </DialogContent>
     </DialogPortal>
   </DialogRoot>
+
+  <AlertDialogRoot v-model:open="confirmingDelete">
+    <AlertDialogPortal>
+      <AlertDialogOverlay class="fixed inset-0 z-50 bg-black/40" />
+      <AlertDialogContent
+        class="fixed top-1/2 left-1/2 z-50 w-[min(90vw,360px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-surface p-5 text-text shadow-2xl"
+      >
+        <AlertDialogTitle class="text-lg font-semibold">{{
+          $t('itemSheet.deleteTitle', { name: item?.name })
+        }}</AlertDialogTitle>
+        <AlertDialogDescription class="mt-1 text-muted">{{ $t('itemSheet.deleteBody') }}</AlertDialogDescription>
+        <div class="mt-5 flex flex-col gap-2">
+          <AlertDialogAction class="rounded-xl bg-urgent-red py-2.5 font-semibold text-white" @click="remove">
+            {{ $t('itemSheet.deleteConfirm') }}
+          </AlertDialogAction>
+          <AlertDialogCancel class="rounded-xl py-2.5 font-semibold text-accent">{{
+            $t('itemSheet.cancel')
+          }}</AlertDialogCancel>
+        </div>
+      </AlertDialogContent>
+    </AlertDialogPortal>
+  </AlertDialogRoot>
 
   <AlertDialogRoot v-model:open="asking">
     <AlertDialogPortal>
