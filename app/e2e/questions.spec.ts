@@ -62,3 +62,21 @@ test('a free trial not kept is archived', async ({ page }) => {
   await expect(page.getByRole('status').filter({ hasText: 'archived' })).toContainText('Duolingo free trial archived')
   await expect(page.getByRole('button', { name: 'Archived (1)' })).toBeVisible()
 })
+
+test('a past date cannot answer "What now?"', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await addItem(page, 'Visa', '✈️ Travel', -2)
+  await row(page, 'Visa').getByRole('button', { name: 'What now?' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Visa' })
+  await sheet.getByLabel('New Due date').fill(await inDays(page, -1))
+  await expect(sheet.getByRole('button', { name: 'Set date' })).toBeDisabled()
+})
+
+test('rows with a question stay readable in dark mode', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await logInAsNewPerson(page)
+  await addItem(page, 'Old ID', '🪪 Documents', -3)
+  await addItem(page, 'Trial', '⏳ Free trials', 0)
+  await expect(row(page, 'Old ID').getByRole('button', { name: 'What now?' })).toBeVisible()
+  await expectAccessible(page)
+})

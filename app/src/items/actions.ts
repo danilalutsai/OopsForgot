@@ -63,6 +63,7 @@ export function useItemActions() {
     },
     /** Answers "What now?" with a new Due date. */
     async setNewDueDate(item: Item, dueDate: string) {
+      if (!dueDate) return
       if (await run(() => update.mutateAsync({ id: item.id, due_date: dueDate, handled_due_date: null })))
         toasts.show('settings.saved')
     },

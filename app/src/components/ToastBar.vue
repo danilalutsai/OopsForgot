@@ -13,7 +13,7 @@ onBeforeUnmount(() => props.inSheet && toasts.sheetsOpen--)
 <template>
   <div
     v-if="inSheet || !toasts.sheetsOpen"
-    :role="toasts.current ? 'status' : undefined"
+    role="status"
     class="pointer-events-none fixed inset-x-0 bottom-36 z-[60] flex justify-center md:bottom-8"
   >
     <div

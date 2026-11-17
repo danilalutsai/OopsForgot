@@ -31,7 +31,7 @@ const rows = computed(() =>
   active.value
     .map((item) => {
       const due = dueDateOf(item, today.value)
-      return { item, due, handled: handledNow(item, today.value, due), question: questionOf(item, today.value) }
+      return { item, due, handled: handledNow(item, today.value, due), question: questionOf(item, today.value, due) }
     })
     .sort((a, b) => a.due.localeCompare(b.due) || (a.item.due_time ?? '99').localeCompare(b.item.due_time ?? '99')),
 )

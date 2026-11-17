@@ -123,7 +123,7 @@ function click(e: MouseEvent) {
       <button
         v-if="question"
         type="button"
-        class="mx-3 shrink-0 rounded-full bg-urgent-red px-3 py-1.5 text-xs font-bold text-white"
+        class="mx-3 shrink-0 rounded-full bg-urgent-red px-3 py-1.5 text-xs font-bold text-on-accent"
         @click="$emit('open')"
       >
         {{ question === 'expired' ? $t('questions.whatNow') : $t('questions.keptIt') }}

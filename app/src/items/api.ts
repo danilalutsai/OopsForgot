@@ -109,7 +109,9 @@ export function useRestoreDeletedItem() {
 }
 
 /** The question the Item is waiting on, if any ("What now?" / "Kept it?"). */
-export function questionOf(item: Item, today: string): OpenQuestion | null {
+export function questionOf(item: Item, today: string, due?: string): OpenQuestion | null {
+  // with `due` already worked out, Handled is a plain comparison
+  if (due !== undefined && item.handled_due_date === due) return null
   return openQuestion(
     {
       dueDate: item.due_date,

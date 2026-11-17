@@ -244,7 +244,7 @@ function dragEnd(e: PointerEvent) {
     gsap.to(panel.value, { y: '100%', duration: duration(0.2), ease: 'power2.out', onComplete: () => emit('close') })
     return
   }
-  gsap.to(panel.value, { y: 0, duration: duration(0.2), ease: 'power2.out' })
+  gsap.to(panel.value, { y: 0, duration: duration(0.2), ease: 'power2.out', clearProps: 'transform' })
   if (close) requestClose()
 }
 
@@ -314,7 +314,14 @@ const lineText = {
           >
             <span v-for="e in errors" :key="e" class="block">{{ $t(`itemForm.errors.${e}`) }}</span>
           </p>
-          <QuestionBox v-if="question" :item="item" :question="question" :disabled="dirty" @archived="emit('close')" />
+          <QuestionBox
+            v-if="question"
+            :key="item.id"
+            :item="item"
+            :question="question"
+            :disabled="dirty"
+            @archive="archive"
+          />
           <div class="flex items-center gap-3 px-3 pt-1 pb-3">
             <span class="text-3xl" aria-hidden="true">{{ draft.category ? CATEGORY_ICONS[draft.category] : '' }}</span>
             <div class="min-w-0 flex-1">

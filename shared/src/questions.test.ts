@@ -34,5 +34,8 @@ describe('keptTrialName', () => {
     expect(keptTrialName('Free Trial - Spotify')).toBe('Spotify')
     expect(keptTrialName('Duolingo (free trial)')).toBe('Duolingo')
     expect(keptTrialName('Netflix')).toBe('Netflix')
+    expect(keptTrialName('Netflix free trials')).toBe('Netflix')
+    expect(keptTrialName('Carefree trial pass')).toBe('Carefree trial pass')
+    expect(keptTrialName('Free trialist club')).toBe('Free trialist club')
   })
 })

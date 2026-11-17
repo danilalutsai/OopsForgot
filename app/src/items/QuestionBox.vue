@@ -7,7 +7,7 @@ import type { Item } from './api'
 import { INPUT } from './ui'
 
 const props = defineProps<{ item: Item; question: OpenQuestion; disabled: boolean }>()
-const emit = defineEmits<{ archived: [] }>()
+defineEmits<{ archive: [] }>()
 const actions = useItemActions()
 const newDate = ref('')
 const unit = ref<'week' | 'month' | 'year'>('year')
@@ -15,11 +15,6 @@ const daysAgo = computed(() => {
   const left = countdown(props.item.due_date, today.value)
   return left.kind === 'expired' ? left.days : 0
 })
-
-async function archive() {
-  emit('archived')
-  await actions.archive(props.item)
-}
 </script>
 
 <template>
@@ -28,11 +23,11 @@ async function archive() {
       <h3 class="font-semibold">{{ $t('questions.expiredTitle', { days: daysAgo }, daysAgo) }}</h3>
       <div class="mt-3 flex flex-col gap-3 text-text">
         <div class="flex gap-2">
-          <input v-model="newDate" type="date" :aria-label="$t('questions.newDueDate')" :class="INPUT" />
+          <input v-model="newDate" type="date" :min="today" :aria-label="$t('questions.newDueDate')" :class="INPUT" />
           <button
             type="button"
             class="shrink-0 rounded-xl bg-accent px-3 font-semibold text-on-accent disabled:opacity-40"
-            :disabled="disabled || !newDate"
+            :disabled="disabled || !newDate || newDate < today"
             @click="actions.setNewDueDate(item, newDate)"
           >
             {{ $t('questions.setDate') }}
@@ -57,7 +52,7 @@ async function archive() {
           type="button"
           class="rounded-xl border border-line bg-surface py-2 font-semibold disabled:opacity-40"
           :disabled="disabled"
-          @click="archive"
+          @click="$emit('archive')"
         >
           {{ $t('questions.archive') }}
         </button>
@@ -78,7 +73,7 @@ async function archive() {
           type="button"
           class="rounded-xl border border-line bg-surface py-2 font-semibold disabled:opacity-40"
           :disabled="disabled"
-          @click="archive"
+          @click="$emit('archive')"
         >
           {{ $t('questions.no') }}
         </button>

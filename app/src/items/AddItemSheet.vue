@@ -3,6 +3,7 @@ import { type Category, looksLikeFullNumber, parseAmount, type Recurrence } from
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { useAddItem } from './api'
+import ToastBar from '../components/ToastBar.vue'
 import CategoryChips from './CategoryChips.vue'
 import RepeatPicker from './RepeatPicker.vue'
 import { INPUT as input } from './ui'
@@ -130,6 +131,7 @@ async function save() {
             }}</span>
           </label>
         </form>
+        <ToastBar in-sheet />
       </DialogContent>
     </DialogPortal>
   </DialogRoot>

@@ -18,7 +18,7 @@ export function openQuestion(item: QuestionItem, today: string): OpenQuestion | 
 /** A kept trial becomes a Subscription named without "free trial" ("Disney+ free trial" → "Disney+"). */
 export function keptTrialName(name: string): string {
   const cleaned = name
-    .replace(/\(?\s*free\s+trial\s*\)?/gi, ' ')
+    .replace(/\(?\s*\bfree\s+trials?\b\s*\)?/gi, ' ')
     .replace(/^[\s\-–—:·]+|[\s\-–—:·]+$/g, '')
     .replace(/\s{2,}/g, ' ')
   return cleaned || name
