@@ -10,7 +10,7 @@ async function addItem(page: Page, name: string, firstDue: string, repeat?: stri
   if (repeat) await page.getByRole('combobox', { name: 'Repeats' }).first().selectOption({ label: repeat })
   if (custom) {
     await page.getByLabel('Every', { exact: true }).fill(custom[0])
-    await page.getByRole('combobox', { name: 'Repeats' }).nth(1).selectOption({ label: custom[1] })
+    await page.getByRole('combobox', { name: 'Repeat unit' }).selectOption({ label: custom[1] })
   }
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()

@@ -29,11 +29,12 @@ export function dueDateOf(item: Item, today: string): string {
 
 const COLUMNS = 'id, name, category, due_date, due_time, price_cents, notes, recurrence_unit, recurrence_every'
 
+/** Unordered: the dashboard sorts by each Item's current Due date. */
 export function useItems() {
   return useQuery({
     queryKey: ['items'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('items').select(COLUMNS).order('due_date').order('due_time')
+      const { data, error } = await supabase.from('items').select(COLUMNS)
       if (error) throw error
       return data as Item[]
     },

@@ -144,6 +144,7 @@
       "month": "month | months",
       "year": "year | years"
     },
-    "repeatHint": "Each next Due date is counted from this one."
+    "repeatHint": "Each next Due date is counted from this one.",
+    "repeatUnit": "Repeat unit"
   }
 }

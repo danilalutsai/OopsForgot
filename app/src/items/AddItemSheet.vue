@@ -44,12 +44,19 @@ watch(open, (isOpen) => {
   errors.value = []
 })
 
+/** The custom repeat count when it is a plain whole number from 1 to 365, else null. */
+const customCount = computed(() => {
+  const text = customEvery.value.trim()
+  const n = Number(text)
+  return /^\d{1,3}$/.test(text) && n >= 1 && n <= 365 ? n : null
+})
+
 /** The chosen Recurrence, or null for a one-time Item; undefined when the custom number is invalid. */
 function chosenRecurrence(): Recurrence | null | undefined {
   if (repeat.value === 'none') return null
   if (repeat.value !== 'custom') return { unit: repeat.value, every: 1 }
-  const every = Number(customEvery.value)
-  return Number.isInteger(every) && every >= 1 && every <= 365 ? { unit: customUnit.value, every } : undefined
+  const every = customCount.value
+  return every === null ? undefined : { unit: customUnit.value, every }
 }
 
 async function save() {
@@ -165,9 +172,9 @@ const input = 'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-base 
               :aria-label="$t('itemForm.every')"
               :class="[input, 'w-20']"
             />
-            <select v-model="customUnit" :aria-label="$t('itemForm.repeats')" :class="[input, 'w-auto']">
+            <select v-model="customUnit" :aria-label="$t('itemForm.repeatUnit')" :class="[input, 'w-auto']">
               <option v-for="u in ['day', 'week', 'month', 'year'] as const" :key="u" :value="u">
-                {{ $t(`itemForm.units.${u}`, Number(customEvery) || 2) }}
+                {{ $t(`itemForm.units.${u}`, customCount ?? 2) }}
               </option>
             </select>
           </div>

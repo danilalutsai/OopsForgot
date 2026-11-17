@@ -38,6 +38,21 @@ describe('currentDueDate', () => {
     )
   })
 
+  it('finds the current Due date of Items that started years ago', () => {
+    expect(currentDueDate({ dueDate: '2021-11-16', recurrence: { unit: 'day', every: 1 } }, '2026-11-16')).toBe(
+      '2026-11-16',
+    )
+    expect(currentDueDate({ dueDate: '2021-11-17', recurrence: { unit: 'week', every: 3 } }, '2026-11-16')).toBe(
+      '2026-11-18',
+    )
+    expect(currentDueDate({ dueDate: '2001-01-31', recurrence: { unit: 'month', every: 1 } }, '2026-11-16')).toBe(
+      '2026-11-30',
+    )
+    expect(currentDueDate({ dueDate: '1996-02-29', recurrence: { unit: 'year', every: 2 } }, '2026-11-16')).toBe(
+      '2028-02-29',
+    )
+  })
+
   it('leaves a repeating Item whose first Due date is still ahead where it is', () => {
     const insurance = { dueDate: '2026-11-28', recurrence: { unit: 'year', every: 1 } } as const
     expect(currentDueDate(insurance, '2026-11-16')).toBe('2026-11-28')
