@@ -51,3 +51,14 @@ export function useAddItem() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] }),
   })
 }
+
+export function useUpdateItem() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...changes }: Partial<NewItem> & { id: string }) => {
+      const { error } = await supabase.from('items').update(changes).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] }),
+  })
+}

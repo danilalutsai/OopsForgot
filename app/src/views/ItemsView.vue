@@ -5,12 +5,15 @@ import TopBar from '../components/TopBar.vue'
 import AddItemSheet from '../items/AddItemSheet.vue'
 import { dueDateOf, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
+import ItemSheet from '../items/ItemSheet.vue'
 import { useAuth } from '../stores/auth'
 import { today } from '../today'
 
 const auth = useAuth()
 const items = useItems()
 const adding = ref(false)
+const openId = ref<string | null>(null)
+const openItem = computed(() => items.data.value?.find((i) => i.id === openId.value) ?? null)
 const toast = ref<string | null>(null)
 
 /** Each Item with the Due date it is on today, worked out once, in pure Due-date order (no-time Items last). */
@@ -68,7 +71,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       {{ $t(`items.groups.${g.key}`) }}
     </h2>
     <ul>
-      <ItemRow v-for="r in g.rows" :key="r.item.id" :item="r.item" :due="r.due" />
+      <ItemRow v-for="r in g.rows" :key="r.item.id" :item="r.item" :due="r.due" @open="openId = r.item.id" />
     </ul>
   </section>
 
@@ -81,6 +84,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
     +
   </button>
   <AddItemSheet v-model:open="adding" @saved="saved" />
+  <ItemSheet :item="openItem" @close="openId = null" />
   <p
     v-if="toast"
     role="status"
