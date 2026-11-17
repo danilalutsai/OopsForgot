@@ -1,0 +1,53 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/* OopsProof look: "Calm & clear" (see the look-and-sound decision). Dark mode follows the device. */
+:root {
+  --c-bg: #f8fafc;
+  --c-surface: #ffffff;
+  --c-text: #0f172a;
+  --c-muted: #64748b;
+  --c-line: #e2e8f0;
+  --c-accent: #4f46e5;
+  --c-on-accent: #ffffff;
+  --c-red: #dc2626;
+  --c-yellow: #d97706;
+  --c-green: #059669;
+  --c-grey: #94a3b8;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #0b1020;
+    --c-surface: #151b2e;
+    --c-text: #e2e8f0;
+    --c-muted: #94a3b8;
+    --c-line: #26304a;
+    --c-accent: #818cf8;
+    --c-on-accent: #0b1020;
+    --c-red: #f87171;
+    --c-yellow: #fbbf24;
+    --c-green: #34d399;
+    --c-grey: #64748b;
+  }
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-text: var(--c-text);
+  --color-muted: var(--c-muted);
+  --color-line: var(--c-line);
+  --color-accent: var(--c-accent);
+  --color-on-accent: var(--c-on-accent);
+  --color-urgent-red: var(--c-red);
+  --color-urgent-yellow: var(--c-yellow);
+  --color-urgent-green: var(--c-green);
+  --color-urgent-grey: var(--c-grey);
+}
+
+body {
+  @apply bg-bg font-sans text-text antialiased;
+}

@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+supabase/config.toml
+app/public
+*.md
+.agents
+.claude
+app/prototype
+skills-lock.json

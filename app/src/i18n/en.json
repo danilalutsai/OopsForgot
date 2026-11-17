@@ -1,0 +1,10 @@
+{
+  "app": { "name": "oopsproof" },
+  "nav": { "items": "Items", "money": "Money", "settings": "Settings", "account": "Account" },
+  "items": {
+    "list": "List",
+    "calendar": "Calendar",
+    "empty": "Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before it is due."
+  },
+  "money": { "title": "Money" }
+}
