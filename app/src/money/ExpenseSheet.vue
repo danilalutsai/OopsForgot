@@ -135,8 +135,8 @@ async function confirmDelete() {
             <span class="font-medium">{{ $t('money.sheet.amount') }}</span>
             <input v-model="amount" inputmode="decimal" placeholder="0.00" :class="INPUT" />
           </label>
-          <!-- an automatic Expense keeps its Item's Category -->
-          <div v-if="expense?.item_name" class="flex flex-col gap-1 text-sm">
+          <!-- an automatic Expense keeps its Item's Category (once the Item is deleted, it's like any other) -->
+          <div v-if="expense?.item_id" class="flex flex-col gap-1 text-sm">
             <span class="font-medium">{{ $t('money.sheet.category') }}</span>
             <span>
               {{ category ? $t(`categories.${category}`) : '' }} ·
@@ -154,13 +154,13 @@ async function confirmDelete() {
             <span class="font-medium">{{ $t('money.sheet.date') }}</span>
             <input v-model="date" type="date" :min="minDate" :max="today" :class="INPUT" />
           </label>
-          <p v-if="expense?.item_name" class="rounded-xl bg-bg p-3 text-sm">
+          <p v-if="expense?.item_id && expense.item_name" class="rounded-xl bg-bg p-3 text-sm">
             {{ $t('money.fromItem', { name: expense.item_name }) }}
-            <RouterLink v-if="expense.item_id" :to="`/?item=${expense.item_id}`" class="font-semibold text-accent">
+            <RouterLink :to="`/?item=${expense.item_id}`" class="font-semibold text-accent">
               · {{ $t('money.openItem') }}
             </RouterLink>
           </p>
-          <label v-if="!expense?.item_name" class="flex flex-col gap-1 text-sm">
+          <label v-if="!expense?.item_id" class="flex flex-col gap-1 text-sm">
             <span class="font-medium">{{ $t('money.sheet.description') }}</span>
             <input v-model="description" maxlength="200" :class="INPUT" />
             <span class="text-muted">{{ $t('money.sheet.descriptionHint') }}</span>

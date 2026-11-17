@@ -37,15 +37,14 @@ interface Device {
 type Row = Record<string, any>
 
 /** Every row of a table, page by page (the API returns at most 1000 at a time). */
-async function all<T extends Row>(table: string, columns: string, onlyActive = false): Promise<T[]> {
+async function all<T extends Row>(table: string, columns: string): Promise<T[]> {
   const rows: T[] = []
   for (let start = 0; ; start += PAGE) {
-    let query = db
+    const query = db
       .from(table)
       .select(columns)
       .order('id')
       .range(start, start + PAGE - 1)
-    if (onlyActive) query = query.is('archived_at', null)
     const { data, error } = await query
     if (error) throw error
     rows.push(...(data as unknown as T[]))
@@ -93,38 +92,97 @@ async function send(device: Device, payload: string): Promise<Outcome> {
 
 /**
  * Priced Items create an Expense on each Due date (up to today, never before they were added).
- * expenses_through moves on afterwards, so an Expense the person deleted is never made again.
+ * Every Item's expenses_through moves on to today, priced or not, archived or not, so a deleted
+ * automatic Expense never comes back, and adding a price later or restoring an archived Item never
+ * fills in past Due dates.
  */
-async function createAutomaticExpenses(person: SenderPerson, items: Row[], now: Date) {
+async function createAutomaticExpenses(
+  person: SenderPerson,
+  items: Row[],
+  senderItems: Map<string, SenderItem>,
+  now: Date,
+) {
   const today = todayIn(person.timeZone, now)
+  const rows: Row[] = []
+  const moved: string[] = []
   for (const i of items) {
-    const dates = automaticExpenseDates(
+    if (i.expenses_through === today) continue
+    moved.push(i.id)
+    const s = senderItems.get(i.id)
+    if (!s || i.archived_at) continue
+    for (const date of automaticExpenseDates(
       {
-        dueDate: i.due_date,
-        recurrence: i.recurrence_unit ? { unit: i.recurrence_unit, every: i.recurrence_every } : null,
+        dueDate: s.dueDate,
+        recurrence: s.recurrence,
         priceCents: i.price_cents,
-        category: i.category,
-        addedOn: todayIn(person.timeZone, new Date(i.created_at)),
+        category: s.category,
+        addedOn: todayIn(person.timeZone, s.createdAt),
       },
       i.expenses_through,
       today,
-    )
-    if (dates.length) {
-      const rows = dates.map((date) => ({
+    )) {
+      rows.push({
         user_id: person.id,
         amount_cents: i.price_cents,
-        category: i.category,
+        category: s.category,
         date,
         item_id: i.id,
-        item_name: i.name,
-      }))
-      const { error } = await db.from('expenses').upsert(rows, { onConflict: 'item_id,date', ignoreDuplicates: true })
-      if (error) throw error
+        item_name: s.name,
+      })
     }
-    if (i.price_cents && i.expenses_through !== today) {
-      const { error } = await db.from('items').update({ expenses_through: today }).eq('id', i.id)
-      if (error) throw error
+  }
+  if (rows.length) {
+    const { error } = await db.from('expenses').upsert(rows, { onConflict: 'item_id,date', ignoreDuplicates: true })
+    if (error) throw error
+  }
+  if (moved.length) {
+    const { error } = await db.from('items').update({ expenses_through: today }).in('id', moved)
+    if (error) throw error
+  }
+}
+
+/** Claims, bundles and sends one person's due Reminders. Returns what was sent, or null for nothing. */
+async function remind(person: SenderPerson, items: SenderItem[], targets: Device[], from: Date, to: Date) {
+  const due = dueReminders(person, items, from, to)
+  if (!due.length) return null
+
+  // Claim before sending: a Reminder another run already claimed is skipped here.
+  const rows = due.map((d) => ({ item_id: d.itemId, due_date: d.dueDate, kind: d.kind }))
+  const { data: claimed, error } = await db
+    .from('sent_reminders')
+    .upsert(rows, { onConflict: 'item_id,due_date,kind', ignoreDuplicates: true })
+    .select('item_id, due_date, kind')
+  if (error) throw error
+  if (!claimed?.length) return null
+
+  const byId = new Map(items.map((i) => [i.id, i]))
+  const entries: MessageEntry[] = claimed.map((c) => {
+    const i = byId.get(c.item_id)!
+    return {
+      item: { id: i.id, name: i.name, category: i.category, dueTime: i.dueTime },
+      dueDate: c.due_date,
+      kind: c.kind,
     }
+  })
+  const message = pushMessage(person, entries, todayIn(person.timeZone, to))
+  const outcomes = await Promise.all(targets.map((d) => send(d, JSON.stringify(message))))
+  const gone = targets.filter((_, n) => outcomes[n] === 'gone').map((d) => d.id)
+  if (gone.length) await db.from('push_devices').delete().in('id', gone)
+
+  // Nothing reached any device and something may work next time: release the claims, so the
+  // next run (which looks back to the last full success) sends them again.
+  const failed = outcomes.includes('failed') && !outcomes.includes('delivered')
+  if (failed) {
+    for (const c of claimed) {
+      await db.from('sent_reminders').delete().match({ item_id: c.item_id, due_date: c.due_date, kind: c.kind })
+    }
+  }
+  return {
+    userId: person.id,
+    message,
+    entries: claimed,
+    delivered: targets.filter((_, n) => outcomes[n] === 'delivered').map((d) => d.endpoint),
+    failed,
   }
 }
 
@@ -142,8 +200,7 @@ Deno.serve(async (req) => {
     all<Row>('profiles', 'id, name, time_zone, day_reminder_time'),
     all<Row>(
       'items',
-      'id, user_id, name, category, due_date, due_time, recurrence_unit, recurrence_every, reminder_offsets, handled_due_date, created_at, price_cents, expenses_through',
-      true,
+      'id, user_id, name, category, due_date, due_time, recurrence_unit, recurrence_every, reminder_offsets, handled_due_date, created_at, price_cents, expenses_through, archived_at',
     ),
     all<Device & Row>('push_devices', 'id, user_id, endpoint, p256dh, auth'),
   ])
@@ -154,73 +211,49 @@ Deno.serve(async (req) => {
   let anyFailed = false
 
   for (const p of people) {
-    const mine = itemsOf.get(p.id)
-    if (!mine?.length) continue
-    // one person's problem never stops everyone else's Reminders
+    const owned = itemsOf.get(p.id)
+    if (!owned?.length) continue
+    const person: SenderPerson = {
+      id: p.id,
+      name: p.name,
+      timeZone: usableTimeZone(p.time_zone),
+      dayReminderTime: p.day_reminder_time.slice(0, 5),
+    }
+    const senderItems = new Map<string, SenderItem>(
+      owned.map((i) => [
+        i.id,
+        {
+          id: i.id,
+          name: i.name,
+          category: i.category,
+          dueDate: i.due_date,
+          dueTime: i.due_time?.slice(0, 5) ?? null,
+          recurrence: i.recurrence_unit ? { unit: i.recurrence_unit, every: i.recurrence_every } : null,
+          reminderOffsets: i.reminder_offsets,
+          handledDueDate: i.handled_due_date,
+          createdAt: new Date(i.created_at),
+        },
+      ]),
+    )
+    const active = owned.filter((i) => !i.archived_at).map((i) => senderItems.get(i.id)!)
+
+    // Reminders first; one person's problem never stops everyone else's
     try {
-      const person: SenderPerson = {
-        id: p.id,
-        name: p.name,
-        timeZone: usableTimeZone(p.time_zone),
-        dayReminderTime: p.day_reminder_time.slice(0, 5),
+      const sent = await remind(person, active, devicesOf.get(p.id) ?? [], from, to)
+      if (sent) {
+        report.push(sent)
+        if (sent.failed) anyFailed = true
       }
-      const byId = new Map(mine.map((i) => [i.id as string, i]))
-      const senderItems: SenderItem[] = mine.map((i) => ({
-        id: i.id,
-        name: i.name,
-        category: i.category,
-        dueDate: i.due_date,
-        dueTime: i.due_time?.slice(0, 5) ?? null,
-        recurrence: i.recurrence_unit ? { unit: i.recurrence_unit, every: i.recurrence_every } : null,
-        reminderOffsets: i.reminder_offsets,
-        handledDueDate: i.handled_due_date,
-        createdAt: new Date(i.created_at),
-      }))
-      await createAutomaticExpenses(person, mine, to)
-
-      const due = dueReminders(person, senderItems, from, to)
-      if (!due.length) continue
-
-      // Claim before sending: a Reminder another run already claimed is skipped here.
-      const rows = due.map((d) => ({ item_id: d.itemId, due_date: d.dueDate, kind: d.kind }))
-      const { data: claimed, error } = await db
-        .from('sent_reminders')
-        .upsert(rows, { onConflict: 'item_id,due_date,kind', ignoreDuplicates: true })
-        .select('item_id, due_date, kind')
-      if (error) throw error
-      if (!claimed?.length) continue
-
-      const entries: MessageEntry[] = claimed.map((c) => {
-        const i = byId.get(c.item_id)!
-        return {
-          item: { id: i.id, name: i.name, category: i.category, dueTime: i.due_time?.slice(0, 5) ?? null },
-          dueDate: c.due_date,
-          kind: c.kind,
-        }
-      })
-      const message = pushMessage(person, entries, todayIn(person.timeZone, to))
-      const targets = devicesOf.get(p.id) ?? []
-      const outcomes = await Promise.all(targets.map((d) => send(d, JSON.stringify(message))))
-      const gone = targets.filter((_, n) => outcomes[n] === 'gone').map((d) => d.id)
-      if (gone.length) await db.from('push_devices').delete().in('id', gone)
-
-      // Nothing reached any device and something may work next time: release the claims, so the
-      // next run (which looks back to the last full success) sends them again.
-      if (outcomes.includes('failed') && !outcomes.includes('delivered')) {
-        for (const c of claimed) {
-          await db.from('sent_reminders').delete().match({ item_id: c.item_id, due_date: c.due_date, kind: c.kind })
-        }
-        anyFailed = true
-      }
-      report.push({
-        userId: p.id,
-        message,
-        entries: claimed,
-        delivered: targets.filter((_, n) => outcomes[n] === 'delivered').map((d) => d.endpoint),
-      })
     } catch (e) {
       console.error(`Reminders for ${p.id} failed`, e)
       anyFailed = true
+    }
+
+    // Expenses are an extra: a problem here is logged and never holds up Reminders
+    try {
+      await createAutomaticExpenses(person, owned, senderItems, to)
+    } catch (e) {
+      console.error(`Automatic Expenses for ${p.id} failed`, e)
     }
   }
 

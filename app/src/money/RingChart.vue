@@ -15,20 +15,19 @@ defineEmits<{ pick: [category: Category] }>()
 const R = 70
 const C = 2 * Math.PI * R
 /** One arc per Category, in order around the ring, starting at the top. */
+const total = computed(() => props.parts.reduce((s, p) => s + p.cents, 0) + (props.coming ?? 0))
 const arcs = computed(() => {
-  const total = props.parts.reduce((s, p) => s + p.cents, 0) + (props.coming ?? 0)
   let start = 0
   return props.parts.map((p) => {
-    const length = total ? (p.cents / total) * C : 0
+    const length = total.value ? (p.cents / total.value) * C : 0
     const arc = { ...p, dash: `${Math.max(0, length - 2)} ${C}`, offset: -start }
     start += length
     return arc
   })
 })
 const comingArc = computed(() => {
-  const total = props.parts.reduce((s, p) => s + p.cents, 0) + (props.coming ?? 0)
-  if (!props.coming || !total) return null
-  const start = (1 - props.coming / total) * C
+  if (!props.coming || !total.value) return null
+  const start = (1 - props.coming / total.value) * C
   return { dash: `${Math.max(0, C - start - 2)} ${C}`, offset: -start }
 })
 </script>

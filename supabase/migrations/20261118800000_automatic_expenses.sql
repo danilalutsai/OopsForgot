@@ -34,6 +34,10 @@ begin
   if not found then
     raise exception 'No such free trial';
   end if;
+  -- only once the trial has ended: its first charge can't be in the future
+  if trial.due_date > current_date + 1 then
+    raise exception 'The free trial has not ended yet';
+  end if;
 
   update public.items set
     name = p_name,
@@ -56,11 +60,15 @@ $$;
 revoke execute on function public.keep_trial(uuid, text, text[]) from public, anon;
 grant execute on function public.keep_trial(uuid, text, text[]) to authenticated;
 
--- The no-future check is for Expenses people enter; automatic ones come from Due dates up to today.
+-- No future Expenses, ever, when people write them. Only the system's own inserts of automatic
+-- Expenses (dated on Due dates up to today) skip the check, so test clocks and time zones can't trip it.
 create or replace function public.expense_not_in_future() returns trigger
 language plpgsql set search_path = '' as $$
 begin
-  if new.item_id is null and new.date > current_date + 1 then
+  if tg_op = 'INSERT' and new.item_id is not null then
+    return new;
+  end if;
+  if new.date > current_date + 1 then
     raise exception 'An Expense cannot be in the future';
   end if;
   return new;

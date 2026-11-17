@@ -90,3 +90,28 @@ describe('Expenses from Items', () => {
     expect((await ana.client.from('expenses').update({ amount_cents: 600 }).eq('id', e!.id)).error).toBeNull()
   })
 })
+
+describe('automatic Expense dates', () => {
+  it('cannot be moved into the future', async () => {
+    const ana = await signUpPerson('Ana')
+    const { data: trial } = await ana.client
+      .from('items')
+      .insert({ name: 'Trial', category: 'free_trials', due_date: today, price_cents: 500 })
+      .select('id')
+      .single()
+    await ana.client.rpc('keep_trial', { p_item_id: trial!.id, p_name: 'Paid', p_reminders: [] })
+    const { data: e } = await ana.client.from('expenses').select('id').single()
+    expect((await ana.client.from('expenses').update({ date: '2099-01-01' }).eq('id', e!.id)).error).not.toBeNull()
+  })
+
+  it('a trial that has not ended yet cannot be kept', async () => {
+    const ana = await signUpPerson('Ana')
+    const { data: trial } = await ana.client
+      .from('items')
+      .insert({ name: 'Trial', category: 'free_trials', due_date: '2099-01-01', price_cents: 500 })
+      .select('id')
+      .single()
+    const { error } = await ana.client.rpc('keep_trial', { p_item_id: trial!.id, p_name: 'Paid', p_reminders: [] })
+    expect(error).not.toBeNull()
+  })
+})

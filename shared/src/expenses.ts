@@ -56,8 +56,8 @@ export function automaticExpenseDates(
   return dueDatesBetween({ dueDate: item.dueDate, recurrence: item.recurrence }, from, today)
 }
 
-/** Priced Items still due later this month (after today), soonest first: the grey part of the ring. */
-export function stillComing<T extends PricedItem & { id: string }>(
+/** Priced Items still due later this month (after today, not already Handled), soonest first: the grey part of the ring. */
+export function stillComing<T extends PricedItem & { id: string; handledDueDate?: string | null }>(
   items: T[],
   today: string,
 ): (T & { date: string; priceCents: number })[] {
@@ -71,7 +71,7 @@ export function stillComing<T extends PricedItem & { id: string }>(
       addDays(today, 1),
       monthEnd,
     ))
-      coming.push({ ...item, date, priceCents: item.priceCents })
+      if (date !== item.handledDueDate) coming.push({ ...item, date, priceCents: item.priceCents })
   }
   return coming.sort((a, b) => a.date.localeCompare(b.date))
 }

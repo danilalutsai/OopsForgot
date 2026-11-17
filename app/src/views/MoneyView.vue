@@ -63,6 +63,7 @@ const coming = computed(() =>
             recurrence: recurrenceOf(i),
             priceCents: i.price_cents,
             category: i.category,
+            handledDueDate: i.handled_due_date,
           })),
         today.value,
       ),

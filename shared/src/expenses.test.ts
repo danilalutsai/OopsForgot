@@ -116,4 +116,17 @@ describe('stillComing', () => {
       ['car', '2026-11-28', 42000],
     ])
   })
+
+  it('leaves out a bill already marked Handled for that Due date', () => {
+    const gym = {
+      id: 'gym',
+      name: 'Gym',
+      dueDate: '2026-11-25',
+      recurrence: null,
+      priceCents: 3500,
+      category: 'health',
+      handledDueDate: '2026-11-25',
+    } as const
+    expect(stillComing([gym], '2026-11-16')).toEqual([])
+  })
 })
