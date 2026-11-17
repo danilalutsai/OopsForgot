@@ -237,5 +237,16 @@
     "no": "No, I cancelled",
     "kept": "{name} is now a monthly Subscription ✅",
     "answerFirst": "Answer the question above first."
+  },
+  "calendar": {
+    "week": "Week",
+    "month": "Month",
+    "today": "Today",
+    "previous": "Previous",
+    "next": "Next",
+    "day": "{date}, {n} Item | {date}, {n} Items",
+    "dayEmpty": "{date}, no Items",
+    "nothingDue": "Nothing due on {date}.",
+    "more": "+{n}"
   }
 }

@@ -58,3 +58,15 @@ function roughRepeatsSince(first: string, { unit, every }: Recurrence, today: st
 export function isExpired(item: DatedItem, today: string): boolean {
   return item.recurrence === null && item.dueDate < today
 }
+
+/** Every Due date of the Item from `from` to `to` (YYYY-MM-DD, both included), never before its first one. */
+export function dueDatesBetween(item: DatedItem, from: string, to: string): string[] {
+  const { recurrence, dueDate: first } = item
+  if (!recurrence) return first >= from && first <= to ? [first] : []
+  const dates: string[] = []
+  let n = first >= from ? 0 : Math.max(0, Math.floor(roughRepeatsSince(first, recurrence, from)) - 1)
+  for (let due = nthDueDate(first, recurrence, n); due <= to; due = nthDueDate(first, recurrence, ++n)) {
+    if (due >= from) dates.push(due)
+  }
+  return dates
+}

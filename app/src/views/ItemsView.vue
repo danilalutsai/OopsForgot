@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import TopBar from '../components/TopBar.vue'
 import { useItemActions } from '../items/actions'
 import AddItemSheet from '../items/AddItemSheet.vue'
+import CalendarView from '../items/CalendarView.vue'
 import { dueDateOf, handledNow, questionOf, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
 import ItemSheet from '../items/ItemSheet.vue'
@@ -17,6 +18,13 @@ const actions = useItemActions()
 const toasts = useToasts()
 const adding = ref(false)
 const showArchived = ref(false)
+const mode = ref<'list' | 'calendar'>('list')
+const tabs: Partial<Record<'list' | 'calendar', HTMLElement>> = {}
+/** Arrow keys move between the two tabs, as the tab pattern expects. */
+function switchMode() {
+  mode.value = mode.value === 'list' ? 'calendar' : 'list'
+  tabs[mode.value]?.focus()
+}
 const openId = ref<string | null>(null)
 const openItem = computed(() => items.data.value?.find((i) => i.id === openId.value) ?? null)
 
@@ -57,62 +65,88 @@ const groups = computed(() =>
       </button>
     </template>
   </TopBar>
-  <div class="mx-4 mb-2 grid grid-cols-2 rounded-xl border border-line bg-bg p-1 text-sm" role="tablist">
-    <span role="tab" aria-selected="true" class="rounded-lg bg-surface py-1.5 text-center font-semibold shadow-sm">
-      {{ $t('items.list') }}
-    </span>
-    <span role="tab" aria-selected="false" class="py-1.5 text-center text-muted">{{ $t('items.calendar') }}</span>
+  <div
+    class="mx-4 mb-2 grid grid-cols-2 rounded-xl border border-line bg-bg p-1 text-sm"
+    role="tablist"
+    @keydown.left.prevent="switchMode"
+    @keydown.right.prevent="switchMode"
+  >
+    <button
+      v-for="m in ['list', 'calendar'] as const"
+      :id="`tab-${m}`"
+      :ref="(el) => (tabs[m] = el as HTMLElement)"
+      :key="m"
+      type="button"
+      role="tab"
+      :aria-selected="mode === m"
+      :aria-controls="`panel-${m}`"
+      :tabindex="mode === m ? 0 : -1"
+      :class="['rounded-lg py-1.5 text-center', mode === m ? 'bg-surface font-semibold shadow-sm' : 'text-muted']"
+      @click="mode = m"
+    >
+      {{ $t(`items.${m}`) }}
+    </button>
   </div>
 
   <p v-if="items.isError.value" role="alert" class="px-6 py-10 text-center text-urgent-red">
     {{ $t('items.loadError') }}
   </p>
-  <div v-else-if="items.isSuccess.value && !groups.length" class="px-6 py-10 text-center">
-    <p v-if="auth.profile" class="mb-2 text-lg font-semibold">{{ $t('items.welcome', { name: auth.profile.name }) }}</p>
-    <p class="text-muted">{{ $t('items.empty') }}</p>
-  </div>
-  <section v-for="g in groups" :key="g.key" :aria-labelledby="`group-${g.key}`">
-    <h2 :id="`group-${g.key}`" class="px-4 pt-4 pb-1 text-[13px] font-semibold tracking-wide text-muted uppercase">
-      {{ $t(`items.groups.${g.key}`) }}
-    </h2>
-    <ul>
-      <ItemRow
-        v-for="r in g.rows"
-        :key="r.item.id"
-        :item="r.item"
-        :due="r.due"
-        :handled="r.handled"
-        :question="r.question"
-        :archive="() => actions.archive(r.item)"
-        @open="openId = r.item.id"
-        @toggle-handled="actions.toggleHandled(r.item, r.due)"
-      />
-    </ul>
-  </section>
+  <div v-else :id="`panel-${mode}`" role="tabpanel" :aria-labelledby="`tab-${mode}`">
+    <div v-if="items.isSuccess.value && !active.length" class="px-6 py-10 text-center">
+      <p v-if="auth.profile" class="mb-2 text-lg font-semibold">
+        {{ $t('items.welcome', { name: auth.profile.name }) }}
+      </p>
+      <p class="text-muted">{{ $t('items.empty') }}</p>
+    </div>
+    <CalendarView v-if="mode === 'calendar'" :items="active" @open="(id) => (openId = id)" />
+    <template v-else>
+      <section v-for="g in groups" :key="g.key" :aria-labelledby="`group-${g.key}`">
+        <h2 :id="`group-${g.key}`" class="px-4 pt-4 pb-1 text-[13px] font-semibold tracking-wide text-muted uppercase">
+          {{ $t(`items.groups.${g.key}`) }}
+        </h2>
+        <ul>
+          <ItemRow
+            v-for="r in g.rows"
+            :key="r.item.id"
+            :item="r.item"
+            :due="r.due"
+            :handled="r.handled"
+            :question="r.question"
+            :archive="() => actions.archive(r.item)"
+            @open="openId = r.item.id"
+            @toggle-handled="actions.toggleHandled(r.item, r.due)"
+          />
+        </ul>
+      </section>
 
-  <div v-if="archived.length" class="px-4 pt-6 pb-24">
-    <button
-      type="button"
-      class="text-sm font-semibold text-accent"
-      :aria-expanded="showArchived"
-      @click="showArchived = !showArchived"
-    >
-      {{ showArchived ? $t('items.hideArchived') : $t('items.archivedCount', { n: archived.length }) }}
-    </button>
-    <ul v-if="showArchived" class="mt-2" :aria-label="$t('items.archivedCount', { n: archived.length })">
-      <li v-for="item in archived" :key="item.id" class="flex items-center gap-3 border-b border-line py-3">
-        <span class="text-xl" aria-hidden="true">{{ CATEGORY_ICONS[item.category] }}</span>
-        <span class="flex-1 truncate text-muted">{{ item.name }}</span>
+      <div v-if="archived.length" class="px-4 pt-6 pb-6">
         <button
           type="button"
-          class="rounded-full border border-line px-3 py-1 text-sm font-semibold"
-          @click="actions.restore(item)"
+          class="text-sm font-semibold text-accent"
+          :aria-expanded="showArchived"
+          @click="showArchived = !showArchived"
         >
-          {{ $t('items.restore') }}
+          {{ showArchived ? $t('items.hideArchived') : $t('items.archivedCount', { n: archived.length }) }}
         </button>
-      </li>
-    </ul>
+        <ul v-if="showArchived" class="mt-2" :aria-label="$t('items.archivedCount', { n: archived.length })">
+          <li v-for="item in archived" :key="item.id" class="flex items-center gap-3 border-b border-line py-3">
+            <span class="text-xl" aria-hidden="true">{{ CATEGORY_ICONS[item.category] }}</span>
+            <span class="flex-1 truncate text-muted">{{ item.name }}</span>
+            <button
+              type="button"
+              class="rounded-full border border-line px-3 py-1 text-sm font-semibold"
+              @click="actions.restore(item)"
+            >
+              {{ $t('items.restore') }}
+            </button>
+          </li>
+        </ul>
+      </div>
+    </template>
   </div>
+
+  <!-- room to scroll the last row above the floating + button on phones -->
+  <div class="h-28 shrink-0 md:hidden" aria-hidden="true" />
 
   <button
     type="button"
