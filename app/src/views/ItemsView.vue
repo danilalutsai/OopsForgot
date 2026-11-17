@@ -3,7 +3,7 @@ import { dashboardGroup, type DashboardGroup } from '@oopsproof/shared'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import TopBar from '../components/TopBar.vue'
 import AddItemSheet from '../items/AddItemSheet.vue'
-import { useItems } from '../items/api'
+import { dueDateOf, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
 import { useAuth } from '../stores/auth'
 import { today } from '../today'
@@ -13,11 +13,20 @@ const items = useItems()
 const adding = ref(false)
 const toast = ref<string | null>(null)
 
+/** Pure Due-date order, using where repeating Items are now rather than their first Due date. */
+const sorted = computed(() =>
+  [...(items.data.value ?? [])].sort(
+    (a, b) =>
+      dueDateOf(a, today.value).localeCompare(dueDateOf(b, today.value)) ||
+      (a.due_time ?? '').localeCompare(b.due_time ?? ''),
+  ),
+)
+
 const GROUPS: DashboardGroup[] = ['today', 'thisWeek', 'later']
 const groups = computed(() =>
   GROUPS.map((g) => ({
     key: g,
-    items: (items.data.value ?? []).filter((i) => dashboardGroup(i.due_date, today.value) === g),
+    items: sorted.value.filter((i) => dashboardGroup(dueDateOf(i, today.value), today.value) === g),
   })).filter((g) => g.items.length),
 )
 

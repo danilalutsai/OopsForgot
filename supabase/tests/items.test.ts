@@ -39,3 +39,25 @@ describe('Items', () => {
     expect((await ana.client.from('items').insert({ ...passport, category: 'pets' })).error).not.toBeNull()
   })
 })
+
+describe('repeating Items', () => {
+  it('stores how often an Item repeats', async () => {
+    const ana = await signUpPerson('Ana')
+    const rent = {
+      name: 'Rent',
+      category: 'home',
+      due_date: '2026-10-01',
+      recurrence_unit: 'month',
+      recurrence_every: 1,
+    }
+    expect((await ana.client.from('items').insert(rent)).error).toBeNull()
+  })
+
+  it('refuses half a Recurrence or an unknown unit', async () => {
+    const ana = await signUpPerson('Ana')
+    expect((await ana.client.from('items').insert({ ...passport, recurrence_unit: 'month' })).error).not.toBeNull()
+    expect(
+      (await ana.client.from('items').insert({ ...passport, recurrence_unit: 'decade', recurrence_every: 1 })).error,
+    ).not.toBeNull()
+  })
+})

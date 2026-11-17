@@ -1,4 +1,4 @@
-import type { Category } from '@oopsproof/shared'
+import { type Category, currentDueDate, type Recurrence } from '@oopsproof/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { supabase } from '../supabase'
 
@@ -10,11 +10,24 @@ export interface Item {
   due_time: string | null
   price_cents: number | null
   notes: string
+  recurrence_unit: Recurrence['unit'] | null
+  recurrence_every: number | null
 }
 
 export type NewItem = Omit<Item, 'id'>
 
-const COLUMNS = 'id, name, category, due_date, due_time, price_cents, notes'
+export function recurrenceOf(item: Pick<Item, 'recurrence_unit' | 'recurrence_every'>): Recurrence | null {
+  return item.recurrence_unit && item.recurrence_every
+    ? { unit: item.recurrence_unit, every: item.recurrence_every }
+    : null
+}
+
+/** The Due date the Item is on today: a repeating Item has moved on past its first one. */
+export function dueDateOf(item: Item, today: string): string {
+  return currentDueDate({ dueDate: item.due_date, recurrence: recurrenceOf(item) }, today)
+}
+
+const COLUMNS = 'id, name, category, due_date, due_time, price_cents, notes, recurrence_unit, recurrence_every'
 
 export function useItems() {
   return useQuery({

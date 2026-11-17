@@ -26,7 +26,13 @@
     },
     "add": "Add Item",
     "addShort": "Add",
-    "loadError": "Could not load your Items. Check your connection and try again."
+    "loadError": "Could not load your Items. Check your connection and try again.",
+    "repeats": {
+      "day": "Every day | Every {n} days",
+      "week": "Every week | Every {n} weeks",
+      "month": "Every month | Every {n} months",
+      "year": "Every year | Every {n} years"
+    }
   },
   "money": {
     "title": "Money"
@@ -120,7 +126,24 @@
       "category": "Pick a Category.",
       "dueDate": "Pick a Due date.",
       "price": "Type a price like 12.50, or leave it empty.",
-      "save": "Could not save. Check your connection and try again."
-    }
+      "save": "Could not save. Check your connection and try again.",
+      "every": "Repeat every 1 to 365."
+    },
+    "repeats": "Repeats",
+    "repeatOptions": {
+      "none": "Doesn't repeat",
+      "week": "Every week",
+      "month": "Every month",
+      "year": "Every year",
+      "custom": "Custom…"
+    },
+    "every": "Every",
+    "units": {
+      "day": "day | days",
+      "week": "week | weeks",
+      "month": "month | months",
+      "year": "year | years"
+    },
+    "repeatHint": "Each next Due date is counted from this one."
   }
 }
