@@ -208,7 +208,9 @@
     "removePhoto": "Remove photo",
     "photoError": "Could not use that photo. Try a JPEG or PNG image.",
     "privacyNotice": "Privacy notice",
-    "problem": "Needs your attention"
+    "problem": "Needs your attention",
+    "pushOn": "On, {n} device | On, {n} devices",
+    "pushOff": "Off"
   },
   "toasts": {
     "handled": "Marked as Handled ✅",
@@ -271,5 +273,28 @@
     },
     "dayTime": "Day Reminders arrive at {time}.",
     "noneFit": "No Reminders will be sent for this Item."
+  },
+  "push": {
+    "section": "Push",
+    "devices": "Devices with push",
+    "none": "No devices get push yet.",
+    "added": "Added {date}",
+    "remove": "Remove",
+    "thisDevice": "This device",
+    "turnOn": "Turn on here",
+    "turnOnHint": "Get Reminders on this device as notifications.",
+    "denied": "Notifications are blocked for OopsProof in this browser. Allow them in the browser settings, then try again.",
+    "notSetUp": "Push isn’t set up on this copy of the app yet.",
+    "unsupported": "This browser can’t show push notifications. Try Chrome, Edge, Firefox or Safari.",
+    "iphoneTitle": "On iPhone, add OopsProof to your Home Screen first",
+    "iphoneSteps": [
+      "Tap the Share button at the bottom of Safari.",
+      "Choose “Add to Home Screen”.",
+      "Open OopsProof from your Home Screen and turn on push in Settings."
+    ],
+    "iphoneLater": "Until then, Reminders can’t reach this iPhone.",
+    "offBanner": "Push is off, so Reminders can’t reach you yet.",
+    "offBannerLink": "Turn it on",
+    "failed": "Could not turn on push. Check your connection and try again."
   }
 }

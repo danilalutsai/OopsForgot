@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { DEFAULT_DAY_REMINDER_TIME, roundToQuarterHour } from '@oopsproof/shared'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { formatTime } from '../format'
 import SheetLine from '../items/SheetLine.vue'
 import { INPUT } from '../items/ui'
@@ -10,8 +11,11 @@ import { browserTimeZone, type Profile, useAuth } from '../stores/auth'
 import { useToasts } from '../stores/toasts'
 import { dayReminderTime } from '../today'
 import AvatarImage from '../components/AvatarImage.vue'
+import PushSettings from '../push/PushSettings.vue'
+import { usePushDevices } from '../push/devices'
 
 const auth = useAuth()
+const { t } = useI18n()
 const toasts = useToasts()
 const openLine = ref<string | null>(null)
 const error = ref<string | null>(null)
@@ -95,7 +99,12 @@ async function dropPhoto() {
   if (await save({ photo_path: null })) await removePhoto(path)
 }
 
+const devices = usePushDevices()
 const lines = {
+  push: () => {
+    const n = devices.data.value?.length ?? 0
+    return n ? t('settings.pushOn', { n }, n) : t('settings.pushOff')
+  },
   dayTime: () => formatTime(`${dayTime.value}:00`),
   timeZone: () => profile.value?.time_zone ?? '',
   currency: () => profile.value?.currency ?? '',
@@ -138,6 +147,9 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
     </p>
 
     <h2 :class="heading">{{ $t('settings.sections.reminders') }}</h2>
+    <SheetLine :label="$t('push.section')" :value="lines.push()" :open="openLine === 'push'" @toggle="toggle('push')">
+      <PushSettings />
+    </SheetLine>
     <SheetLine
       :label="$t('settings.dayTime')"
       :value="lines.dayTime()"

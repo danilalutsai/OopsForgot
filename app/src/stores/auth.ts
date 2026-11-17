@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 import { queryClient } from '../query'
 import { guessCurrency } from '../currency'
 import { photoUrl as signedPhotoUrl } from '../settings/photo'
+import { forgetThisDevice } from '../push/forget'
 import { supabase } from '../supabase'
 
 export const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -100,6 +101,8 @@ export const useAuth = defineStore('auth', () => {
   }
 
   async function logOut() {
+    // This browser's push subscription must not keep delivering this person's Reminders to the next person.
+    await forgetThisDevice()
     await supabase.auth.signOut({ scope: 'local' })
     session.value = null
     profile.value = null
