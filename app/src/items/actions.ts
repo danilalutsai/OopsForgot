@@ -1,8 +1,9 @@
 import { addMonths, keptTrialName } from '@oopsproof/shared'
 import { useQueryClient } from '@tanstack/vue-query'
 import { supabase } from '../supabase'
+import { fittingOrDefault } from './reminderFit'
 import { useToasts } from '../stores/toasts'
-import { type Item, useDeleteItem, useRestoreDeletedItem, useUpdateItem } from './api'
+import { type Item, recurrenceOf, useDeleteItem, useRestoreDeletedItem, useUpdateItem } from './api'
 
 /** Handled changes per Item run one after another, so quick taps toggle in order instead of racing. */
 const handledQueue = new Map<string, Promise<unknown>>()
@@ -30,31 +31,41 @@ export function useItemActions() {
     queryClient.setQueryData<Item[]>(['items'], (items) => items?.map((i) => (i.id === id ? { ...i, ...changes } : i)))
   }
 
-  async function setHandledFor(item: Item, handled_due_date: string | null) {
-    showNow(item.id, { handled_due_date })
-    if (!(await run(() => update.mutateAsync({ id: item.id, handled_due_date })))) {
+  /** Saves Handled without touching the screen; a failure puts the server's state back on screen. */
+  async function saveHandled(item: Item, handled_due_date: string | null) {
+    const saved = await run(async () => {
+      const { data, error } = await supabase.from('items').update({ handled_due_date }).eq('id', item.id).select('id')
+      if (error || !data?.length) throw error ?? new Error('Item not found')
+    })
+    if (!saved) void queryClient.invalidateQueries({ queryKey: ['items'] })
+    return saved
+  }
+
+  /** Flips Handled on screen at once and saves it behind any earlier change to the same Item. */
+  function queueHandled(item: Item, next: string | null, then?: () => void) {
+    showNow(item.id, { handled_due_date: next })
+    const step = (handledQueue.get(item.id) ?? Promise.resolve()).then(async () => {
+      if (await saveHandled(item, next)) then?.()
+    })
+    handledQueue.set(item.id, step)
+    return step.finally(() => {
+      if (handledQueue.get(item.id) !== step) return
+      handledQueue.delete(item.id)
+      // only now, with nothing left in flight, check the screen against the server
       void queryClient.invalidateQueries({ queryKey: ['items'] })
-      return false
-    }
-    return true
+    })
   }
 
   return {
     /** Flips Handled for the Due date the Item is on now (`due`). */
     async toggleHandled(item: Item, due: string) {
-      // Decide from what is on screen now (it already includes earlier taps), flip it at once,
-      // then save in order behind any earlier taps on the same Item.
+      // decided from what is on screen now, which already includes earlier taps
       const before = (queryClient.getQueryData<Item[]>(['items'])?.find((i) => i.id === item.id) ?? item)
         .handled_due_date
       const next = before === due ? null : due
-      showNow(item.id, { handled_due_date: next })
-      const step = (handledQueue.get(item.id) ?? Promise.resolve()).then(async () => {
-        if (!(await setHandledFor(item, next))) return
-        toasts.show(next ? 'toasts.handled' : 'toasts.unhandled', {}, () => setHandledFor(item, before))
-      })
-      handledQueue.set(item.id, step)
-      await step
-      if (handledQueue.get(item.id) === step) handledQueue.delete(item.id)
+      await queueHandled(item, next, () =>
+        toasts.show(next ? 'toasts.handled' : 'toasts.unhandled', {}, () => queueHandled(item, before)),
+      )
     },
     /** Returns false when archiving failed, so a swiped row can slide back. */
     async archive(item: Item): Promise<boolean> {
@@ -67,12 +78,30 @@ export function useItemActions() {
     /** Answers "What now?" with a new Due date. */
     async setNewDueDate(item: Item, dueDate: string) {
       if (!dueDate) return
-      if (await run(() => update.mutateAsync({ id: item.id, due_date: dueDate, handled_due_date: null })))
+      const reminder_offsets = fittingOrDefault(item.reminder_offsets, {
+        dueDate,
+        dueTime: item.due_time,
+        recurrence: recurrenceOf(item),
+      })
+      if (
+        await run(() =>
+          update.mutateAsync({ id: item.id, due_date: dueDate, handled_due_date: null, reminder_offsets }),
+        )
+      )
         toasts.show('settings.saved')
     },
     /** Answers "What now?" by repeating; the next Due date is counted forward from the old one. */
     async makeRepeat(item: Item, unit: 'week' | 'month' | 'year') {
-      if (await run(() => update.mutateAsync({ id: item.id, recurrence_unit: unit, recurrence_every: 1 })))
+      const reminder_offsets = fittingOrDefault(item.reminder_offsets, {
+        dueDate: item.due_date,
+        dueTime: item.due_time,
+        recurrence: { unit, every: 1 },
+      })
+      if (
+        await run(() =>
+          update.mutateAsync({ id: item.id, recurrence_unit: unit, recurrence_every: 1, reminder_offsets }),
+        )
+      )
         toasts.show('settings.saved')
     },
     /** Answers "Kept it?" with Yes: a monthly Subscription from one month after the trial ended. */
@@ -85,6 +114,11 @@ export function useItemActions() {
         recurrence_unit: 'month' as const,
         recurrence_every: 1,
         due_date: addMonths(item.due_date, 1),
+        reminder_offsets: fittingOrDefault(item.reminder_offsets, {
+          dueDate: addMonths(item.due_date, 1),
+          dueTime: item.due_time,
+          recurrence: { unit: 'month', every: 1 },
+        }),
       }
       if (await run(() => update.mutateAsync(changes))) toasts.show('questions.kept', { name })
     },
@@ -92,8 +126,8 @@ export function useItemActions() {
       if (await run(() => update.mutateAsync({ id: item.id, archived_at: null }))) toasts.show('items.restored')
     },
     async delete(item: Item) {
-      // The full row, including when it was added, so Undo brings it back exactly.
-      // Rows in other tables that belong to the Item (Reminders, Expenses) must be copied here too once they exist.
+      // The full row (Reminders included, as they live on it) and when it was added, so Undo brings it back exactly.
+      // Rows in other tables that belong to the Item (Expenses) must be copied here too once they exist.
       const { data: copy, error } = await supabase.from('items').select('*').eq('id', item.id).single()
       if (error || !copy) return toasts.show('toasts.failed')
       if (!(await run(() => remove.mutateAsync(item.id)))) return

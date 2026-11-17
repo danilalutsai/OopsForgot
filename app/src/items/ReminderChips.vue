@@ -14,6 +14,8 @@ const choices = computed(() =>
     dayReminderTime.value,
   ),
 )
+/** The chosen Reminders that will really be kept. */
+const picked = computed(() => choices.value.filter((c) => c.allowed && model.value.includes(c.offset)))
 /** One line per reason something is greyed out. */
 const reasons = computed(() => [...new Set(choices.value.flatMap((c) => (c.reason ? [c.reason] : [])))])
 
@@ -42,6 +44,7 @@ function toggle(offset: ReminderOffset) {
       </button>
     </div>
     <p v-for="r in reasons" :key="r" class="text-muted">{{ $t(`reminders.reasons.${r}`) }}</p>
+    <p v-if="!picked.length" class="font-medium text-urgent-yellow-text">{{ $t('reminders.noneFit') }}</p>
     <p class="text-muted">{{ $t('reminders.dayTime', { time: formatTime(`${dayReminderTime}:00`) }) }}</p>
   </fieldset>
 </template>

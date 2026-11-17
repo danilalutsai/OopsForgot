@@ -269,6 +269,7 @@
       "longerThanRepeat": "Some are longer than one repeat.",
       "alreadyPast": "Some would already be past."
     },
-    "dayTime": "Day Reminders arrive at {time}."
+    "dayTime": "Day Reminders arrive at {time}.",
+    "noneFit": "No Reminders will be sent for this Item."
   }
 }

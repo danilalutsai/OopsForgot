@@ -166,14 +166,14 @@ async function save(): Promise<boolean> {
   const sending: Draft = {
     ...draft,
     recurrence: draft.recurrence && { ...draft.recurrence },
-    reminders: [...draft.reminders],
+    // Reminders that no longer fit (new time, repeat or Due date) are dropped
+    reminders: fittingReminders(draft.reminders, {
+      dueDate: draft.due_date,
+      dueTime: draft.due_time || null,
+      recurrence: draft.recurrence ?? null,
+    }),
   }
-  // Reminders that no longer fit (new time, repeat or Due date) are dropped, on screen too.
-  sending.reminders = fittingReminders(sending.reminders, {
-    dueDate: sending.due_date,
-    dueTime: sending.due_time || null,
-    recurrence: sending.recurrence ?? null,
-  })
+  const dropped = draft.reminders.filter((o) => !sending.reminders.includes(o))
   try {
     await update.mutateAsync({
       id: props.item.id,
@@ -188,7 +188,8 @@ async function save(): Promise<boolean> {
       reminder_offsets: sending.reminders,
     })
     saved.value = sending
-    draft.reminders = draft.reminders.filter((o) => sending.reminders.includes(o))
+    // remove only what was dropped; choices made while saving stay (and stay unsaved)
+    draft.reminders = draft.reminders.filter((o) => !dropped.includes(o))
     justSaved.value = true
     return true
   } catch {
@@ -282,12 +283,19 @@ const lineText = {
   price: () => (priceCents.value != null ? formatMoney(priceCents.value, currency.value) : t('itemSheet.none')),
   category: () => (draft.category ? `${CATEGORY_ICONS[draft.category]} ${t(`categories.${draft.category}`)}` : ''),
   notes: () => draft.notes.trim() || t('itemSheet.addNotes'),
-  reminders: () =>
-    draft.reminders.length
-      ? REMINDER_OFFSETS.filter((o) => draft.reminders.includes(o))
+  reminders: () => {
+    // what will really be kept: greyed-out choices are left out, as the chips show
+    const kept = fittingReminders(draft.reminders, {
+      dueDate: draft.due_date,
+      dueTime: draft.due_time || null,
+      recurrence: draft.recurrence ?? null,
+    })
+    return kept.length
+      ? REMINDER_OFFSETS.filter((o) => kept.includes(o))
           .map((o) => t('reminders.before', { when: t(`reminders.offsets.${o}`) }))
           .join(', ')
-      : t('reminders.none'),
+      : t('reminders.none')
+  },
 }
 </script>
 
