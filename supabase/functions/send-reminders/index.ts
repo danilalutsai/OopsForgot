@@ -4,6 +4,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0'
 import * as webpush from 'npm:web-push@4.0.0'
 import {
+  automaticExpenseDates,
   dueReminders,
   type MessageEntry,
   pushMessage,
@@ -90,6 +91,43 @@ async function send(device: Device, payload: string): Promise<Outcome> {
   }
 }
 
+/**
+ * Priced Items create an Expense on each Due date (up to today, never before they were added).
+ * expenses_through moves on afterwards, so an Expense the person deleted is never made again.
+ */
+async function createAutomaticExpenses(person: SenderPerson, items: Row[], now: Date) {
+  const today = todayIn(person.timeZone, now)
+  for (const i of items) {
+    const dates = automaticExpenseDates(
+      {
+        dueDate: i.due_date,
+        recurrence: i.recurrence_unit ? { unit: i.recurrence_unit, every: i.recurrence_every } : null,
+        priceCents: i.price_cents,
+        category: i.category,
+        addedOn: todayIn(person.timeZone, new Date(i.created_at)),
+      },
+      i.expenses_through,
+      today,
+    )
+    if (dates.length) {
+      const rows = dates.map((date) => ({
+        user_id: person.id,
+        amount_cents: i.price_cents,
+        category: i.category,
+        date,
+        item_id: i.id,
+        item_name: i.name,
+      }))
+      const { error } = await db.from('expenses').upsert(rows, { onConflict: 'item_id,date', ignoreDuplicates: true })
+      if (error) throw error
+    }
+    if (i.price_cents && i.expenses_through !== today) {
+      const { error } = await db.from('items').update({ expenses_through: today }).eq('id', i.id)
+      if (error) throw error
+    }
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.headers.get('Authorization') !== `Bearer ${SERVICE_KEY}`) return new Response('Forbidden', { status: 403 })
   const input = await req.json().catch(() => ({}))
@@ -104,7 +142,7 @@ Deno.serve(async (req) => {
     all<Row>('profiles', 'id, name, time_zone, day_reminder_time'),
     all<Row>(
       'items',
-      'id, user_id, name, category, due_date, due_time, recurrence_unit, recurrence_every, reminder_offsets, handled_due_date, created_at',
+      'id, user_id, name, category, due_date, due_time, recurrence_unit, recurrence_every, reminder_offsets, handled_due_date, created_at, price_cents, expenses_through',
       true,
     ),
     all<Device & Row>('push_devices', 'id, user_id, endpoint, p256dh, auth'),
@@ -138,6 +176,8 @@ Deno.serve(async (req) => {
         handledDueDate: i.handled_due_date,
         createdAt: new Date(i.created_at),
       }))
+      await createAutomaticExpenses(person, mine, to)
+
       const due = dueReminders(person, senderItems, from, to)
       if (!due.length) continue
 

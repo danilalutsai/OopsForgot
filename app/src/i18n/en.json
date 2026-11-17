@@ -78,7 +78,13 @@
         "delete": "Could not delete. Check your connection and try again."
       }
     },
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "coming": "Still coming {amount}",
+    "comingTitle": "Still coming this month",
+    "comingArc": "{amount} still coming",
+    "fromItem": "Created automatically from {name}",
+    "openItem": "Open Item ›",
+    "lockedCategory": "Same as its Item"
   },
   "auth": {
     "email": "Email",

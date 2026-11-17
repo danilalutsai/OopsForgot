@@ -90,3 +90,27 @@ describe('Reminder sender', () => {
     expect(late.map((s) => s.message.title)).toEqual(['Ana, Car insurance is due tomorrow 🔔'])
   })
 })
+
+describe('automatic Expenses', () => {
+  it('a priced Item creates one Expense on its Due date; a deleted one never comes back', async () => {
+    const { ana } = await personWith([{ ...base, name: 'Rent', due_date: '2030-07-10', price_cents: 75000 }])
+    await runSender('2030-07-10T09:45:00Z', '2030-07-10T10:00:00Z')
+    await runSender('2030-07-10T10:00:00Z', '2030-07-10T10:15:00Z')
+    const { data } = await ana.client.from('expenses').select('id, amount_cents, date, item_name, category')
+    expect(data!.map(({ id: _id, ...e }) => e)).toEqual([
+      { amount_cents: 75000, date: '2030-07-10', item_name: 'Rent', category: 'subscriptions' },
+    ])
+    await ana.client.from('expenses').delete().eq('id', data![0]!.id)
+    await runSender('2030-07-10T10:15:00Z', '2030-07-10T10:30:00Z')
+    expect((await ana.client.from('expenses').select('id')).data).toEqual([])
+  })
+
+  it('free trials and Items without a price create none', async () => {
+    const { ana } = await personWith([
+      { ...base, name: 'Trial', category: 'free_trials', due_date: '2030-08-10', price_cents: 999 },
+      { ...base, name: 'Passport', category: 'documents', due_date: '2030-08-10' },
+    ])
+    await runSender('2030-08-10T09:45:00Z', '2030-08-10T10:00:00Z')
+    expect((await ana.client.from('expenses').select('id')).data).toEqual([])
+  })
+})

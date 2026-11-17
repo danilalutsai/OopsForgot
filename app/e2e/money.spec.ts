@@ -58,3 +58,27 @@ test('edit an Expense amount, then delete it after confirming', async ({ page })
   await page.getByRole('alertdialog', { name: 'Delete this Expense?' }).getByRole('button', { name: 'Delete' }).click()
   await expect(page.getByText('No Expenses this month')).toBeVisible()
 })
+
+test('priced Items due later this month show as still coming; tapping one opens it', async ({ page }) => {
+  await logInAsNewPerson(page)
+  const tomorrow = await page.evaluate(() => {
+    const d = new Date()
+    const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+    return t.getMonth() === d.getMonth() ? t.toLocaleDateString('en-CA') : null
+  })
+  test.skip(!tomorrow, 'last day of the month: nothing can still be coming')
+  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByLabel('Name').fill('Gym')
+  await page.getByText('Health').click()
+  await page.getByLabel('Due date').fill(tomorrow!)
+  await page.getByLabel('Price').fill('35')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('dialog')).toBeHidden()
+
+  await page.getByRole('link', { name: 'Money' }).filter({ visible: true }).click()
+  await expect(page.getByText('Still coming €35.00')).toBeVisible()
+  await expect(page.getByRole('img', { name: /€0\.00 spent/ })).toBeVisible()
+  const list = page.getByRole('list', { name: 'Still coming this month' })
+  await list.getByRole('button', { name: /Gym/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Gym' })).toBeVisible()
+})
