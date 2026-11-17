@@ -8,6 +8,7 @@ import { removePhoto, squarePhoto, uploadPhoto } from '../settings/photo'
 import { keepSavedTimeZone, timeZoneDiffers } from '../settings/timeZoneCheck'
 import { browserTimeZone, type Profile, useAuth } from '../stores/auth'
 import { useToasts } from '../stores/toasts'
+import { dayReminderTime } from '../today'
 import AvatarImage from '../components/AvatarImage.vue'
 
 const auth = useAuth()
@@ -57,7 +58,7 @@ async function save(changes: Partial<Profile>, closeLine = false): Promise<boole
   return true
 }
 
-const dayTime = computed(() => profile.value?.day_reminder_time.slice(0, 5) ?? DEFAULT_DAY_REMINDER_TIME)
+const dayTime = dayReminderTime
 function setDayTime(value: string) {
   if (value) void save({ day_reminder_time: roundToQuarterHour(value) })
 }

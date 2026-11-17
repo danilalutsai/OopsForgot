@@ -6,6 +6,8 @@ import {
   looksLikeFullNumber,
   parseAmount,
   type Recurrence,
+  type ReminderOffset,
+  REMINDER_OFFSETS,
 } from '@oopsproof/shared'
 import { gsap } from 'gsap'
 import {
@@ -34,6 +36,8 @@ import QuestionBox from './QuestionBox.vue'
 import CategoryChips from './CategoryChips.vue'
 import RepeatPicker from './RepeatPicker.vue'
 import ToastBar from '../components/ToastBar.vue'
+import { fittingReminders } from './reminderFit'
+import ReminderChips from './ReminderChips.vue'
 import SheetLine from './SheetLine.vue'
 import { INPUT as input } from './ui'
 import CountdownText from './CountdownText.vue'
@@ -56,6 +60,7 @@ interface Draft {
   recurrence: Recurrence | null | undefined
   price: string
   notes: string
+  reminders: ReminderOffset[]
 }
 
 const toDraft = (item: Item): Draft => ({
@@ -66,6 +71,7 @@ const toDraft = (item: Item): Draft => ({
   recurrence: recurrenceOf(item),
   price: item.price_cents != null ? (item.price_cents / 100).toFixed(2) : '',
   notes: item.notes,
+  reminders: [...item.reminder_offsets],
 })
 
 const draft = reactive<Draft>({
@@ -76,6 +82,7 @@ const draft = reactive<Draft>({
   recurrence: null,
   price: '',
   notes: '',
+  reminders: [],
 })
 const saved = ref<Draft | null>(null)
 const openLine = ref<string | null>(null)
@@ -110,6 +117,8 @@ watch(
   },
 )
 
+const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x))
+
 /** Two drafts mean the same Item, ignoring spaces around text and how the Recurrence object was built. */
 function sameDraft(a: Draft, b: Draft): boolean {
   return (
@@ -121,7 +130,8 @@ function sameDraft(a: Draft, b: Draft): boolean {
     a.recurrence?.every === b.recurrence?.every &&
     (a.recurrence === undefined) === (b.recurrence === undefined) &&
     a.price.trim() === b.price.trim() &&
-    a.notes.trim() === b.notes.trim()
+    a.notes.trim() === b.notes.trim() &&
+    sameSet(a.reminders, b.reminders)
   )
 }
 const dirty = computed(() => saved.value !== null && !sameDraft(draft, saved.value))
@@ -153,7 +163,17 @@ async function save(): Promise<boolean> {
   ].filter((e): e is string => !!e)
   if (errors.value.length || !props.item) return false
   // What is being sent; anything typed while it is in flight stays unsaved.
-  const sending: Draft = { ...draft, recurrence: draft.recurrence && { ...draft.recurrence } }
+  const sending: Draft = {
+    ...draft,
+    recurrence: draft.recurrence && { ...draft.recurrence },
+    // Reminders that no longer fit (new time, repeat or Due date) are dropped
+    reminders: fittingReminders(draft.reminders, {
+      dueDate: draft.due_date,
+      dueTime: draft.due_time || null,
+      recurrence: draft.recurrence ?? null,
+    }),
+  }
+  const dropped = draft.reminders.filter((o) => !sending.reminders.includes(o))
   try {
     await update.mutateAsync({
       id: props.item.id,
@@ -165,8 +185,11 @@ async function save(): Promise<boolean> {
       recurrence_every: draft.recurrence?.every ?? null,
       price_cents: priceCents.value,
       notes: draft.notes.trim(),
+      reminder_offsets: sending.reminders,
     })
     saved.value = sending
+    // remove only what was dropped; choices made while saving stay (and stay unsaved)
+    draft.reminders = draft.reminders.filter((o) => !dropped.includes(o))
     justSaved.value = true
     return true
   } catch {
@@ -260,6 +283,19 @@ const lineText = {
   price: () => (priceCents.value != null ? formatMoney(priceCents.value, currency.value) : t('itemSheet.none')),
   category: () => (draft.category ? `${CATEGORY_ICONS[draft.category]} ${t(`categories.${draft.category}`)}` : ''),
   notes: () => draft.notes.trim() || t('itemSheet.addNotes'),
+  reminders: () => {
+    // what will really be kept: greyed-out choices are left out, as the chips show
+    const kept = fittingReminders(draft.reminders, {
+      dueDate: draft.due_date,
+      dueTime: draft.due_time || null,
+      recurrence: draft.recurrence ?? null,
+    })
+    return kept.length
+      ? REMINDER_OFFSETS.filter((o) => kept.includes(o))
+          .map((o) => t('reminders.before', { when: t(`reminders.offsets.${o}`) }))
+          .join(', ')
+      : t('reminders.none')
+  },
 }
 </script>
 
@@ -372,6 +408,19 @@ const lineText = {
             @toggle="toggle('repeats')"
           >
             <RepeatPicker :key="session" v-model="draft.recurrence" />
+          </SheetLine>
+          <SheetLine
+            :label="$t('reminders.title')"
+            :value="lineText.reminders()"
+            :open="openLine === 'reminders'"
+            @toggle="toggle('reminders')"
+          >
+            <ReminderChips
+              v-model="draft.reminders"
+              :due-date="draft.due_date"
+              :due-time="draft.due_time || null"
+              :recurrence="draft.recurrence"
+            />
           </SheetLine>
           <SheetLine
             :label="$t('itemForm.price')"

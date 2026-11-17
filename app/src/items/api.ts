@@ -5,6 +5,7 @@ import {
   type OpenQuestion,
   openQuestion,
   type Recurrence,
+  type ReminderOffset,
 } from '@oopsproof/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { supabase } from '../supabase'
@@ -22,6 +23,7 @@ export interface Item {
   /** the Due date marked Handled, if any */
   handled_due_date: string | null
   archived_at: string | null
+  reminder_offsets: ReminderOffset[]
 }
 
 export type NewItem = Omit<Item, 'id' | 'handled_due_date' | 'archived_at'>
@@ -47,7 +49,7 @@ export function dueDateOf(item: Item, today: string): string {
 }
 
 const COLUMNS =
-  'id, name, category, due_date, due_time, price_cents, notes, recurrence_unit, recurrence_every, handled_due_date, archived_at'
+  'id, name, category, due_date, due_time, price_cents, notes, recurrence_unit, recurrence_every, handled_due_date, archived_at, reminder_offsets'
 
 /** Unordered: the dashboard sorts by each Item's current Due date. */
 export function useItems() {

@@ -81,3 +81,22 @@ describe('Handled and Archived', () => {
     expect((await ana.client.from('items').select('id')).data).toEqual([{ id: item!.id }])
   })
 })
+
+describe('Reminders on Items', () => {
+  it('a new Item gets a Reminder 1 day before; the person can change them', async () => {
+    const ana = await signUpPerson('Ana')
+    const { data: item } = await ana.client.from('items').insert(passport).select('id, reminder_offsets').single()
+    expect(item!.reminder_offsets).toEqual(['1d'])
+    const { error } = await ana.client
+      .from('items')
+      .update({ reminder_offsets: ['1w', '1M'] })
+      .eq('id', item!.id)
+    expect(error).toBeNull()
+  })
+
+  it('refuses Reminder choices that do not exist', async () => {
+    const ana = await signUpPerson('Ana')
+    const { error } = await ana.client.from('items').insert({ ...passport, reminder_offsets: ['3d'] })
+    expect(error).not.toBeNull()
+  })
+})

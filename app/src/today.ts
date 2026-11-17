@@ -1,4 +1,4 @@
-import { todayIn } from '@oopsproof/shared'
+import { DEFAULT_DAY_REMINDER_TIME, nowIn, todayIn } from '@oopsproof/shared'
 import { computed, ref } from 'vue'
 import { browserTimeZone, useAuth } from './stores/auth'
 
@@ -13,3 +13,11 @@ export const today = computed(() => todayIn(timeZone.value, now.value))
 
 /** The person's currency; amounts are never converted. */
 export const currency = computed(() => useAuth().profile?.currency ?? 'EUR')
+
+/** Local date and time now ("YYYY-MM-DDTHH:MM") in the person's time zone. */
+export const nowLocal = computed(() => nowIn(timeZone.value, now.value))
+
+/** When day Reminders arrive, "HH:MM". */
+export const dayReminderTime = computed(
+  () => useAuth().profile?.day_reminder_time.slice(0, 5) ?? DEFAULT_DAY_REMINDER_TIME,
+)
