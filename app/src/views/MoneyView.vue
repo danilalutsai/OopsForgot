@@ -3,7 +3,7 @@ import { addDays, CATEGORY_ICONS, type Category, monthTotals, shiftMonth, todayI
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import TopBar from '../components/TopBar.vue'
-import { formatDate, formatMoney } from '../format'
+import { formatDate, formatMoney, formatMonth } from '../format'
 import { type Expense, useExpenses } from '../money/api'
 import { CATEGORY_COLORS } from '../money/colors'
 import ExpenseSheet from '../money/ExpenseSheet.vue'
@@ -27,15 +27,16 @@ const filter = ref<Category | null>(null)
 // a new month shows everything again
 watch(month, () => (filter.value = null))
 
-const monthName = (m: string) =>
-  new Date(`${m}-15T12:00:00Z`).toLocaleDateString(navigator.language, {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
+const monthName = formatMonth
 
-const all = computed(() => (expenses.data.value ?? []).map((e) => ({ ...e, amountCents: e.amount_cents })))
-const totals = computed(() => monthTotals(all.value, month.value))
+const totals = computed(() => monthTotals(expenses.data.value ?? [], month.value))
+// a filter on a Category that no longer has spending this month (last one deleted or moved) is dropped
+watch(
+  () => totals.value.byCategory,
+  (parts) => {
+    if (filter.value && !parts.some((p) => p.category === filter.value)) filter.value = null
+  },
+)
 const shown = computed(() =>
   (expenses.data.value ?? []).filter(
     (e) => e.date.startsWith(month.value) && (!filter.value || e.category === filter.value),
@@ -87,6 +88,7 @@ function saved(date: string) {
   <p v-if="expenses.isError.value" role="alert" class="px-6 py-10 text-center text-urgent-red">
     {{ $t('money.loadError') }}
   </p>
+  <p v-else-if="expenses.isPending.value" class="px-6 py-10 text-center text-muted">{{ $t('money.loading') }}</p>
   <div v-else class="grid gap-6 px-4 pb-28 md:grid-cols-2 md:pb-8">
     <section>
       <div class="flex items-center gap-2 py-2">
@@ -194,6 +196,7 @@ function saved(date: string) {
     :expense="editing"
     :start-date="startDate"
     :start-category="filter"
+    :min-date="`${firstMonth}-01`"
     @saved="saved"
   />
 </template>

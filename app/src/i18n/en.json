@@ -73,10 +73,12 @@
       "errors": {
         "amount": "Type an amount like 12.50.",
         "category": "Pick a Category.",
-        "date": "Pick a date, today or earlier.",
-        "save": "Could not save. Check your connection and try again."
+        "date": "Pick a date from when you joined up to today.",
+        "save": "Could not save. Check your connection and try again.",
+        "delete": "Could not delete. Check your connection and try again."
       }
-    }
+    },
+    "loading": "Loading…"
   },
   "auth": {
     "email": "Email",

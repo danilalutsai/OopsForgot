@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { monthTotals, shiftMonth } from './expenses.ts'
 
-const e = (date: string, amountCents: number, category: 'home' | 'subscriptions' | 'other') => ({
+const e = (date: string, amount_cents: number, category: 'home' | 'subscriptions' | 'other') => ({
   date,
-  amountCents,
+  amount_cents,
   category,
 })
 

@@ -14,6 +14,7 @@ export interface Expense {
 
 export type ExpenseInput = Pick<Expense, 'amount_cents' | 'category' | 'date' | 'description'>
 
+/** All of the person's Expenses: the Money tab moves between months and works offline from this copy. */
 export function useExpenses() {
   return useQuery({
     queryKey: ['expenses'],
@@ -29,37 +30,42 @@ export function useExpenses() {
   })
 }
 
-function useExpenseMutation<T>(write: (input: T) => PromiseLike<{ error: unknown }>) {
+/** No row back means the Expense is gone or not this person's: nothing was changed. */
+function changedOne(data: unknown[] | null) {
+  if (!data?.length) throw new Error('Expense not found')
+}
+
+export function useAddExpense() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: T) => {
-      const { error } = await write(input)
+    mutationFn: async (input: ExpenseInput) => {
+      const { error } = await supabase.from('expenses').insert(input)
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
   })
 }
 
-export const useAddExpense = () =>
-  useExpenseMutation((e: ExpenseInput) =>
-    supabase
-      .from('expenses')
-      .insert(e)
-      .then((r) => r),
-  )
-export const useUpdateExpense = () =>
-  useExpenseMutation(({ id, ...e }: ExpenseInput & { id: string }) =>
-    supabase
-      .from('expenses')
-      .update(e)
-      .eq('id', id)
-      .then((r) => r),
-  )
-export const useDeleteExpense = () =>
-  useExpenseMutation((id: string) =>
-    supabase
-      .from('expenses')
-      .delete()
-      .eq('id', id)
-      .then((r) => r),
-  )
+export function useUpdateExpense() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...input }: ExpenseInput & { id: string }) => {
+      const { data, error } = await supabase.from('expenses').update(input).eq('id', id).select('id')
+      if (error) throw error
+      changedOne(data)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+  })
+}
+
+export function useDeleteExpense() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.from('expenses').delete().eq('id', id).select('id')
+      if (error) throw error
+      changedOne(data)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+  })
+}

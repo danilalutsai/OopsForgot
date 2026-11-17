@@ -30,6 +30,8 @@ const props = defineProps<{
   /** where a new Expense starts: a date and (when a Category is picked) that Category */
   startDate: string
   startCategory: Category | null
+  /** the first day of the month the account was created: Money can't go back further */
+  minDate: string
 }>()
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ saved: [date: string] }>()
@@ -66,7 +68,7 @@ async function save() {
   errors.value = [
     cents === null && 'amount',
     !category.value && 'category',
-    (!date.value || date.value > today.value) && 'date',
+    (!date.value || date.value > today.value || date.value < props.minDate) && 'date',
   ].filter((e): e is string => !!e)
   if (errors.value.length) return
   const input = {
@@ -93,7 +95,7 @@ async function confirmDelete() {
     open.value = false
     toasts.show('money.sheet.deleted')
   } catch {
-    errors.value = ['save']
+    errors.value = ['delete']
   }
 }
 </script>
@@ -141,7 +143,7 @@ async function confirmDelete() {
           />
           <label class="flex flex-col gap-1 text-sm">
             <span class="font-medium">{{ $t('money.sheet.date') }}</span>
-            <input v-model="date" type="date" :max="today" :class="INPUT" />
+            <input v-model="date" type="date" :min="minDate" :max="today" :class="INPUT" />
           </label>
           <label class="flex flex-col gap-1 text-sm">
             <span class="font-medium">{{ $t('money.sheet.description') }}</span>

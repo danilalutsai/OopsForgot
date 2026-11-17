@@ -3,6 +3,7 @@ create table public.expenses (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   amount_cents integer not null check (amount_cents between 1 and 99999999),
+  -- the shared Categories without free_trials (a test checks they match)
   category text not null check (
     category in ('documents', 'cards', 'subscriptions', 'vehicle', 'home', 'health', 'purchases', 'travel', 'other')
   ),

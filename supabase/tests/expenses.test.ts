@@ -33,3 +33,14 @@ describe('Expenses', () => {
     expect((await add({ item_name: 'Fake' })).error).not.toBeNull()
   })
 })
+
+describe('Expense Categories', () => {
+  it('accepts every shared Category except Free trials', async () => {
+    const { CATEGORIES } = await import('../../shared/src/index.ts')
+    const ana = await signUpPerson('Ana')
+    for (const category of CATEGORIES.filter((c) => c !== 'free_trials')) {
+      const { error } = await ana.client.from('expenses').insert({ ...groceries, category })
+      expect(error, category).toBeNull()
+    }
+  })
+})

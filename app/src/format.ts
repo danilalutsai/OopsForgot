@@ -30,3 +30,12 @@ export function formatMoney(cents: number, currency: string): string {
 export function formatDateTime(ms: number): string {
   return new Date(ms).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 }
+
+/** "November 2026" from "YYYY-MM". */
+export function formatMonth(month: string): string {
+  return new Date(`${month}-15T12:00:00Z`).toLocaleDateString(locale(), {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}

@@ -3,7 +3,7 @@ import type { Category } from './categories.ts'
 export interface MonthExpense {
   /** YYYY-MM-DD */
   date: string
-  amountCents: number
+  amount_cents: number
   category: Category
 }
 
@@ -18,7 +18,7 @@ export function monthTotals(expenses: MonthExpense[], month: string): MonthTotal
   const sums = new Map<Category, number>()
   for (const e of expenses) {
     if (!e.date.startsWith(month)) continue
-    sums.set(e.category, (sums.get(e.category) ?? 0) + e.amountCents)
+    sums.set(e.category, (sums.get(e.category) ?? 0) + e.amount_cents)
   }
   const byCategory = [...sums].map(([category, cents]) => ({ category, cents })).sort((a, b) => b.cents - a.cents)
   return { total: byCategory.reduce((s, c) => s + c.cents, 0), byCategory }
