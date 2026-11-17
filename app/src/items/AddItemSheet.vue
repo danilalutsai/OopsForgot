@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { CATEGORIES, CATEGORY_ICONS, type Category, looksLikeFullNumber, parseAmount } from '@oopsproof/shared'
+import {
+  CATEGORIES,
+  CATEGORY_ICONS,
+  type Category,
+  looksLikeFullNumber,
+  parseAmount,
+  type Recurrence,
+} from '@oopsproof/shared'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { useAddItem } from './api'
@@ -13,6 +20,10 @@ const dueDate = ref('')
 const dueTime = ref('')
 const price = ref('')
 const notes = ref('')
+type RepeatChoice = 'none' | 'week' | 'month' | 'year' | 'custom'
+const repeat = ref<RepeatChoice>('none')
+const customEvery = ref('2')
+const customUnit = ref<Recurrence['unit']>('month')
 const errors = ref<string[]>([])
 const add = useAddItem()
 const numberWarning = computed(() => looksLikeFullNumber(notes.value))
@@ -27,16 +38,36 @@ watch(open, (isOpen) => {
   if (!isOpen) return
   name.value = dueDate.value = dueTime.value = price.value = notes.value = ''
   category.value = null
+  repeat.value = 'none'
+  customEvery.value = '2'
+  customUnit.value = 'month'
   errors.value = []
 })
 
+/** The custom repeat count when it is a plain whole number from 1 to 365, else null. */
+const customCount = computed(() => {
+  const text = customEvery.value.trim()
+  const n = Number(text)
+  return /^\d{1,3}$/.test(text) && n >= 1 && n <= 365 ? n : null
+})
+
+/** The chosen Recurrence, or null for a one-time Item; undefined when the custom number is invalid. */
+function chosenRecurrence(): Recurrence | null | undefined {
+  if (repeat.value === 'none') return null
+  if (repeat.value !== 'custom') return { unit: repeat.value, every: 1 }
+  const every = customCount.value
+  return every === null ? undefined : { unit: customUnit.value, every }
+}
+
 async function save() {
   const priceCents = price.value.trim() ? parseAmount(price.value) : null
+  const recurrence = chosenRecurrence()
   errors.value = [
     !name.value.trim() && 'name',
     !category.value && 'category',
     !dueDate.value && 'dueDate',
     price.value.trim() && priceCents === null && 'price',
+    recurrence === undefined && 'every',
   ].filter((e): e is string => !!e)
   if (errors.value.length) return
   try {
@@ -47,6 +78,8 @@ async function save() {
       due_time: dueTime.value || null,
       price_cents: priceCents,
       notes: notes.value.trim(),
+      recurrence_unit: recurrence?.unit ?? null,
+      recurrence_every: recurrence?.every ?? null,
     })
     open.value = false
     emit('saved')
@@ -123,6 +156,29 @@ const input = 'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-base 
             </label>
           </div>
           <p class="-mt-3 text-sm text-muted">{{ $t('itemForm.timeHint') }}</p>
+          <label class="flex flex-col gap-1 text-sm">
+            <span class="font-medium">{{ $t('itemForm.repeats') }}</span>
+            <select v-model="repeat" :class="input">
+              <option v-for="o in ['none', 'week', 'month', 'year', 'custom'] as const" :key="o" :value="o">
+                {{ $t(`itemForm.repeatOptions.${o}`) }}
+              </option>
+            </select>
+          </label>
+          <div v-if="repeat === 'custom'" class="-mt-2 flex items-center gap-2 text-sm">
+            <span>{{ $t('itemForm.every') }}</span>
+            <input
+              v-model="customEvery"
+              inputmode="numeric"
+              :aria-label="$t('itemForm.every')"
+              :class="[input, 'w-20']"
+            />
+            <select v-model="customUnit" :aria-label="$t('itemForm.repeatUnit')" :class="[input, 'w-auto']">
+              <option v-for="u in ['day', 'week', 'month', 'year'] as const" :key="u" :value="u">
+                {{ $t(`itemForm.units.${u}`, customCount ?? 2) }}
+              </option>
+            </select>
+          </div>
+          <p v-if="repeat !== 'none'" class="-mt-3 text-sm text-muted">{{ $t('itemForm.repeatHint') }}</p>
           <label class="flex flex-col gap-1 text-sm">
             <span class="font-medium">{{ $t('itemForm.price') }}</span>
             <input v-model="price" inputmode="decimal" :class="input" placeholder="0.00" />

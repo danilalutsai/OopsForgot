@@ -3,7 +3,7 @@ import { dashboardGroup, type DashboardGroup } from '@oopsproof/shared'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import TopBar from '../components/TopBar.vue'
 import AddItemSheet from '../items/AddItemSheet.vue'
-import { useItems } from '../items/api'
+import { dueDateOf, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
 import { useAuth } from '../stores/auth'
 import { today } from '../today'
@@ -13,12 +13,19 @@ const items = useItems()
 const adding = ref(false)
 const toast = ref<string | null>(null)
 
+/** Each Item with the Due date it is on today, worked out once, in pure Due-date order (no-time Items last). */
+const rows = computed(() =>
+  (items.data.value ?? [])
+    .map((item) => ({ item, due: dueDateOf(item, today.value) }))
+    .sort((a, b) => a.due.localeCompare(b.due) || (a.item.due_time ?? '99').localeCompare(b.item.due_time ?? '99')),
+)
+
 const GROUPS: DashboardGroup[] = ['today', 'thisWeek', 'later']
 const groups = computed(() =>
   GROUPS.map((g) => ({
     key: g,
-    items: (items.data.value ?? []).filter((i) => dashboardGroup(i.due_date, today.value) === g),
-  })).filter((g) => g.items.length),
+    rows: rows.value.filter((r) => dashboardGroup(r.due, today.value) === g),
+  })).filter((g) => g.rows.length),
 )
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined
@@ -61,7 +68,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       {{ $t(`items.groups.${g.key}`) }}
     </h2>
     <ul>
-      <ItemRow v-for="item in g.items" :key="item.id" :item="item" />
+      <ItemRow v-for="r in g.rows" :key="r.item.id" :item="r.item" :due="r.due" />
     </ul>
   </section>
 

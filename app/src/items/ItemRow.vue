@@ -3,12 +3,13 @@ import { CATEGORY_ICONS, countdown, urgency } from '@oopsproof/shared'
 import { computed } from 'vue'
 import { formatDate, formatMoney, formatTime } from '../format'
 import { currency, today } from '../today'
-import type { Item } from './api'
+import { type Item, recurrenceOf } from './api'
 
-const props = defineProps<{ item: Item }>()
+const props = defineProps<{ item: Item; /** the Due date the Item is on today */ due: string }>()
 
-const level = computed(() => urgency({ dueDate: props.item.due_date, handled: false }, today.value))
-const left = computed(() => countdown(props.item.due_date, today.value))
+const repeats = computed(() => recurrenceOf(props.item))
+const level = computed(() => urgency({ dueDate: props.due, handled: false }, today.value))
+const left = computed(() => countdown(props.due, today.value))
 const barColor = { red: 'bg-urgent-red', yellow: 'bg-urgent-yellow', green: 'bg-urgent-green', grey: 'bg-urgent-grey' }
 const textColor = {
   red: 'text-urgent-red',
@@ -33,9 +34,12 @@ const textColor = {
           }}
         </span>
         <span class="text-muted">
-          {{ formatDate(item.due_date, today)
-          }}<template v-if="item.due_time"> · {{ formatTime(item.due_time) }}</template
-          ><template v-if="item.price_cents"> · {{ formatMoney(item.price_cents, currency) }}</template>
+          {{ formatDate(due, today) }}<template v-if="item.due_time"> · {{ formatTime(item.due_time) }}</template
+          ><template v-if="item.price_cents"> · {{ formatMoney(item.price_cents, currency) }}</template
+          ><template v-if="repeats">
+            ·
+            {{ $t(`items.repeats.${repeats.unit}`, { n: repeats.every }, repeats.every) }}</template
+          >
         </span>
       </p>
     </div>
