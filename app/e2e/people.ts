@@ -30,6 +30,7 @@ export async function logInAsNewPerson(
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Log in' }).click()
   await expect(page.getByText(`Welcome, ${name}`)).toBeVisible()
+  return { email, password }
 }
 
 /** A date `days` from today as YYYY-MM-DD, worked out in the browser so it matches the app's idea of today. */

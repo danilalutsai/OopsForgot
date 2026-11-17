@@ -6,7 +6,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
-  use: { baseURL: 'http://localhost:4173', trace: 'on-first-retry' },
+  // animations off (as for people who ask for reduced motion), so checks always see the settled screen
+  use: { baseURL: 'http://localhost:4173', trace: 'on-first-retry', contextOptions: { reducedMotion: 'reduce' } },
   projects: [
     { name: 'phone-chromium', use: { ...devices['Pixel 7'] } },
     { name: 'phone-webkit', use: { ...devices['iPhone 15'] } },
