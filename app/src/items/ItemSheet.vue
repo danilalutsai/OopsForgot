@@ -32,6 +32,8 @@ import { dueDateOf, type Item, recurrenceOf, useUpdateItem } from './api'
 import CategoryChips from './CategoryChips.vue'
 import RepeatPicker from './RepeatPicker.vue'
 import SheetLine from './SheetLine.vue'
+import { INPUT as input } from './ui'
+import CountdownText from './CountdownText.vue'
 
 const props = defineProps<{ item: Item | null }>()
 const emit = defineEmits<{ close: [] }>()
@@ -54,7 +56,7 @@ const toDraft = (item: Item): Draft => ({
   due_date: item.due_date,
   due_time: item.due_time?.slice(0, 5) ?? '',
   recurrence: recurrenceOf(item),
-  price: item.price_cents ? (item.price_cents / 100).toFixed(2) : '',
+  price: item.price_cents != null ? (item.price_cents / 100).toFixed(2) : '',
   notes: item.notes,
 })
 
@@ -88,7 +90,21 @@ watch(
   { immediate: true },
 )
 
-const dirty = computed(() => saved.value !== null && JSON.stringify(draft) !== JSON.stringify(saved.value))
+/** Two drafts mean the same Item, ignoring spaces around text and how the Recurrence object was built. */
+function sameDraft(a: Draft, b: Draft): boolean {
+  return (
+    a.name.trim() === b.name.trim() &&
+    a.category === b.category &&
+    a.due_date === b.due_date &&
+    a.due_time === b.due_time &&
+    a.recurrence?.unit === b.recurrence?.unit &&
+    a.recurrence?.every === b.recurrence?.every &&
+    (a.recurrence === undefined) === (b.recurrence === undefined) &&
+    a.price.trim() === b.price.trim() &&
+    a.notes.trim() === b.notes.trim()
+  )
+}
+const dirty = computed(() => saved.value !== null && !sameDraft(draft, saved.value))
 const priceCents = computed(() => (draft.price.trim() ? parseAmount(draft.price) : null))
 const shownDue = computed(() =>
   props.item && draft.due_date
@@ -116,6 +132,8 @@ async function save(): Promise<boolean> {
     draft.recurrence === undefined && 'every',
   ].filter((e): e is string => !!e)
   if (errors.value.length || !props.item) return false
+  // What is being sent; anything typed while it is in flight stays unsaved.
+  const sending: Draft = { ...draft, recurrence: draft.recurrence && { ...draft.recurrence } }
   try {
     await update.mutateAsync({
       id: props.item.id,
@@ -128,9 +146,7 @@ async function save(): Promise<boolean> {
       price_cents: priceCents.value,
       notes: draft.notes.trim(),
     })
-    draft.name = draft.name.trim()
-    draft.notes = draft.notes.trim()
-    saved.value = { ...draft }
+    saved.value = sending
     justSaved.value = true
     return true
   } catch {
@@ -139,14 +155,24 @@ async function save(): Promise<boolean> {
   }
 }
 
+/** A tap outside with unsaved changes asks too, instead of doing nothing. */
+function onOutside(e: Event) {
+  if (!dirty.value) return
+  e.preventDefault()
+  requestClose()
+}
+
 /** Closing with unsaved changes asks first. */
 function requestClose() {
   if (update.isPending.value) return
   if (dirty.value) asking.value = true
   else emit('close')
 }
+/** Save from the leave question: the question stays open, with the reason, if saving fails. */
 async function saveAndClose() {
-  if (await save()) emit('close')
+  if (!(await save())) return
+  asking.value = false
+  emit('close')
 }
 function discard() {
   asking.value = false
@@ -173,6 +199,10 @@ function dragEnd(e: PointerEvent) {
   const speed = dy / Math.max(1, e.timeStamp - drag.t)
   drag = null
   const close = dy > panel.value.offsetHeight / 2 || (speed > 0.8 && dy > 60)
+  if (close && !dirty.value) {
+    gsap.to(panel.value, { y: '100%', duration: duration(0.2), ease: 'power2.out', onComplete: () => emit('close') })
+    return
+  }
   gsap.to(panel.value, { y: 0, duration: duration(0.2), ease: 'power2.out' })
   if (close) requestClose()
 }
@@ -181,14 +211,15 @@ const lineText = {
   dueDate: () => (draft.due_date ? formatDate(draft.due_date, today.value) : t('itemSheet.none')),
   time: () => (draft.due_time ? formatTime(draft.due_time) : t('itemSheet.noTime')),
   repeats: () =>
-    draft.recurrence
-      ? t(`items.repeats.${draft.recurrence.unit}`, { n: draft.recurrence.every }, draft.recurrence.every)
-      : t('itemForm.repeatOptions.none'),
-  price: () => (priceCents.value ? formatMoney(priceCents.value, currency) : t('itemSheet.none')),
+    draft.recurrence === undefined
+      ? t('itemSheet.fixRepeat')
+      : draft.recurrence
+        ? t(`items.repeats.${draft.recurrence.unit}`, { n: draft.recurrence.every }, draft.recurrence.every)
+        : t('itemForm.repeatOptions.none'),
+  price: () => (priceCents.value != null ? formatMoney(priceCents.value, currency) : t('itemSheet.none')),
   category: () => (draft.category ? `${CATEGORY_ICONS[draft.category]} ${t(`categories.${draft.category}`)}` : ''),
   notes: () => draft.notes.trim() || t('itemSheet.addNotes'),
 }
-const input = 'w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-base outline-none focus:border-accent'
 </script>
 
 <template>
@@ -198,7 +229,7 @@ const input = 'w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-
       <DialogContent
         ref="panelRef"
         class="fixed inset-x-0 bottom-0 z-40 flex max-h-[92dvh] flex-col rounded-t-3xl bg-surface text-text shadow-2xl md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[420px] md:rounded-none"
-        @pointer-down-outside="(e) => dirty && e.preventDefault()"
+        @pointer-down-outside="onOutside"
       >
         <header
           class="flex touch-none flex-col border-b border-line px-4 pt-2 pb-3"
@@ -257,13 +288,7 @@ const input = 'w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-
                   ✎
                 </button>
               </div>
-              <p v-if="left" class="text-sm text-muted">
-                {{
-                  left.kind === 'dueToday'
-                    ? $t('items.countdown.dueToday')
-                    : $t(`items.countdown.${left.kind}`, { days: left.days }, left.days)
-                }}
-              </p>
+              <p v-if="left" class="text-sm text-muted"><CountdownText :countdown="left" /></p>
             </div>
           </div>
           <div v-if="openLine === 'name'" class="px-3 pb-3">
@@ -350,10 +375,19 @@ const input = 'w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-
       >
         <AlertDialogTitle class="text-lg font-semibold">{{ $t('itemSheet.leaveTitle') }}</AlertDialogTitle>
         <AlertDialogDescription class="mt-1 text-muted">{{ $t('itemSheet.leaveBody') }}</AlertDialogDescription>
+        <p v-if="errors.length" role="alert" class="mt-3 text-sm font-medium text-urgent-red">
+          <span v-for="e in errors" :key="e" class="block">{{ $t(`itemForm.errors.${e}`) }}</span>
+        </p>
         <div class="mt-5 flex flex-col gap-2">
-          <AlertDialogAction class="rounded-xl bg-accent py-2.5 font-semibold text-on-accent" @click="saveAndClose">
+          <!-- a plain button: the question stays open if saving fails -->
+          <button
+            type="button"
+            :disabled="update.isPending.value"
+            class="rounded-xl bg-accent py-2.5 font-semibold text-on-accent disabled:opacity-50"
+            @click="saveAndClose"
+          >
             {{ $t('itemSheet.save') }}
-          </AlertDialogAction>
+          </button>
           <AlertDialogAction
             class="rounded-xl border border-line py-2.5 font-semibold text-urgent-red"
             @click="discard"

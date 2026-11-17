@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { formatDate, formatMoney, formatTime } from '../format'
 import { currency, today } from '../today'
 import { type Item, recurrenceOf } from './api'
+import CountdownText from './CountdownText.vue'
 
 defineEmits<{ open: [] }>()
 const props = defineProps<{ item: Item; /** the Due date the Item is on today */ due: string }>()
@@ -29,11 +30,7 @@ const textColor = {
         <p class="truncate font-semibold">{{ item.name }}</p>
         <p class="flex flex-wrap gap-x-2 text-[13px]">
           <span :class="['font-semibold', textColor[level]]">
-            {{
-              left.kind === 'dueToday'
-                ? $t('items.countdown.dueToday')
-                : $t(`items.countdown.${left.kind}`, { days: left.days }, left.days)
-            }}
+            <CountdownText :countdown="left" />
           </span>
           <span class="text-muted">
             {{ formatDate(due, today) }}<template v-if="item.due_time"> · {{ formatTime(item.due_time) }}</template

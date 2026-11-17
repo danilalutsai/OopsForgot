@@ -160,6 +160,7 @@
     "save": "Save",
     "discard": "Discard",
     "keepEditing": "Keep editing",
-    "edit": "Change {field}"
+    "edit": "Change {field}",
+    "fixRepeat": "Custom: type how often"
   }
 }

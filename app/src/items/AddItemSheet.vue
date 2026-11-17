@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 import { useAddItem } from './api'
 import CategoryChips from './CategoryChips.vue'
 import RepeatPicker from './RepeatPicker.vue'
+import { INPUT as input } from './ui'
 
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ saved: [] }>()
@@ -63,8 +64,6 @@ async function save() {
     errors.value = ['save']
   }
 }
-
-const input = 'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-base outline-none focus:border-accent'
 </script>
 
 <template>

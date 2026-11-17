@@ -56,8 +56,10 @@ export function useUpdateItem() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...changes }: Partial<NewItem> & { id: string }) => {
-      const { error } = await supabase.from('items').update(changes).eq('id', id)
+      const { data, error } = await supabase.from('items').update(changes).eq('id', id).select('id')
       if (error) throw error
+      // No row back means the Item is gone or not this person's: nothing was saved.
+      if (!data?.length) throw new Error('Item not found')
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] }),
   })
