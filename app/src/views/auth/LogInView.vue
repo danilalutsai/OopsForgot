@@ -31,6 +31,7 @@ async function submit() {
 
 <template>
   <AuthCard :title="$t('auth.logInTitle')">
+    <p v-if="route.query.deleted" role="status" class="rounded-xl bg-bg p-3 text-sm">{{ $t('deleteAccount.done') }}</p>
     <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
       <TextField v-model="email" :label="$t('auth.email')" type="email" autocomplete="email" />
       <TextField v-model="password" :label="$t('auth.password')" type="password" autocomplete="current-password" />

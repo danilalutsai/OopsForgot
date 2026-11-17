@@ -14,6 +14,7 @@ import { dayReminderTime } from '../today'
 import AvatarImage from '../components/AvatarImage.vue'
 import PushSettings from '../push/PushSettings.vue'
 import CalendarFeed from '../settings/CalendarFeed.vue'
+import DeleteAccount from '../settings/DeleteAccount.vue'
 import { usePushDevices } from '../push/devices'
 
 const auth = useAuth()
@@ -275,6 +276,7 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
         </label>
       </div>
     </SheetLine>
+    <DeleteAccount />
 
     <h2 :class="heading">{{ $t('settings.sections.privacy') }}</h2>
     <RouterLink to="/privacy" class="flex justify-between rounded-xl px-3 py-3 hover:bg-bg">
