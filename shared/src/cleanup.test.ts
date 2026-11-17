@@ -39,4 +39,10 @@ describe('unusedAccountStep', () => {
     expect(step(424, 24, 1)).toBeNull()
     expect(step(430, 30, 7)).toBe('delete')
   })
+
+  it('a run a few seconds early still counts the full day', () => {
+    const early = new Date(now.getTime() - 2000)
+    const state = { lastActive: daysAgo(358), warned30At: daysAgo(23), warned7At: null }
+    expect(unusedAccountStep(state, early)).toBe('warn7')
+  })
 })

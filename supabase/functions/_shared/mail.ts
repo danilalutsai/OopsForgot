@@ -3,6 +3,9 @@
 import nodemailer from 'npm:nodemailer@10.6.0'
 
 const env = (name: string) => Deno.env.get(name) ?? ''
+// one pooled connection for the whole run, not one per email
+// deno-lint-ignore no-explicit-any
+let transport: any
 
 export interface Mail {
   to: string
@@ -19,10 +22,12 @@ export async function sendMail(mail: Mail): Promise<boolean> {
     return false
   }
   try {
-    const transport = nodemailer.createTransport({
+    transport ??= nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 465,
       secure: true,
+      pool: true,
+      maxConnections: 2,
       auth: { user, pass },
     })
     await transport.sendMail({ from: `OopsProof <${user}>`, ...mail })

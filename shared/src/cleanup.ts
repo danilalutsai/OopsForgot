@@ -10,7 +10,8 @@ export interface UsageState {
   warned7At: Date | null
 }
 
-const daysSince = (from: Date, now: Date) => (now.getTime() - from.getTime()) / DAY
+/** Whole days between two moments, rounded, so a daily run starting a few seconds early or late counts the same. */
+const daysSince = (from: Date, now: Date) => Math.round((now.getTime() - from.getTime()) / DAY)
 
 /**
  * What to do today about an account's inactivity: warn 30 days before, warn 7 days before, then

@@ -28,6 +28,13 @@ Deno.serve(async (req) => {
   if (error) return new Response('Try again later', { status: 503 })
 
   const timeZone = usableTimeZone(person.time_zone)
+  // a calendar app reading the feed means the person still relies on OopsProof: that counts as
+  // use for unused-account clean-up (written at most once a day)
+  await db
+    .from('profiles')
+    .update({ last_active_at: new Date().toISOString(), warned_30_at: null, warned_7_at: null })
+    .eq('id', person.id)
+    .lt('last_active_at', new Date(Date.now() - 86_400_000).toISOString())
   const now = new Date()
   const feedItems: FeedItem[] = items.map((i) => ({
     id: i.id,

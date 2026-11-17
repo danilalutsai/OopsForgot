@@ -43,6 +43,8 @@ Deno.serve(async (req) => {
   // the check made a session of its own: end it
   await check.auth.signOut()
 
-  if (!(await deleteAccount(admin, me.user.id))) return answer(500, { error: 'failed' })
+  const outcome = await deleteAccount(admin, me.user.id)
+  if (outcome === 'busy') return answer(503, { error: 'busy' })
+  if (outcome === 'failed') return answer(500, { error: 'failed' })
   return answer(200, { deleted: true })
 })

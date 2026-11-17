@@ -30,6 +30,10 @@ select cron.schedule(
     body := '{}'::jsonb,
     timeout_milliseconds := 120000
   )
-  where exists (select 1 from vault.decrypted_secrets where name = 'reminder_sender_url')
+  -- only when the address really names the sender, so the swap can never call the wrong function
+  where exists (
+    select 1 from vault.decrypted_secrets
+    where name = 'reminder_sender_url' and decrypted_secret like '%/send-reminders%'
+  )
   $$
 );

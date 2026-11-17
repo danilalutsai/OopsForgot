@@ -52,3 +52,26 @@ describe('unused accounts', () => {
     expect(mine(await cleanUp(), ana.id)).toEqual([])
   })
 })
+
+describe('unused accounts, edge cases', () => {
+  it('never emails an address that was never confirmed; such an account just goes after a year', async () => {
+    const ghost = await signUpPerson('Ghost')
+    await query(`update auth.users set email_confirmed_at = null where id = '${ghost.id}'`)
+    await age(ghost.id, `last_active_at = now() - interval '340 days'`)
+    expect(mine(await cleanUp(), ghost.id)).toEqual([])
+    await age(ghost.id, `last_active_at = now() - interval '366 days'`)
+    expect(mine(await cleanUp(), ghost.id)).toEqual(['delete'])
+    expect(await query(`select 1 from public.profiles where id = '${ghost.id}'`)).toEqual([])
+  })
+
+  it('a calendar app reading the feed counts as use', async () => {
+    const ana = await signUpPerson('Ana')
+    const { data: token } = await ana.client.rpc('new_calendar_link')
+    await age(ana.id, `last_active_at = now() - interval '340 days', warned_30_at = now() - interval '5 days'`)
+    await fetch(`${local.API_URL}/functions/v1/calendar-feed?token=${token}`)
+    const [row] = await query<{ idle: number; warned: string | null }>(
+      `select extract(day from now() - last_active_at)::int as idle, warned_30_at as warned from public.profiles where id = '${ana.id}'`,
+    )
+    expect(row).toEqual({ idle: 0, warned: null })
+  })
+})

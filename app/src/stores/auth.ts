@@ -123,6 +123,8 @@ export const useAuth = defineStore('auth', () => {
   supabase.auth.onAuthStateChange((event, next) => {
     if (event === 'PASSWORD_RECOVERY') recovering.value = true
     if (event === 'SIGNED_OUT') recovering.value = false
+    // a tab left open for days still counts as use whenever its session renews
+    if (event === 'TOKEN_REFRESHED' && next) void noteActivity(next.user.id)
     const hadUser = !!session.value
     const changedUser = next?.user.id !== session.value?.user.id
     session.value = next
