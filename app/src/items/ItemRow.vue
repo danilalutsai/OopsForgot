@@ -7,23 +7,28 @@ import { duration } from '../motion'
 import { currency, today } from '../today'
 import { type Item, recurrenceOf } from './api'
 import CountdownText from './CountdownText.vue'
+import { URGENCY_BG } from './urgencyClasses'
 
 const emit = defineEmits<{ open: []; toggleHandled: [] }>()
-const props = defineProps<{
-  item: Item
-  /** the Due date the Item is on today */
-  due: string
-  handled: boolean
-  /** a question waiting for an answer; the row shows it instead of the Handled button */
-  question: OpenQuestion | null
-  /** Archives the Item; resolves false when that failed, so the row slides back. */
-  archive: () => Promise<boolean>
-}>()
+const props = withDefaults(
+  defineProps<{
+    item: Item
+    /** the Due date the Item is on today */
+    due: string
+    handled: boolean
+    /** a question waiting for an answer; the row shows it instead of the Handled button */
+    question: OpenQuestion | null
+    /** false for a Due date other than the one the Item is on now: Handled applies only to that one */
+    canHandle?: boolean
+    /** Archives the Item; resolves false when that failed, so the row slides back. */
+    archive: () => Promise<boolean>
+  }>(),
+  { canHandle: true },
+)
 
 const repeats = computed(() => recurrenceOf(props.item))
 const level = computed(() => urgency({ dueDate: props.due, handled: props.handled }, today.value))
 const left = computed(() => countdown(props.due, today.value))
-const barColor = { red: 'bg-urgent-red', yellow: 'bg-urgent-yellow', green: 'bg-urgent-green', grey: 'bg-urgent-grey' }
 const textColor = {
   red: 'text-urgent-red',
   yellow: 'text-urgent-yellow-text',
@@ -67,7 +72,7 @@ function up(e: PointerEvent) {
     return
   }
   gsap.to(slider.value, { x: 0, duration: duration(0.2), ease: 'power2.out' })
-  if (dx > SWIPE && !props.question) emit('toggleHandled')
+  if (dx > SWIPE && !props.question && props.canHandle) emit('toggleHandled')
 }
 /** A gesture the browser cancelled never archives or marks Handled: it just springs back. */
 function cancel() {
@@ -101,7 +106,7 @@ function click(e: MouseEvent) {
         class="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 text-left hover:bg-bg"
         @click="$emit('open')"
       >
-        <span :class="['h-10 w-1 shrink-0 rounded-full', barColor[level]]" aria-hidden="true" />
+        <span :class="['h-10 w-1 shrink-0 rounded-full', URGENCY_BG[level]]" aria-hidden="true" />
         <span class="text-xl" aria-hidden="true">{{ CATEGORY_ICONS[item.category] }}</span>
         <div class="min-w-0 flex-1">
           <p :class="['truncate font-semibold', handled && 'text-muted line-through']">{{ item.name }}</p>
@@ -129,7 +134,7 @@ function click(e: MouseEvent) {
         {{ question === 'expired' ? $t('questions.whatNow') : $t('questions.keptIt') }}
       </button>
       <button
-        v-else
+        v-else-if="canHandle"
         type="button"
         :class="[
           'mx-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm',

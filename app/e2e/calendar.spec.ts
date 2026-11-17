@@ -61,3 +61,23 @@ test('Handled from the calendar day list', async ({ page }) => {
   await page.getByRole('tab', { name: 'List' }).click()
   await expect(page.getByRole('listitem').filter({ hasText: 'Gym' })).toContainText('Handled')
 })
+
+test('Handled is offered only for the Due date an Item is on now', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await addItem(page, 'Cleaning', 0, 'Every week')
+  await page.getByRole('tab', { name: 'Calendar' }).click()
+  await page.getByRole('button', { name: 'Mark Cleaning Handled' }).click()
+  await page.getByRole('button', { name: `${await dayName(page, 7)}, 1 Item` }).click()
+  await expect(page.getByRole('listitem').filter({ hasText: 'Cleaning' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Handled for Cleaning|Mark Cleaning Handled/ })).toHaveCount(0)
+  await page.getByRole('tab', { name: 'List' }).click()
+  await expect(page.getByRole('listitem').filter({ hasText: 'Cleaning' })).toContainText('Handled')
+})
+
+test('arrow keys move between List and Calendar', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await page.getByRole('tab', { name: 'List' }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByRole('tab', { name: 'Calendar' })).toBeFocused()
+  await expect(page.getByRole('tabpanel', { name: 'Calendar' })).toBeVisible()
+})
