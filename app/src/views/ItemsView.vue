@@ -9,6 +9,7 @@ import CalendarView from '../items/CalendarView.vue'
 import { dueDateOf, handledNow, questionOf, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
 import ItemSheet from '../items/ItemSheet.vue'
+import { formatDateTime } from '../format'
 import { online } from '../online'
 import { usePushOff } from '../push/pushOff'
 import { useAuth } from '../stores/auth'
@@ -20,14 +21,7 @@ const items = useItems()
 const actions = useItemActions()
 const toasts = useToasts()
 const pushOff = usePushOff()
-const lastUpdated = computed(() =>
-  new Date(items.dataUpdatedAt.value).toLocaleString(navigator.language, {
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  }),
-)
+const lastUpdated = computed(() => formatDateTime(items.dataUpdatedAt.value))
 const adding = ref(false)
 const showArchived = ref(false)
 const mode = ref<'list' | 'calendar'>('list')

@@ -76,6 +76,7 @@ function saveName() {
 
 const photoInput = ref<HTMLInputElement>()
 async function pickPhoto(e: Event) {
+  if (blockedOffline()) return
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file || !auth.session) return
   try {
@@ -96,6 +97,7 @@ async function pickPhoto(e: Event) {
   }
 }
 async function dropPhoto() {
+  if (blockedOffline()) return
   const path = profile.value?.photo_path
   if (!path) return
   if (await save({ photo_path: null })) await removePhoto(path)

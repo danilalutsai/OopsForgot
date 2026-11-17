@@ -45,6 +45,7 @@ export function useItemActions() {
 
   /** Flips Handled on screen at once and saves it behind any earlier change to the same Item. */
   function queueHandled(item: Item, next: string | null, then?: () => void) {
+    if (blockedOffline()) return Promise.resolve()
     showNow(item.id, { handled_due_date: next })
     const step = (handledQueue.get(item.id) ?? Promise.resolve()).then(async () => {
       if (await saveHandled(item, next)) then?.()
@@ -61,7 +62,6 @@ export function useItemActions() {
   return {
     /** Flips Handled for the Due date the Item is on now (`due`). */
     async toggleHandled(item: Item, due: string) {
-      if (blockedOffline()) return
       // decided from what is on screen now, which already includes earlier taps
       const before = (queryClient.getQueryData<Item[]>(['items'])?.find((i) => i.id === item.id) ?? item)
         .handled_due_date

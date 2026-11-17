@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { formatDate } from '../format'
+import { blockedOffline } from '../online'
 import { useToasts } from '../stores/toasts'
 import { todayIn } from '@oopsproof/shared'
 import { timeZone, today } from '../today'
@@ -18,6 +19,7 @@ const setUp = !!import.meta.env.VITE_VAPID_PUBLIC_KEY
 onMounted(async () => (here.value = await thisDeviceEndpoint()))
 
 async function enable() {
+  if (blockedOffline()) return
   problem.value = null
   try {
     await turnOn.mutateAsync()
@@ -57,7 +59,7 @@ async function enable() {
           type="button"
           class="rounded-full border border-line px-3 py-1 font-semibold"
           :disabled="remove.isPending.value"
-          @click="remove.mutate(d)"
+          @click="!blockedOffline() && remove.mutate(d)"
         >
           {{ $t('push.remove') }}
         </button>

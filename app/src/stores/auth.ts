@@ -2,7 +2,8 @@ import type { Session } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
 import { initials as initialsOf } from '@oopsproof/shared'
 import { computed, ref, watch } from 'vue'
-import { PROFILE_KEY, wipeOfflineCopy } from '../query'
+import { online } from '../online'
+import { keepOfflineCopyFor, restored, wipeOfflineCopy } from '../query'
 import { guessCurrency } from '../currency'
 import { photoUrl as signedPhotoUrl } from '../settings/photo'
 import { forgetThisDevice, unsubscribeThisBrowser } from '../push/forget'
@@ -21,6 +22,9 @@ export interface Profile {
 }
 
 const PROFILE_COLUMNS = 'name, surname, time_zone, currency, day_reminder_time, photo_path'
+
+/** The profile is saved on the device next to the offline copy, so dates and money stay right offline. */
+const PROFILE_KEY = 'oopsproof-profile'
 
 function savedProfile(userId: string): Profile | null {
   try {
@@ -54,20 +58,29 @@ export const useAuth = defineStore('auth', () => {
     },
   )
 
+  let fromSavedCopy = false
+
   /** Loads the profile of whoever is logged in now; a slower answer for an earlier person is dropped. */
   async function loadProfile() {
     const userId = session.value?.user.id
     if (!userId) return (profile.value = null)
     // offline the request would only retry and hold up the app: use the copy saved on this device
-    if (!navigator.onLine) return (profile.value = savedProfile(userId))
+    if (!online.value) {
+      profile.value = savedProfile(userId)
+      fromSavedCopy = true
+      return
+    }
     const { data, error } = await supabase.from('profiles').select(PROFILE_COLUMNS).single()
     if (session.value?.user.id !== userId) return
     if (error) {
-      // offline: use the copy saved on this device for this person, if any
+      // a real problem: say so, and fall back to the saved copy rather than nothing
+      console.error('Could not load profile', error)
       profile.value = savedProfile(userId)
+      fromSavedCopy = true
       return
     }
     profile.value = data
+    fromSavedCopy = false
     try {
       localStorage.setItem(PROFILE_KEY, JSON.stringify({ userId, profile: data }))
     } catch {
@@ -83,23 +96,25 @@ export const useAuth = defineStore('auth', () => {
     const changedUser = next?.user.id !== session.value?.user.id
     session.value = next
     if (changedUser) {
-      // Never show one person's data to the next person on the same device, and never let the previous
-      // person's Reminders keep arriving in this browser. (At start-up there is no previous person:
-      // the saved offline copy stays.)
-      if (hadUser) {
-        void wipeOfflineCopy()
-        void unsubscribeThisBrowser()
-      }
+      // Never show one person's data to the next person on the same device: the saved offline copy
+      // is kept only if it is this person's (an expired session or a new login wipes anyone else's).
+      // And never let the previous person's Reminders keep arriving in this browser.
+      void keepOfflineCopyFor(next?.user.id ?? null)
+      if (hadUser) void unsubscribeThisBrowser()
       void loadProfile()
     }
   })
 
-  // back online: refresh the profile that was read from the saved copy
-  addEventListener('online', () => void loadProfile())
+  // back online: refresh the profile if it was read from the saved copy
+  watch(online, (isOnline) => {
+    if (isOnline && fromSavedCopy) void loadProfile()
+  })
 
   /** Resolves once the saved session (if any) is known. */
   const ready = (async () => {
     session.value = (await supabase.auth.getSession()).data.session
+    await keepOfflineCopyFor(session.value?.user.id ?? null)
+    await restored
     await loadProfile()
   })()
 
@@ -137,6 +152,11 @@ export const useAuth = defineStore('auth', () => {
     profile.value = null
     recovering.value = false
     await wipeOfflineCopy()
+    try {
+      localStorage.removeItem(PROFILE_KEY)
+    } catch {
+      // nothing saved
+    }
   }
 
   async function sendPasswordReset(email: string) {
