@@ -1,8 +1,10 @@
 import type { Session } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { initials as initialsOf } from '@oopsproof/shared'
+import { computed, ref, watch } from 'vue'
 import { queryClient } from '../query'
 import { guessCurrency } from '../currency'
+import { photoUrl as signedPhotoUrl } from '../settings/photo'
 import { supabase } from '../supabase'
 
 export const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -24,6 +26,23 @@ export const useAuth = defineStore('auth', () => {
   const profile = ref<Profile | null>(null)
   const recovering = ref(false)
   const loggedIn = computed(() => session.value !== null)
+  const initials = computed(() => (profile.value ? initialsOf(profile.value.name, profile.value.surname) : ''))
+
+  /** A short-lived link to the profile photo, renewed before it expires; a late answer for an older photo is dropped. */
+  const photoUrl = ref<string | null>(null)
+  let photoTimer: ReturnType<typeof setInterval> | undefined
+  watch(
+    () => profile.value?.photo_path,
+    async (path) => {
+      clearInterval(photoTimer)
+      const load = async () => {
+        const url = path ? await signedPhotoUrl(path) : null
+        if (profile.value?.photo_path === path) photoUrl.value = url
+      }
+      await load()
+      if (path) photoTimer = setInterval(load, 50 * 60 * 1000)
+    },
+  )
 
   /** Loads the profile of whoever is logged in now; a slower answer for an earlier person is dropped. */
   async function loadProfile() {
@@ -116,6 +135,8 @@ export const useAuth = defineStore('auth', () => {
   return {
     session,
     profile,
+    initials,
+    photoUrl,
     recovering,
     loggedIn,
     ready,

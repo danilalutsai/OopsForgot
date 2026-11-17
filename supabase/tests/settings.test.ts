@@ -10,6 +10,20 @@ describe('settings on the profile', () => {
     expect(data).toEqual({ time_zone: 'Europe/Tallinn', currency: 'EUR', day_reminder_time: '12:00:00' })
   })
 
+  it('an unknown time zone or currency from the browser never blocks signup', async () => {
+    const ana = await signUpPerson('Ana', 'Tester', { time_zone: 'Etc/Unknown', currency: 'euro' })
+    const { data } = await ana.client.from('profiles').select('time_zone, currency').single()
+    expect(data).toEqual({ time_zone: 'UTC', currency: 'EUR' })
+  })
+
+  it("a photo path must be in the person's own folder", async () => {
+    const ana = await signUpPerson('Ana')
+    const ben = await signUpPerson('Ben')
+    const update = (photo_path: string) => ana.client.from('profiles').update({ photo_path }).eq('id', ana.id)
+    expect((await update(`${ben.id}/photo.jpg`)).error).not.toBeNull()
+    expect((await update(`${ana.id}/photo.jpg`)).error).toBeNull()
+  })
+
   it('a person changes their own time zone, currency and day Reminder time', async () => {
     const ana = await signUpPerson('Ana')
     const { error } = await ana.client

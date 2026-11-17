@@ -14,6 +14,9 @@ test('change the day Reminder time in Settings', async ({ page }) => {
   await page.getByLabel('Day Reminders at').blur()
   await expect(page.getByRole('status')).toHaveText('Saved ✅')
   await expect(page.getByLabel('Day Reminders at')).toHaveValue('08:00')
+  await page.getByLabel('Day Reminders at').fill('08:10')
+  await page.getByLabel('Day Reminders at').blur()
+  await expect(page.getByLabel('Day Reminders at')).toHaveValue('08:00')
 
   await page.getByRole('button', { name: 'Back to 12:00' }).click()
   await expect(page.getByLabel('Day Reminders at')).toHaveValue('12:00')
@@ -38,7 +41,9 @@ test('change currency and name; the avatar follows', async ({ page }) => {
   await page.getByLabel('Currency').selectOption('USD')
   await expect(page.getByRole('button', { name: /^Currency/ })).toContainText('USD')
 
+  await page.reload()
   await page.getByRole('button', { name: /^Profile/ }).click()
+  await expect(page.getByLabel('Surname')).toHaveValue('García López')
   await page.getByLabel('Name', { exact: true }).fill('Anna')
   await page.getByLabel('Name', { exact: true }).blur()
   await expect(page.getByRole('button', { name: /^Profile/ })).toContainText('Anna García López')

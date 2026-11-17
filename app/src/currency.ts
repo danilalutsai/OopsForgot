@@ -1,5 +1,5 @@
 // A first guess of the person's currency from their browser's region; they can change it in Settings.
-const EURO_REGIONS = 'AT BE CY DE EE ES FI FR GR HR IE IT LT LU LV MT NL PT SI SK'.split(' ')
+const EURO_REGIONS = 'AT BE BG CY DE EE ES FI FR GR HR IE IT LT LU LV MT NL PT SI SK'.split(' ')
 const BY_REGION: Record<string, string> = {
   GB: 'GBP',
   US: 'USD',
@@ -11,7 +11,6 @@ const BY_REGION: Record<string, string> = {
   CZ: 'CZK',
   HU: 'HUF',
   RO: 'RON',
-  BG: 'BGN',
   UA: 'UAH',
   CA: 'CAD',
   AU: 'AUD',

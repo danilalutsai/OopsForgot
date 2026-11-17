@@ -14,12 +14,11 @@ export async function squarePhoto(file: File): Promise<Blob> {
   )
 }
 
-/** Uploads a new photo into the person's own folder and returns its path; the old one is removed. */
-export async function uploadPhoto(userId: string, photo: Blob, oldPath: string | null): Promise<string> {
+/** Uploads a new photo into the person's own folder and returns its path. The old one is kept until the profile points at the new one. */
+export async function uploadPhoto(userId: string, photo: Blob): Promise<string> {
   const path = `${userId}/photo-${Date.now()}.jpg`
   const { error } = await supabase.storage.from('avatars').upload(path, photo, { contentType: 'image/jpeg' })
   if (error) throw error
-  if (oldPath) await supabase.storage.from('avatars').remove([oldPath])
   return path
 }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { DEFAULT_DAY_REMINDER_TIME, roundToQuarterHour } from '@oopsproof/shared'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatTime } from '../format'
 import SheetLine from '../items/SheetLine.vue'
@@ -17,29 +17,50 @@ const toast = ref<string | null>(null)
 const error = ref<string | null>(null)
 const busy = ref(false)
 const here = browserTimeZone()
-const timeZones = Intl.supportedValuesOf('timeZone')
+// The saved zone is always offered, even when the browser's list lacks it (Chrome has no plain "UTC").
+const timeZones = computed(() => {
+  const list = Intl.supportedValuesOf('timeZone')
+  const saved = auth.profile?.time_zone
+  return saved && !list.includes(saved) ? [saved, ...list] : list
+})
 const currencies = Intl.supportedValuesOf('currency')
 
 const profile = computed(() => auth.profile)
-const name = ref(profile.value?.name ?? '')
-const surname = ref(profile.value?.surname ?? '')
+const name = ref('')
+const surname = ref('')
+// Fill the name fields once the profile arrives (opening Settings directly loads it after this page).
+watch(
+  () => [profile.value?.name, profile.value?.surname],
+  ([n, s]) => {
+    name.value = n ?? ''
+    surname.value = s ?? ''
+  },
+  { immediate: true },
+)
+/** Bumped after every save so selects and the time input show what is really stored. */
+const redraw = ref(0)
 
 const toggle = (line: string) => (openLine.value = openLine.value === line ? null : line)
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 onBeforeUnmount(() => clearTimeout(toastTimer))
 
-/** Every line saves as soon as it changes. */
-async function save(changes: Partial<Profile>, closeLine = false) {
+/** Every line saves as soon as it changes; returns whether it worked. */
+async function save(changes: Partial<Profile>, closeLine = false): Promise<boolean> {
   error.value = null
   busy.value = true
   const failed = await auth.updateProfile(changes)
   busy.value = false
-  if (failed) return (error.value = 'settings.saveError')
+  redraw.value++
+  if (failed) {
+    error.value = 'settings.saveError'
+    return false
+  }
   if (closeLine) openLine.value = null
   clearTimeout(toastTimer)
   toast.value = 'settings.saved'
   toastTimer = setTimeout(() => (toast.value = null), 2000)
+  return true
 }
 
 const dayTime = computed(() => profile.value?.day_reminder_time.slice(0, 5) ?? DEFAULT_DAY_REMINDER_TIME)
@@ -58,8 +79,14 @@ async function pickPhoto(e: Event) {
   if (!file || !auth.session) return
   try {
     busy.value = true
-    const path = await uploadPhoto(auth.session.user.id, await squarePhoto(file), profile.value?.photo_path ?? null)
-    await save({ photo_path: path })
+    const oldPath = profile.value?.photo_path ?? null
+    const path = await uploadPhoto(auth.session.user.id, await squarePhoto(file))
+    // Point the profile at the new photo first; only then is the old one safe to remove.
+    if (await save({ photo_path: path })) {
+      if (oldPath) await removePhoto(oldPath)
+    } else {
+      await removePhoto(path)
+    }
   } catch {
     error.value = 'settings.photoError'
   } finally {
@@ -70,8 +97,7 @@ async function pickPhoto(e: Event) {
 async function dropPhoto() {
   const path = profile.value?.photo_path
   if (!path) return
-  await save({ photo_path: null })
-  await removePhoto(path)
+  if (await save({ photo_path: null })) await removePhoto(path)
 }
 
 const lines = {
@@ -124,6 +150,7 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
       @toggle="toggle('dayTime')"
     >
       <input
+        :key="`time-${redraw}`"
         type="time"
         step="900"
         :value="dayTime"
@@ -148,6 +175,7 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
       @toggle="toggle('timeZone')"
     >
       <select
+        :key="`zone-${redraw}`"
         :value="profile.time_zone"
         :aria-label="$t('settings.timeZone')"
         :class="INPUT"
@@ -167,6 +195,7 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
     >
       <p class="mb-2 text-sm font-medium text-urgent-yellow-text">{{ $t('settings.currencyWarning') }}</p>
       <select
+        :key="`currency-${redraw}`"
         :value="profile.currency"
         :aria-label="$t('settings.currency')"
         :class="INPUT"
