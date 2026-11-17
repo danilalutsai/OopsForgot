@@ -25,8 +25,9 @@ export function recurrenceOf(item: Pick<Item, 'recurrence_unit' | 'recurrence_ev
     : null
 }
 
-/** Handled for the Due date it is on now. */
-export function handledNow(item: Item, today: string): boolean {
+/** Handled for the Due date it is on now; pass `due` when it is already worked out. */
+export function handledNow(item: Item, today: string, due?: string): boolean {
+  if (due !== undefined) return item.handled_due_date === due
   return isHandled(
     { dueDate: item.due_date, recurrence: recurrenceOf(item), handledDueDate: item.handled_due_date },
     today,
@@ -92,7 +93,7 @@ export function useDeleteItem() {
 export function useRestoreDeletedItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (item: Item) => {
+    mutationFn: async (item: Item & { created_at?: string }) => {
       const { error } = await supabase.from('items').insert(item)
       if (error) throw error
     },

@@ -176,7 +176,8 @@
     "deleteTitle": "Delete {name}?",
     "deleteBody": "Gone for good. Past Expenses stay in history.",
     "deleteConfirm": "Delete",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "saveFirst": "Save or discard your changes before archiving or deleting."
   },
   "settings": {
     "title": "Settings",

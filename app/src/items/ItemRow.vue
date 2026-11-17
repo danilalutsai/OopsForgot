@@ -8,12 +8,14 @@ import { currency, today } from '../today'
 import { type Item, recurrenceOf } from './api'
 import CountdownText from './CountdownText.vue'
 
-const emit = defineEmits<{ open: []; toggleHandled: []; archive: [] }>()
+const emit = defineEmits<{ open: []; toggleHandled: [] }>()
 const props = defineProps<{
   item: Item
   /** the Due date the Item is on today */
   due: string
   handled: boolean
+  /** Archives the Item; resolves false when that failed, so the row slides back. */
+  archive: () => Promise<boolean>
 }>()
 
 const repeats = computed(() => recurrenceOf(props.item))
@@ -51,17 +53,26 @@ function up(e: PointerEvent) {
   start = null
   if (!swiping) return
   if (dx < -SWIPE) {
-    gsap.to(slider.value, {
+    const el = slider.value
+    gsap.to(el, {
       x: '-100%',
       duration: duration(0.2),
       ease: 'power2.out',
-      onComplete: () => emit('archive'),
+      onComplete: async () => {
+        if (!(await props.archive())) gsap.to(el, { x: 0, duration: duration(0.2), ease: 'power2.out' })
+      },
     })
     return
   }
   gsap.to(slider.value, { x: 0, duration: duration(0.2), ease: 'power2.out' })
   if (dx > SWIPE) emit('toggleHandled')
 }
+/** A gesture the browser cancelled never archives or marks Handled: it just springs back. */
+function cancel() {
+  start = null
+  if (slider.value) gsap.to(slider.value, { x: 0, duration: duration(0.2), ease: 'power2.out' })
+}
+
 /** A swipe must not also count as a tap that opens the Item. */
 function click(e: MouseEvent) {
   if (swiping) {
@@ -80,7 +91,7 @@ function click(e: MouseEvent) {
       @pointerdown="down"
       @pointermove="move"
       @pointerup="up"
-      @pointercancel="up"
+      @pointercancel="cancel"
       @click.capture="click"
     >
       <button

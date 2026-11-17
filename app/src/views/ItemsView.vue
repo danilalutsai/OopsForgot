@@ -4,7 +4,7 @@ import { computed, ref } from 'vue'
 import TopBar from '../components/TopBar.vue'
 import { useItemActions } from '../items/actions'
 import AddItemSheet from '../items/AddItemSheet.vue'
-import { dueDateOf, handledNow, type Item, useItems } from '../items/api'
+import { dueDateOf, handledNow, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
 import ItemSheet from '../items/ItemSheet.vue'
 import { useAuth } from '../stores/auth'
@@ -31,7 +31,7 @@ const rows = computed(() =>
   active.value
     .map((item) => {
       const due = dueDateOf(item, today.value)
-      return { item, due, handled: handledNow(item, today.value) }
+      return { item, due, handled: handledNow(item, today.value, due) }
     })
     .sort((a, b) => a.due.localeCompare(b.due) || (a.item.due_time ?? '99').localeCompare(b.item.due_time ?? '99')),
 )
@@ -43,10 +43,6 @@ const groups = computed(() =>
     rows: rows.value.filter((r) => dashboardGroup(r.due, today.value) === g),
   })).filter((g) => g.rows.length),
 )
-
-function toggleHandled(item: Item, due: string, handled: boolean) {
-  void actions.setHandled(item, handled ? null : due)
-}
 </script>
 
 <template>
@@ -87,8 +83,8 @@ function toggleHandled(item: Item, due: string, handled: boolean) {
         :due="r.due"
         :handled="r.handled"
         @open="openId = r.item.id"
-        @toggle-handled="toggleHandled(r.item, r.due, r.handled)"
-        @archive="actions.archive(r.item)"
+        @toggle-handled="actions.toggleHandled(r.item, r.due)"
+        :archive="() => actions.archive(r.item)"
       />
     </ul>
   </section>

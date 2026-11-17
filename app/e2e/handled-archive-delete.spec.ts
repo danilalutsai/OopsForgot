@@ -80,3 +80,25 @@ test('a Handled repeating Item reminds again for its next Due date', async ({ pa
   await page.getByRole('button', { name: 'Mark Cleaning Handled' }).click()
   await expect(row(page, 'Cleaning')).toContainText('Handled')
 })
+
+test('Archive and Delete wait until sheet changes are saved or discarded', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await addItem(page, 'Passport', 90)
+  await row(page, 'Passport').getByRole('button').first().click()
+  const sheet = page.getByRole('dialog', { name: 'Passport' })
+  await sheet.getByRole('button', { name: 'Change Name' }).click()
+  await sheet.getByLabel('Name', { exact: true }).fill('Passport (renew)')
+  await expect(sheet.getByRole('button', { name: 'Archive' })).toBeDisabled()
+  await expect(sheet.getByRole('button', { name: 'Delete' })).toBeDisabled()
+  await expect(sheet.getByText('Save or discard your changes')).toBeVisible()
+})
+
+test('tapping ✓ twice quickly ends up not Handled', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await addItem(page, 'Spotify', 4)
+  await page.getByRole('button', { name: 'Mark Spotify Handled' }).click()
+  await page.getByRole('button', { name: 'Undo Handled for Spotify' }).click()
+  await expect(row(page, 'Spotify')).toContainText('Due in 4 days')
+  await page.reload()
+  await expect(row(page, 'Spotify')).toContainText('Due in 4 days')
+})

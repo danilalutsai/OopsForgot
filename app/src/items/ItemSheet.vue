@@ -42,6 +42,8 @@ const { t } = useI18n()
 const update = useUpdateItem()
 const actions = useItemActions()
 const confirmingDelete = ref(false)
+/** Captured when the question opens, so the title stays right while the sheet closes. */
+const deletingName = ref('')
 
 interface Draft {
   name: string
@@ -160,9 +162,11 @@ async function save(): Promise<boolean> {
 
 /** Handled / Archive / Delete act on the saved Item straight away; Archive and Delete close the sheet. */
 function toggleHandled() {
-  if (!props.item) return
-  const due = dueDateOf(props.item, today.value)
-  void actions.setHandled(props.item, handledNow(props.item, today.value) ? null : due)
+  if (props.item) void actions.toggleHandled(props.item, dueDateOf(props.item, today.value))
+}
+function askDelete() {
+  deletingName.value = props.item?.name ?? ''
+  confirmingDelete.value = true
 }
 async function archive() {
   if (!props.item) return
@@ -385,6 +389,7 @@ const lineText = {
             </p>
           </SheetLine>
 
+          <p v-if="dirty" class="mt-4 px-3 text-sm text-muted">{{ $t('itemSheet.saveFirst') }}</p>
           <div class="mt-4 grid grid-cols-3 gap-2 px-3 pb-4">
             <button
               type="button"
@@ -394,13 +399,19 @@ const lineText = {
             >
               {{ handledNow(item, today) ? $t('itemSheet.undoHandled') : $t('itemSheet.handled') }}
             </button>
-            <button type="button" class="rounded-xl border border-line py-2.5 text-sm font-semibold" @click="archive">
+            <button
+              type="button"
+              class="rounded-xl border border-line py-2.5 text-sm font-semibold disabled:opacity-40"
+              :disabled="dirty"
+              @click="archive"
+            >
               {{ $t('itemSheet.archive') }}
             </button>
             <button
               type="button"
-              class="rounded-xl border border-line py-2.5 text-sm font-semibold text-urgent-red"
-              @click="confirmingDelete = true"
+              class="rounded-xl border border-line py-2.5 text-sm font-semibold text-urgent-red disabled:opacity-40"
+              :disabled="dirty"
+              @click="askDelete"
             >
               {{ $t('itemSheet.delete') }}
             </button>
@@ -417,7 +428,7 @@ const lineText = {
         class="fixed top-1/2 left-1/2 z-50 w-[min(90vw,360px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-surface p-5 text-text shadow-2xl"
       >
         <AlertDialogTitle class="text-lg font-semibold">{{
-          $t('itemSheet.deleteTitle', { name: item?.name })
+          $t('itemSheet.deleteTitle', { name: deletingName })
         }}</AlertDialogTitle>
         <AlertDialogDescription class="mt-1 text-muted">{{ $t('itemSheet.deleteBody') }}</AlertDialogDescription>
         <div class="mt-5 flex flex-col gap-2">
