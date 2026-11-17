@@ -46,12 +46,14 @@ async function deleteAccount() {
   }
   // the account is gone: clear this device too (saved copy, push, session)
   await auth.logOut()
-  await router.replace({ name: 'login', query: { deleted: '1' } })
+  // told through page state, not the address, so a link can't fake it
+  await router.replace({ name: 'login', state: { accountDeleted: true } })
 }
 </script>
 
 <template>
-  <AlertDialogRoot v-model:open="open">
+  <!-- while deleting, the dialog can't be closed: the outcome must be seen -->
+  <AlertDialogRoot :open="open" @update:open="(o) => !busy && (open = o)">
     <AlertDialogTrigger as-child>
       <button
         type="button"
@@ -79,12 +81,12 @@ async function deleteAccount() {
           <p v-if="error" role="alert" class="font-medium text-urgent-red-text">{{ $t(error) }}</p>
           <button
             type="submit"
-            :disabled="busy || typed !== 'DELETE' || !password"
+            :disabled="busy || !password"
             class="rounded-xl bg-urgent-red py-2.5 font-semibold text-white disabled:opacity-40"
           >
             {{ $t('deleteAccount.confirm') }}
           </button>
-          <AlertDialogCancel class="rounded-xl py-2.5 font-semibold text-accent">{{
+          <AlertDialogCancel :disabled="busy" class="rounded-xl py-2.5 font-semibold text-accent disabled:opacity-40">{{
             $t('deleteAccount.cancel')
           }}</AlertDialogCancel>
         </form>

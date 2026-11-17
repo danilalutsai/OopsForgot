@@ -69,3 +69,13 @@ describe('Delete account', () => {
     expect((await deleteAccount('not-a-token', { password, confirm: 'DELETE' })).status).toBe(401)
   })
 })
+
+describe('after deleting', () => {
+  it("the person's Calendar feed link stops working", async () => {
+    const { ana, token } = await anaWithData()
+    const { data: link } = await ana.client.from('profiles').select('calendar_token').single()
+    await deleteAccount(token, { password, confirm: 'DELETE' })
+    const res = await fetch(`${local.API_URL}/functions/v1/calendar-feed?token=${link!.calendar_token}`)
+    expect(res.status).toBe(404)
+  })
+})
