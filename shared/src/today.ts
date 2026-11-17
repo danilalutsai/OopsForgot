@@ -1,15 +1,62 @@
+/** Calendar parts of `now` in `timeZone`, independent of locale data (servers may lack full locales). */
+function partsIn(timeZone: string, now: Date) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  )
+  return parts as Record<'year' | 'month' | 'day' | 'hour' | 'minute', string>
+}
+
 /** The calendar date (YYYY-MM-DD) that `now` falls on in `timeZone`. The rules never read the clock themselves. */
 export function todayIn(timeZone: string, now: Date): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
+  const p = partsIn(timeZone, now)
+  return `${p.year}-${p.month}-${p.day}`
 }
 
 /** Local date and time ("YYYY-MM-DDTHH:MM", 24-hour) that `now` falls on in `timeZone`. */
 export function nowIn(timeZone: string, now: Date): string {
-  const time = new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(now)
-  return `${todayIn(timeZone, now)}T${time}`
+  const p = partsIn(timeZone, now)
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`
+}
+
+/** How far `timeZone` is ahead of UTC at instant `ms`, in milliseconds. */
+function zoneOffset(ms: number, timeZone: string): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+      .formatToParts(new Date(ms))
+      .map((p) => [p.type, p.value]),
+  )
+  const asUtc = Date.UTC(+parts.year!, +parts.month! - 1, +parts.day!, +parts.hour!, +parts.minute!, +parts.second!)
+  return asUtc - Math.floor(ms / 1000) * 1000
+}
+
+/**
+ * The exact moment a local "YYYY-MM-DDTHH:MM" happens in `timeZone`. On clock-change days a time that
+ * doesn't exist moves forward by the jump, and a time that happens twice is taken the first time.
+ */
+export function localToInstant(local: string, timeZone: string): Date {
+  const wall = Date.parse(`${local}:00Z`)
+  const day = 86_400_000
+  const before = zoneOffset(wall - day, timeZone)
+  const after = zoneOffset(wall + day, timeZone)
+  const candidates = [wall - before, wall - after].filter((t) => wall - t === zoneOffset(t, timeZone))
+  return new Date(candidates.length ? Math.min(...candidates) : wall - before)
 }
