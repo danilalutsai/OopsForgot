@@ -3,3 +3,5 @@ packages:
   - shared
 minimumReleaseAgeExclude:
   - '@typescript-eslint/types@8.73.0'
+allowBuilds:
+  vue-demi: true

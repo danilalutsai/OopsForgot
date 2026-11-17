@@ -13,7 +13,20 @@
     "list": "List",
     "calendar": "Calendar",
     "empty": "Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before it is due.",
-    "welcome": "Welcome, {name} 👋"
+    "welcome": "Welcome, {name} 👋",
+    "groups": {
+      "today": "Today",
+      "thisWeek": "This week",
+      "later": "Later"
+    },
+    "countdown": {
+      "dueToday": "Due today",
+      "dueIn": "Due in {days} day | Due in {days} days",
+      "expired": "Expired {days} day ago | Expired {days} days ago"
+    },
+    "add": "Add Item",
+    "addShort": "Add",
+    "loadError": "Could not load your Items. Check your connection and try again."
   },
   "money": {
     "title": "Money"
@@ -74,5 +87,40 @@
     "rightsTitle": "Your rights",
     "rights": "You can see, change and delete your data in the app at any time. For a copy of your data, email {contact} and you will get it within 30 days.",
     "noTracking": "No ads, no tracking, no selling. We use no analytics and only the storage that logging in needs, so there is no cookie banner."
+  },
+  "categories": {
+    "documents": "Documents",
+    "cards": "Cards",
+    "subscriptions": "Subscriptions",
+    "free_trials": "Free trials",
+    "vehicle": "Vehicle",
+    "home": "Home",
+    "health": "Health",
+    "purchases": "Purchases",
+    "travel": "Travel",
+    "other": "Other"
+  },
+  "itemForm": {
+    "title": "New Item",
+    "name": "Name",
+    "namePlaceholder": "Passport, Netflix, car insurance…",
+    "category": "Category",
+    "dueDate": "Due date",
+    "time": "Time",
+    "timeHint": "Optional. Needed for Reminders hours before.",
+    "price": "Price",
+    "priceHint": "Optional. Adds it to your monthly spending.",
+    "notes": "Notes",
+    "numberWarning": "Don't store full card or document numbers here.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Item added ✅",
+    "errors": {
+      "name": "Give the Item a name.",
+      "category": "Pick a Category.",
+      "dueDate": "Pick a Due date.",
+      "price": "Type a price like 12.50, or leave it empty.",
+      "save": "Could not save. Check your connection and try again."
+    }
   }
 }

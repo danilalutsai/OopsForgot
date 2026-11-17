@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { queryClient } from '../query'
 import { supabase } from '../supabase'
 
 export interface Profile {
@@ -30,7 +31,11 @@ export const useAuth = defineStore('auth', () => {
     if (event === 'SIGNED_OUT') recovering.value = false
     const changedUser = next?.user.id !== session.value?.user.id
     session.value = next
-    if (changedUser) void loadProfile()
+    if (changedUser) {
+      // Never show one person's data to the next person on the same device.
+      queryClient.clear()
+      void loadProfile()
+    }
   })
 
   /** Resolves once the saved session (if any) is known. */
@@ -64,6 +69,7 @@ export const useAuth = defineStore('auth', () => {
     session.value = null
     profile.value = null
     recovering.value = false
+    queryClient.clear()
   }
 
   async function sendPasswordReset(email: string) {
