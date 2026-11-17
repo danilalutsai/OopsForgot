@@ -2,12 +2,22 @@ import type { Session } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { queryClient } from '../query'
+import { guessCurrency } from '../currency'
 import { supabase } from '../supabase'
+
+export const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
 
 export interface Profile {
   name: string
   surname: string
+  time_zone: string
+  currency: string
+  /** "12:00:00" */
+  day_reminder_time: string
+  photo_path: string | null
 }
+
+const PROFILE_COLUMNS = 'name, surname, time_zone, currency, day_reminder_time, photo_path'
 
 export const useAuth = defineStore('auth', () => {
   const session = ref<Session | null>(null)
@@ -19,7 +29,7 @@ export const useAuth = defineStore('auth', () => {
   async function loadProfile() {
     const userId = session.value?.user.id
     if (!userId) return (profile.value = null)
-    const { data, error } = await supabase.from('profiles').select('name, surname').single()
+    const { data, error } = await supabase.from('profiles').select(PROFILE_COLUMNS).single()
     if (session.value?.user.id !== userId) return
     if (error) console.error('Could not load profile', error)
     profile.value = data
@@ -52,7 +62,13 @@ export const useAuth = defineStore('auth', () => {
       password: input.password,
       options: {
         emailRedirectTo: `${origin()}/`,
-        data: { name: input.name.trim(), surname: input.surname.trim(), confirmed_16_plus: true },
+        data: {
+          name: input.name.trim(),
+          surname: input.surname.trim(),
+          confirmed_16_plus: true,
+          time_zone: browserTimeZone(),
+          currency: guessCurrency(),
+        },
       },
     })
     return error
@@ -83,5 +99,31 @@ export const useAuth = defineStore('auth', () => {
     return error
   }
 
-  return { session, profile, recovering, loggedIn, ready, signUp, logIn, logOut, sendPasswordReset, setNewPassword }
+  /** Saves profile changes and keeps the local copy in step; returns the error, if any. */
+  async function updateProfile(changes: Partial<Profile>) {
+    const userId = session.value?.user.id
+    if (!userId) return new Error('Not logged in')
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(changes)
+      .eq('id', userId)
+      .select(PROFILE_COLUMNS)
+      .single()
+    if (!error) profile.value = data
+    return error
+  }
+
+  return {
+    session,
+    profile,
+    recovering,
+    loggedIn,
+    ready,
+    signUp,
+    logIn,
+    logOut,
+    sendPasswordReset,
+    setNewPassword,
+    updateProfile,
+  }
 })

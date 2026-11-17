@@ -8,14 +8,20 @@ const local = JSON.parse(
 const admin = createClient(local.API_URL, local.SECRET_KEY, { auth: { persistSession: false } })
 
 /** Creates a confirmed account directly and logs in through the app, skipping the signup screens. */
-export async function logInAsNewPerson(page: Page, name = 'Ana', surname = 'García López') {
+export async function logInAsNewPerson(
+  page: Page,
+  name = 'Ana',
+  surname = 'García López',
+  // the browser's own zone by default, so no "Update time zone?" question appears
+  timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+) {
   const email = `${name.toLowerCase()}.${crypto.randomUUID()}@example.test`
   const password = 'correct-horse-battery'
   const { error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { name, surname, confirmed_16_plus: true },
+    user_metadata: { name, surname, confirmed_16_plus: true, time_zone: timeZone, currency: 'EUR' },
   })
   if (error) throw error
   await page.goto('/login')

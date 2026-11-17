@@ -10,6 +10,7 @@ import {
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../stores/auth'
+import AvatarImage from './AvatarImage.vue'
 
 const auth = useAuth()
 const router = useRouter()
@@ -23,11 +24,8 @@ async function logOut() {
 
 <template>
   <DropdownMenuRoot>
-    <DropdownMenuTrigger
-      class="ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-bold text-on-accent"
-      :aria-label="`${letters} ${$t('nav.account')}`.trim()"
-    >
-      {{ letters }}
+    <DropdownMenuTrigger class="ml-2 rounded-full" :aria-label="`${letters} ${$t('nav.account')}`.trim()">
+      <AvatarImage />
     </DropdownMenuTrigger>
     <DropdownMenuPortal>
       <DropdownMenuContent

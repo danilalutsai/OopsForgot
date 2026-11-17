@@ -162,5 +162,36 @@
     "keepEditing": "Keep editing",
     "edit": "Change {field}",
     "fixRepeat": "Custom: type how often"
+  },
+  "settings": {
+    "title": "Settings",
+    "back": "Back",
+    "saved": "Saved ✅",
+    "saveError": "Could not save. Check your connection and try again.",
+    "tzTitle": "Update time zone?",
+    "tzBody": "This device is in {here}, but your Reminders use {saved}.",
+    "useNew": "Use new",
+    "keepOld": "Keep old",
+    "sections": {
+      "reminders": "Reminders",
+      "money": "Money",
+      "account": "Account",
+      "privacy": "Privacy"
+    },
+    "dayTime": "Day Reminders at",
+    "dayTimeHint": "Reminders set in days arrive at this time, in 15-minute steps. Hour Reminders arrive at their exact time.",
+    "backTo12": "Back to 12:00",
+    "timeZone": "Time zone",
+    "timeZoneHint": "Your browser says {here}.",
+    "currency": "Currency",
+    "currencyWarning": "Existing amounts are not converted.",
+    "profile": "Profile",
+    "photo": "Photo",
+    "addPhoto": "Add photo",
+    "changePhoto": "Change photo",
+    "removePhoto": "Remove photo",
+    "photoError": "Could not use that photo. Try a JPEG or PNG image.",
+    "privacyNotice": "Privacy notice",
+    "problem": "Needs your attention"
   }
 }
