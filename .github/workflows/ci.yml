@@ -94,8 +94,14 @@ jobs:
 
       - name: Database migrations
         run: |
-          pnpm exec supabase link --project-ref "$PROJECT_REF" -p "$SUPABASE_DB_PASSWORD"
-          pnpm exec supabase db push -p "$SUPABASE_DB_PASSWORD"
+          # IPv4 address through Supabase's pooler: runners have no IPv6
+          url=$(scripts/pooler-url.sh)
+          echo "::add-mask::$url"
+          PGPASSWORD="$SUPABASE_DB_PASSWORD" psql -X -q -t \
+            "host=aws-1-eu-central-1.pooler.supabase.com port=5432 user=postgres.$PROJECT_REF dbname=postgres sslmode=require" \
+            -c 'select 1' >/dev/null \
+            || { echo "::error::Can't log in to the database: check the SUPABASE_DB_PASSWORD secret"; exit 1; }
+          pnpm exec supabase db push --remote="$url"
 
       - name: Edge Functions
         run: |
