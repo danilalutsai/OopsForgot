@@ -38,7 +38,7 @@ Every push to `main` that passes the checks deploys (the `deploy` job in `.githu
 
 Secret values live in the owner's password manager and in these places only, never in the repo:
 
-- GitHub Actions secrets (OopsProof): `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `BACKUPS_DISPATCH_TOKEN`, `BACKUP_AGE_PUBLIC_KEY`; variables `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VAPID_PUBLIC_KEY`
+- GitHub Actions secrets (OopsProof): `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `BACKUPS_DISPATCH_TOKEN`; variables `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VAPID_PUBLIC_KEY`
 - GitHub Actions secrets (oopsproof-backups): `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF`, `BACKUP_AGE_PUBLIC_KEY`
 - Supabase Edge Function secrets: `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
 - Supabase Vault (read by the Reminder and clean-up cron jobs): `reminder_sender_url`, `service_role_key`
