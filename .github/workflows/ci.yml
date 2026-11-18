@@ -101,12 +101,12 @@ jobs:
             "host=aws-1-eu-central-1.pooler.supabase.com port=5432 user=postgres.$PROJECT_REF dbname=postgres sslmode=require" \
             -c 'select 1' >/dev/null \
             || { echo "::error::Can't log in to the database: check the SUPABASE_DB_PASSWORD secret"; exit 1; }
-          pnpm exec supabase db push --remote="$url"
+          pnpm exec supabase db push --remote="$url" --yes
 
       - name: Edge Functions
         run: |
           if [ -d supabase/functions ] && [ -n "$(ls -A supabase/functions)" ]; then
-            pnpm exec supabase functions deploy --project-ref "$PROJECT_REF"
+            pnpm exec supabase functions deploy --remote="$PROJECT_REF" --yes
           else
             echo "No Edge Functions yet"
           fi
