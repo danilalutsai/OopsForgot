@@ -93,5 +93,7 @@ test('log out everywhere ends this session too', async ({ page }) => {
 test('the copy of my data line says whom to email', async ({ page }) => {
   await logInAsNewPerson(page)
   await openSettings(page)
-  await expect(page.getByRole('region', { name: 'Copy of my data' })).toContainText('within 30 days')
+  const line = page.getByRole('region', { name: 'Copy of my data' })
+  await expect(line).toContainText('oopsproof.app@gmail.com')
+  await expect(line).toContainText('within 30 days')
 })
