@@ -6,6 +6,7 @@ import { unusedAccountStep, type UsageState } from '../../../shared/src/index.ts
 import { deleteAccount } from '../_shared/deleteAccount.ts'
 import { sendMail } from '../_shared/mail.ts'
 import { allRows, type Row } from '../_shared/rows.ts'
+import { isServerCaller } from '../_shared/serverCaller.ts'
 
 const env = (name: string) => Deno.env.get(name) ?? ''
 const SERVICE_KEY = env('SUPABASE_SERVICE_ROLE_KEY')
@@ -80,7 +81,7 @@ async function handle(p: Row, now: Date): Promise<Report | null> {
 }
 
 Deno.serve(async (req) => {
-  if (req.headers.get('Authorization') !== `Bearer ${SERVICE_KEY}`) return new Response('Forbidden', { status: 403 })
+  if (!(await isServerCaller(req))) return new Response('Forbidden', { status: 403 })
   const input = await req.json().catch(() => ({}))
   const now = testing && input.now ? new Date(input.now) : new Date()
 
