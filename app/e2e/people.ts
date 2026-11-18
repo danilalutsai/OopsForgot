@@ -92,3 +92,19 @@ export async function logInAsNewGooglePerson(page: Page, googleDetails: object =
   await page.reload()
   return { email, password }
 }
+
+/** Connects a (fake) Google identity to an existing account, as Connect Google would. */
+export async function connectFakeGoogle(email: string) {
+  const db = new pg.Client(local.DB_URL)
+  await db.connect()
+  try {
+    await db.query(
+      `insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+       select 'google-' || id, id, jsonb_build_object('sub', 'google-' || id, 'email', email), 'google', now(), now(), now()
+         from auth.users where email = $1`,
+      [email],
+    )
+  } finally {
+    await db.end()
+  }
+}

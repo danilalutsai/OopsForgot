@@ -422,8 +422,7 @@
     "connectGoogle": "Connect Google",
     "connectHint": "Then you can also log in with Google.",
     "disconnectGoogle": "Disconnect Google",
-    "disconnectHint": "You will log in with your email and password.",
-    "needPasswordFirst": "Add a password first, so you can still log in without Google.",
+    "disconnectHint": "You will log in with your email and password. Logging in with Google again connects it again.",
     "googleDisconnected": "Google disconnected",
     "logOutEverywhere": "Log out everywhere",
     "logOutEverywhereHint": "Logs you out here at once, and on your other phones and computers within an hour. Reminders stop on all of them until you turn push on again.",
@@ -433,11 +432,11 @@
     "copyTitle": "Copy of my data",
     "copyBody": "Email {contact} and you will get a copy of everything OopsProof keeps about you within 30 days.",
     "errors": {
-      "wrongPassword": "That password isn’t right.",
-      "weakPassword": "Use at least 8 characters.",
       "email": "Type a whole email address.",
-      "emailTaken": "An account already uses this email.",
-      "failed": "Could not save. Check your connection and try again."
-    }
+      "failed": "Could not save. Check your connection and try again.",
+      "samePassword": "That’s your current password. Choose a new one.",
+      "signInAgain": "To make sure it’s you, sign in with Google again, then add your password within 10 minutes."
+    },
+    "googleStays": "Your account was made with Google, so Google stays one of your ways in. You can still add a password above."
   }
 }

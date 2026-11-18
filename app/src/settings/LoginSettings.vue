@@ -10,8 +10,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from 'reka-ui'
-import type { AuthError, PostgrestError } from '@supabase/supabase-js'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import type { AuthError } from '@supabase/supabase-js'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import SheetLine from '../items/SheetLine.vue'
 import { INPUT } from '../items/ui'
@@ -19,6 +19,7 @@ import { blockedOffline } from '../online'
 import { onBackFromAnotherSite } from '../safeNext'
 import { useAuth } from '../stores/auth'
 import { useToasts } from '../stores/toasts'
+import { authErrorKey } from '../views/auth/errors'
 
 /** How the person logs in: email, password, Google, and logging out everywhere. */
 const props = defineProps<{ openLine: string | null }>()
@@ -47,13 +48,13 @@ onMounted(() => (stop = onBackFromAnotherSite(() => (busy.value = false))))
 onUnmounted(() => stop())
 
 /** Runs one change; returns whether it worked, showing the error otherwise. */
-async function run(change: () => Promise<AuthError | PostgrestError | null>, errorKey: (e: AuthError) => string) {
+async function run<E>(change: () => Promise<E | null>, errorKey: (e: E) => string) {
   if (blockedOffline()) return false
   error.value = null
   busy.value = true
   const failed = await change()
   busy.value = false
-  if (failed) error.value = errorKey(failed as AuthError)
+  if (failed) error.value = errorKey(failed)
   return !failed
 }
 
@@ -64,7 +65,7 @@ async function saveEmail() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return (error.value = 'login.errors.email')
   const ok = await run(
     () => auth.changeEmail(email),
-    (e) => (e.code === 'email_exists' ? 'login.errors.emailTaken' : failed()),
+    (e: AuthError) => authErrorKey(e),
   )
   if (ok) {
     newEmail.value = ''
@@ -72,21 +73,33 @@ async function saveEmail() {
   }
 }
 
+/** Only when the server has said there is no password is none asked for; the server decides anyway. */
+const addingPassword = computed(() => auth.passwordOnServer === false)
+const PASSWORD_ERRORS: Record<string, string> = {
+  password: 'deleteAccount.errors.password',
+  weak: 'auth.errors.weakPassword',
+  same: 'login.errors.samePassword',
+  'sign-in-again': 'login.errors.signInAgain',
+}
+const needsGoogleAgain = computed(() => error.value === PASSWORD_ERRORS['sign-in-again'])
+
 async function savePassword() {
-  if (newPassword.value.length < 8) return (error.value = 'login.errors.weakPassword')
-  const adding = !auth.hasPassword
+  if (newPassword.value.length < 8) return (error.value = 'auth.errors.weakPassword')
   const ok = await run(
-    () => auth.changePassword(newPassword.value, adding ? undefined : currentPassword.value),
-    (e) => {
-      if (e.code === 'invalid_credentials') return 'login.errors.wrongPassword'
-      if (e.code === 'weak_password' || e.code === 'same_password') return 'login.errors.weakPassword'
-      return failed()
-    },
+    () => auth.changePassword(newPassword.value, addingPassword.value ? undefined : currentPassword.value),
+    (reason: string) => PASSWORD_ERRORS[reason] ?? failed(),
   )
   if (ok) {
-    emit('toggle', 'password')
+    if (props.openLine === 'password') emit('toggle', 'password')
     toasts.show('login.passwordSaved')
   }
+}
+
+async function googleAgain() {
+  await run(
+    () => auth.signInWithGoogle('/settings'),
+    () => 'auth.errors.google',
+  )
 }
 
 async function connectGoogle() {
@@ -142,7 +155,7 @@ async function logOutEverywhere() {
     @toggle="emit('toggle', 'password')"
   >
     <form class="flex flex-col gap-2 text-sm" novalidate @submit.prevent="savePassword">
-      <label v-if="auth.hasPassword" class="flex flex-col gap-1">
+      <label v-if="!addingPassword" class="flex flex-col gap-1">
         <span class="font-medium">{{ $t('login.currentPassword') }}</span>
         <input v-model="currentPassword" type="password" autocomplete="current-password" :class="INPUT" />
       </label>
@@ -150,13 +163,22 @@ async function logOutEverywhere() {
         <span class="font-medium">{{ $t('login.newPassword') }}</span>
         <input v-model="newPassword" type="password" autocomplete="new-password" :class="INPUT" />
       </label>
-      <p class="text-muted">{{ auth.hasPassword ? $t('auth.passwordHint') : $t('login.addPasswordHint') }}</p>
+      <p class="text-muted">{{ addingPassword ? $t('login.addPasswordHint') : $t('auth.passwordHint') }}</p>
       <button
         type="submit"
-        :disabled="busy || !newPassword || (auth.hasPassword && !currentPassword)"
+        :disabled="busy || !newPassword || (!addingPassword && !currentPassword)"
         class="self-start rounded-full bg-accent px-4 py-1.5 font-semibold text-on-accent disabled:opacity-40"
       >
-        {{ auth.hasPassword ? $t('login.savePassword') : $t('login.addPassword') }}
+        {{ addingPassword ? $t('login.addPassword') : $t('login.savePassword') }}
+      </button>
+      <button
+        v-if="needsGoogleAgain"
+        type="button"
+        :disabled="busy"
+        class="self-start rounded-full border border-line px-4 py-1.5 font-semibold disabled:opacity-40"
+        @click="googleAgain"
+      >
+        {{ $t('deleteAccount.googleButton') }}
       </button>
     </form>
   </SheetLine>
@@ -179,7 +201,7 @@ async function logOutEverywhere() {
           {{ $t('login.connectGoogle') }}
         </button>
       </template>
-      <template v-else-if="auth.hasPassword">
+      <template v-else-if="auth.googleRemovable">
         <p class="text-muted">{{ $t('login.disconnectHint') }}</p>
         <button
           type="button"
@@ -190,7 +212,7 @@ async function logOutEverywhere() {
           {{ $t('login.disconnectGoogle') }}
         </button>
       </template>
-      <p v-else class="text-muted">{{ $t('login.needPasswordFirst') }}</p>
+      <p v-else class="text-muted">{{ $t('login.googleStays') }}</p>
     </div>
   </SheetLine>
 

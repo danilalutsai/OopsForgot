@@ -1,4 +1,4 @@
-import { createClient, type Session } from '@supabase/supabase-js'
+import type { Session } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
 import { initials as initialsOf } from '@oopsproof/shared'
 import { computed, ref, watch } from 'vue'
@@ -7,7 +7,7 @@ import { keepOfflineCopyFor, restored, wipeOfflineCopy } from '../query'
 import { guessCurrency } from '../currency'
 import { photoUrl as signedPhotoUrl } from '../settings/photo'
 import { forgetThisDevice, unsubscribeThisBrowser } from '../push/forget'
-import { SUPABASE_KEY, SUPABASE_URL, supabase } from '../supabase'
+import { supabase } from '../supabase'
 
 export const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
 
@@ -56,8 +56,9 @@ export const useAuth = defineStore('auth', () => {
   const hasPassword = computed(
     () => passwordOnServer.value ?? (session.value?.user.identities ?? []).some((i) => i.provider === 'email'),
   )
-  /** Whether Google is one of the ways in. */
+  /** Whether Google is one of the ways in, and whether another way in remains without it. */
   const googleConnected = computed(() => (session.value?.user.identities ?? []).some((i) => i.provider === 'google'))
+  const googleRemovable = computed(() => googleConnected.value && (session.value?.user.identities ?? []).length > 1)
   /** A new email waiting for its confirmation links; the old one works until then. */
   const pendingEmail = computed(() => session.value?.user.new_email ?? null)
 
@@ -240,30 +241,32 @@ export const useAuth = defineStore('auth', () => {
     return null
   }
 
+  /** Saves the account the server just sent back, so a reload shows it too. */
+  async function keepFreshAccount() {
+    const { data } = await supabase.auth.refreshSession()
+    if (data.session) session.value = data.session
+  }
+
   /** Asks for a new email; links go to the old and the new address, and the change waits for both. */
   async function changeEmail(email: string) {
     const { error } = await supabase.auth.updateUser({ email }, { emailRedirectTo: `${origin()}/settings` })
-    if (!error) await checkAccount()
+    if (!error) await keepFreshAccount()
     return error
   }
 
   /**
-   * Changes the password (the current one is checked first, on a separate client so this session
-   * is untouched), or adds the first one to a Google-only account.
+   * Changes the password, or adds a first one to a Google-only account. The server checks it is
+   * really them (the current password, or a fresh Google sign-in). Returns the server's reason
+   * when it refuses: "password", "weak", "same", "sign-in-again" or "busy".
    */
-  async function changePassword(newPassword: string, currentPassword?: string) {
-    const email = session.value?.user.email
-    if (currentPassword !== undefined && email) {
-      const check = createClient(SUPABASE_URL, SUPABASE_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false, storageKey: 'oopsproof-password-check' },
-      })
-      const { error } = await check.auth.signInWithPassword({ email, password: currentPassword })
-      if (error) return error
-      await check.auth.signOut({ scope: 'local' })
+  async function changePassword(password: string, current?: string): Promise<string | null> {
+    const { error } = await supabase.functions.invoke('change-password', { body: { password, current } })
+    if (!error) {
+      passwordOnServer.value = true
+      return null
     }
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
-    if (!error) await checkAccount()
-    return error
+    const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+    return typeof body?.error === 'string' ? body.error : 'busy'
   }
 
   /** Adds Google to this account; Google sends the person back to Settings. */
@@ -275,23 +278,21 @@ export const useAuth = defineStore('auth', () => {
     return error
   }
 
-  /** Only allowed by the server while a password remains to log in with. */
+  /** Removes Google from an account that has another way in (Supabase allows it only then). */
   async function disconnectGoogle() {
-    const { error } = await supabase.rpc('disconnect_google')
-    if (!error) await checkAccount()
+    const google = session.value?.user.identities?.find((i) => i.provider === 'google')
+    if (!google) return null
+    const { error } = await supabase.auth.unlinkIdentity(google)
+    if (!error) await keepFreshAccount()
     return error
   }
 
   /**
-   * Ends every session of this person, on every device, and stops Reminders reaching any of them.
-   * This device is cleared like a normal log out.
+   * Ends every session of this person, on every device, and stops Reminders reaching any of them
+   * (one server call). This device is then cleared like a normal log out.
    */
   async function logOutEverywhere() {
-    const userId = session.value?.user.id
-    if (!userId) return null
-    const { error: devices } = await supabase.from('push_devices').delete().eq('user_id', userId)
-    if (devices) return devices
-    const { error } = await supabase.auth.signOut({ scope: 'global' })
+    const { error } = await supabase.functions.invoke('log-out-everywhere')
     if (error) return error
     await logOut()
     return null
@@ -361,7 +362,9 @@ export const useAuth = defineStore('auth', () => {
     initials,
     needsWelcome,
     hasPassword,
+    passwordOnServer,
     googleConnected,
+    googleRemovable,
     pendingEmail,
     photoUrl,
     recovering,
