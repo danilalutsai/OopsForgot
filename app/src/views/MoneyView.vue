@@ -123,7 +123,7 @@ function saved(date: string) {
   </p>
   <p v-else-if="expenses.isPending.value" class="px-6 py-10 text-center text-muted">{{ $t('money.loading') }}</p>
   <div v-else class="grid gap-6 px-4 pb-28 md:grid-cols-2 md:pb-8">
-    <section>
+    <section class="min-w-0">
       <div class="flex items-center gap-2 py-2">
         <button
           type="button"
@@ -192,7 +192,7 @@ function saved(date: string) {
       </div>
     </section>
 
-    <section :aria-label="monthName(month)">
+    <section class="min-w-0" :aria-label="monthName(month)">
       <p v-if="filter" class="mb-2 text-sm">
         {{ $t('money.showing', { category: $t(`categories.${filter}`) }) }} ·
         <button type="button" class="font-semibold text-accent" @click="filter = null">
