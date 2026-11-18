@@ -245,31 +245,37 @@ function discard() {
   emit('close')
 }
 
-// Phone: drag the top bar down to close; past half the sheet or a quick flick closes, otherwise it springs back.
-const panelRef = ref<InstanceType<typeof DialogContent>>()
-const panel = computed(() => panelRef.value?.$el as HTMLElement | undefined)
+// Phone: the sheet follows the finger on its top bar, down freely and up with a little give;
+// past half the sheet or a quick flick down closes, otherwise it springs back.
+let panel: HTMLElement | null = null
 let drag: { y: number; t: number } | null = null
 function dragStart(e: PointerEvent) {
   // Taps on the bar's buttons stay taps; only the bar itself drags.
   if (window.matchMedia('(min-width: 768px)').matches || (e.target as HTMLElement).closest('button')) return
-  drag = { y: e.clientY, t: e.timeStamp }
+  // the sheet itself, found fresh each time (it is a new element every time it opens)
+  panel = (e.currentTarget as HTMLElement).closest<HTMLElement>('[role="dialog"]')
+  if (!panel) return
+  gsap.killTweensOf(panel)
+  drag = { y: e.clientY - (Number(gsap.getProperty(panel, 'y')) || 0), t: e.timeStamp }
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 }
 function dragMove(e: PointerEvent) {
-  if (!drag || !panel.value) return
-  gsap.set(panel.value, { y: Math.max(0, e.clientY - drag.y) })
+  if (!drag || !panel) return
+  const dy = e.clientY - drag.y
+  gsap.set(panel, { y: dy >= 0 ? dy : Math.max(-40, dy / 4) })
 }
 function dragEnd(e: PointerEvent) {
-  if (!drag || !panel.value) return
+  if (!drag || !panel) return
+  const el = panel
   const dy = e.clientY - drag.y
   const speed = dy / Math.max(1, e.timeStamp - drag.t)
   drag = null
-  const close = dy > panel.value.offsetHeight / 2 || (speed > 0.8 && dy > 60)
+  const close = dy > el.offsetHeight / 2 || (speed > 0.8 && dy > 60)
   if (close && !dirty.value) {
-    gsap.to(panel.value, { y: '100%', duration: duration(0.2), ease: 'power2.out', onComplete: () => emit('close') })
+    gsap.to(el, { y: '100%', duration: duration(0.2), ease: 'power2.out', onComplete: () => emit('close') })
     return
   }
-  gsap.to(panel.value, { y: 0, duration: duration(0.2), ease: 'power2.out', clearProps: 'transform' })
+  gsap.to(el, { y: 0, duration: duration(0.2), ease: 'power2.out', clearProps: 'transform' })
   if (close) requestClose()
 }
 
@@ -304,10 +310,9 @@ const lineText = {
 <template>
   <DialogRoot :open="!!item" @update:open="(o) => !o && requestClose()">
     <DialogPortal>
-      <DialogOverlay class="fixed inset-0 z-30 bg-black/40" />
+      <DialogOverlay class="sheet-overlay fixed inset-0 z-30 bg-black/40" />
       <DialogContent
-        ref="panelRef"
-        class="fixed inset-x-0 bottom-0 z-40 flex max-h-[92dvh] flex-col rounded-t-3xl bg-surface text-text shadow-2xl md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[420px] md:rounded-none"
+        class="sheet-panel fixed inset-x-0 bottom-0 z-40 flex max-h-[92dvh] flex-col rounded-t-3xl bg-surface text-text shadow-2xl md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[420px] md:rounded-none"
         @pointer-down-outside="onOutside"
       >
         <header
@@ -364,7 +369,7 @@ const lineText = {
             <span class="text-3xl" aria-hidden="true">{{ draft.category ? CATEGORY_ICONS[draft.category] : '' }}</span>
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
-                <DialogTitle class="min-w-0 truncate text-xl font-bold">{{ draft.name || item.name }}</DialogTitle>
+                <DialogTitle class="min-w-0 truncate text-xl font-bold">{{ draft.name || item?.name }}</DialogTitle>
                 <button
                   type="button"
                   class="shrink-0 rounded-full px-2 text-muted hover:bg-bg"

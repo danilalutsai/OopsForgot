@@ -61,3 +61,71 @@
 body {
   @apply bg-bg font-sans text-text antialiased;
 }
+
+/* Selects draw their own arrow, set in from the right edge like the other inputs' icons. */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 8l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  background-size: 1.125rem;
+  padding-right: 2.75rem;
+}
+
+/* Sheets slide up from the bottom (in from the right on a computer) and back down when they close. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes sheet-down {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes sheet-in-side {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes sheet-out-side {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+.sheet-panel[data-state='open'] {
+  animation: sheet-up 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sheet-panel[data-state='closed'] {
+  animation: sheet-down 0.2s ease-in;
+}
+@media (min-width: 768px) {
+  .sheet-panel[data-state='open'] {
+    animation-name: sheet-in-side;
+  }
+  .sheet-panel[data-state='closed'] {
+    animation-name: sheet-out-side;
+  }
+}
+.sheet-overlay[data-state='open'] {
+  animation: fade-in 0.2s ease-out;
+}
+.sheet-overlay[data-state='closed'] {
+  animation: fade-out 0.2s ease-in;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel,
+  .sheet-overlay {
+    animation: none !important;
+  }
+}

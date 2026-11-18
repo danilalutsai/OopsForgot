@@ -88,9 +88,9 @@ async function save() {
 <template>
   <DialogRoot :open="open" @update:open="setOpen">
     <DialogPortal>
-      <DialogOverlay class="fixed inset-0 z-30 bg-black/40" />
+      <DialogOverlay class="sheet-overlay fixed inset-0 z-30 bg-black/40" />
       <DialogContent
-        class="fixed inset-x-0 bottom-0 z-40 flex max-h-[92dvh] flex-col rounded-t-3xl bg-surface text-text shadow-2xl md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[420px] md:rounded-none"
+        class="sheet-panel fixed inset-x-0 bottom-0 z-40 flex max-h-[92dvh] flex-col rounded-t-3xl bg-surface text-text shadow-2xl md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[420px] md:rounded-none"
       >
         <header class="flex items-center gap-2 border-b border-line px-4 py-3">
           <button

@@ -26,12 +26,20 @@ const inApp = computed(() => !route.meta.public)
     <!-- phone: bottom tab bar -->
     <nav
       v-if="inApp"
-      class="fixed inset-x-0 bottom-0 grid grid-cols-2 border-t border-line bg-surface text-center text-xs md:hidden"
+      class="fixed inset-x-0 bottom-0 grid h-12 grid-cols-2 border-t border-line bg-surface text-center text-xs md:hidden"
     >
-      <RouterLink to="/" class="py-3 text-muted" exact-active-class="font-semibold !text-accent">
+      <RouterLink
+        to="/"
+        class="flex items-center justify-center text-muted"
+        exact-active-class="font-semibold !text-accent"
+      >
         {{ $t('nav.items') }}
       </RouterLink>
-      <RouterLink to="/money" class="py-3 text-muted" exact-active-class="font-semibold !text-accent">
+      <RouterLink
+        to="/money"
+        class="flex items-center justify-center text-muted"
+        exact-active-class="font-semibold !text-accent"
+      >
         {{ $t('nav.money') }}
       </RouterLink>
     </nav>
