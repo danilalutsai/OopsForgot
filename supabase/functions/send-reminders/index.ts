@@ -24,7 +24,20 @@ const PAGE = 1000
 
 const db = createClient(env('SUPABASE_URL'), SERVICE_KEY, { auth: { persistSession: false } })
 
-if (!testing) webpush.setVapidDetails(env('VAPID_SUBJECT'), env('VAPID_PUBLIC_KEY'), env('VAPID_PRIVATE_KEY'))
+/**
+ * Why push can't be used, if it can't (a missing or mistyped key). The function still starts, so it
+ * keeps refusing strangers and tells the cron plainly instead of failing on every request.
+ */
+let pushProblem: string | null = null
+if (!testing) {
+  try {
+    webpush.setVapidDetails(env('VAPID_SUBJECT'), env('VAPID_PUBLIC_KEY'), env('VAPID_PRIVATE_KEY'))
+  } catch (e) {
+    // web-push says what is wrong (say, a key's length), never the key itself
+    pushProblem = e instanceof Error ? e.message : String(e)
+    console.error('Push is not set up:', pushProblem)
+  }
+}
 
 interface Device {
   id: string
@@ -179,6 +192,8 @@ async function remind(person: SenderPerson, items: SenderItem[], targets: Device
 
 Deno.serve(async (req) => {
   if (req.headers.get('Authorization') !== `Bearer ${SERVICE_KEY}`) return new Response('Forbidden', { status: 403 })
+  // nothing is marked sent and the run marker stays put, so the next run catches up once it's fixed
+  if (pushProblem) return Response.json({ error: 'push-not-set-up', reason: pushProblem }, { status: 503 })
   const input = await req.json().catch(() => ({}))
 
   const to = testing && input.now ? new Date(input.now) : new Date()

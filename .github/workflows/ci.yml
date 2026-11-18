@@ -139,3 +139,11 @@ jobs:
           # the Edge Functions answer: the sender refuses strangers, the feed refuses bad links
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST '${{ vars.SUPABASE_URL }}/functions/v1/send-reminders')" = 403
           test "$(curl -s -o /dev/null -w '%{http_code}' '${{ vars.SUPABASE_URL }}/functions/v1/calendar-feed?token=x')" = 404
+
+      - name: Check the push key
+        env:
+          KEY: ${{ vars.VAPID_PUBLIC_KEY }}
+        run: |
+          # a public push key is 65 bytes; a key cut short when pasting breaks push for everyone
+          size=$(node -e "console.log(Buffer.from(process.env.KEY, 'base64url').length)")
+          [ "$size" = 65 ] || { echo "::error::VAPID_PUBLIC_KEY decodes to $size bytes, not 65: paste the whole key (variable and Edge Function secret)"; exit 1; }
