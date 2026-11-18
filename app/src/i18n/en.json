@@ -415,7 +415,7 @@
     "savePassword": "Save password",
     "addPassword": "Add password",
     "addPasswordHint": "Then you can also log in with your email and this password.",
-    "passwordSaved": "Password saved ✅",
+    "passwordSaved": "Password saved ✅ Your other devices are logged out.",
     "google": "Google",
     "googleOn": "Connected",
     "googleOff": "Not connected",
@@ -438,5 +438,10 @@
       "signInAgain": "To make sure it’s you, sign in with Google again, then add your password within 10 minutes."
     },
     "googleStays": "Your account was made with Google, so Google stays one of your ways in. You can still add a password above."
+  },
+  "swipe": {
+    "handled": "Handled",
+    "undo": "Undo",
+    "archive": "Archive"
   }
 }

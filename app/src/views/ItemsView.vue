@@ -178,7 +178,7 @@ const groups = computed(() =>
 
   <button
     type="button"
-    class="fixed right-5 bottom-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl text-on-accent shadow-lg md:hidden"
+    class="fixed right-5 bottom-[4.25rem] flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl text-on-accent shadow-lg md:hidden"
     :aria-label="$t('items.add')"
     @click="adding = true"
   >

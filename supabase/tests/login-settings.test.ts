@@ -41,6 +41,16 @@ describe('change-password', () => {
     expect(await canLogIn(ana.email, 'brand-new-password')).toBe(true)
   })
 
+  it('ends every session of the person, so a stolen one stops working', async () => {
+    const ana = await signUpPerson('Ana')
+    const other = anonymous()
+    await other.auth.signInWithPassword({ email: ana.email, password })
+    expect(
+      (await callFunction('change-password', ana, { current: password, password: 'brand-new-password' })).status,
+    ).toBe(200)
+    expect((await other.auth.refreshSession()).error).not.toBeNull()
+  })
+
   it('refuses a short password', async () => {
     const ana = await signUpPerson('Ana')
     const res = await callFunction('change-password', ana, { current: password, password: 'short' })

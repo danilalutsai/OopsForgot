@@ -41,6 +41,12 @@ const SWIPE = 80
 const slider = ref<HTMLElement>()
 let start: { x: number; y: number } | null = null
 let swiping = false
+/** Which way the row is being swiped, so what the swipe does shows underneath it. */
+const showing = ref<'handled' | 'archive' | null>(null)
+const canSwipeHandled = computed(() => !props.question && props.canHandle)
+/** Back in place: nothing underneath shows any more. */
+const springBack = (el: HTMLElement) =>
+  gsap.to(el, { x: 0, duration: duration(0.2), ease: 'power2.out', onComplete: () => (showing.value = null) })
 function down(e: PointerEvent) {
   start = { x: e.clientX, y: e.clientY }
   swiping = false
@@ -52,7 +58,11 @@ function move(e: PointerEvent) {
     swiping = true
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
-  if (swiping) gsap.set(slider.value, { x: dx })
+  if (!swiping) return
+  // right only does something when Handled can be marked here
+  const x = dx > 0 && !canSwipeHandled.value ? 0 : dx
+  showing.value = x > 0 ? 'handled' : x < 0 ? 'archive' : null
+  gsap.set(slider.value, { x })
 }
 function up(e: PointerEvent) {
   if (!start || !slider.value) return
@@ -66,18 +76,18 @@ function up(e: PointerEvent) {
       duration: duration(0.2),
       ease: 'power2.out',
       onComplete: async () => {
-        if (!(await props.archive())) gsap.to(el, { x: 0, duration: duration(0.2), ease: 'power2.out' })
+        if (!(await props.archive())) springBack(el)
       },
     })
     return
   }
-  gsap.to(slider.value, { x: 0, duration: duration(0.2), ease: 'power2.out' })
-  if (dx > SWIPE && !props.question && props.canHandle) emit('toggleHandled')
+  springBack(slider.value)
+  if (dx > SWIPE && canSwipeHandled.value) emit('toggleHandled')
 }
 /** A gesture the browser cancelled never archives or marks Handled: it just springs back. */
 function cancel() {
   start = null
-  if (slider.value) gsap.to(slider.value, { x: 0, duration: duration(0.2), ease: 'power2.out' })
+  if (slider.value) springBack(slider.value)
 }
 
 /** A swipe must not also count as a tap that opens the Item. */
@@ -92,9 +102,21 @@ function click(e: MouseEvent) {
 
 <template>
   <li class="relative overflow-hidden border-b border-line bg-surface">
+    <!-- under the row: what letting go will do -->
+    <div
+      v-if="showing"
+      :class="[
+        'absolute inset-0 flex items-center px-5 text-sm font-semibold text-white',
+        showing === 'handled' ? 'justify-start bg-emerald-700' : 'justify-end bg-slate-600',
+      ]"
+      aria-hidden="true"
+    >
+      <template v-if="showing === 'handled'">✓ {{ handled ? $t('swipe.undo') : $t('swipe.handled') }}</template>
+      <template v-else>{{ $t('swipe.archive') }}</template>
+    </div>
     <div
       ref="slider"
-      class="flex touch-pan-y items-center bg-surface"
+      class="relative flex touch-pan-y items-center bg-surface"
       @pointerdown="down"
       @pointermove="move"
       @pointerup="up"

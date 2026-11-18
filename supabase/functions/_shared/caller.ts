@@ -33,10 +33,11 @@ export async function hasPassword(userId: string): Promise<boolean | 'busy'> {
  */
 export async function checkPassword(email: string, password: unknown): Promise<'ok' | 'wrong' | 'busy'> {
   const check = createClient(URL, env('SUPABASE_ANON_KEY'), { auth: { persistSession: false } })
-  const { error } = await check.auth.signInWithPassword({ email, password: String(password ?? '') })
+  const { data, error } = await check.auth.signInWithPassword({ email, password: String(password ?? '') })
   if (error) return (error as { code?: string }).code === 'invalid_credentials' ? 'wrong' : 'busy'
-  // the check made a session of its own: end it
-  await check.auth.signOut()
+  // the check made a session of its own: end just that one (a plain sign-out ends every session,
+  // the person's own included, and would log them out)
+  if (data.session) await admin.auth.admin.signOut(data.session.access_token, 'local')
   return 'ok'
 }
 
