@@ -9,6 +9,7 @@ import {
 } from '@oopsproof/shared'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
+import { blockedOffline } from '../online'
 import { useAddItem } from './api'
 import ToastBar from '../components/ToastBar.vue'
 import CategoryChips from './CategoryChips.vue'
@@ -50,6 +51,7 @@ watch(open, (isOpen) => {
 })
 
 async function save() {
+  if (blockedOffline()) return
   const priceCents = price.value.trim() ? parseAmount(price.value) : null
   errors.value = [
     !name.value.trim() && 'name',

@@ -25,3 +25,17 @@ export function formatTime(time: string): string {
 export function formatMoney(cents: number, currency: string): string {
   return (cents / 100).toLocaleString(locale(), { style: 'currency', currency })
 }
+
+/** "18 Nov, 09:30" in the browser's own format, from a timestamp. */
+export function formatDateTime(ms: number): string {
+  return new Date(ms).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+}
+
+/** "November 2026" from "YYYY-MM". */
+export function formatMonth(month: string): string {
+  return new Date(`${month}-15T12:00:00Z`).toLocaleDateString(locale(), {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}

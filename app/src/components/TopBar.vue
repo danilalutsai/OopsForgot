@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import AppLogo from './AppLogo.vue'
+import { usePushOff } from '../push/pushOff'
 import { timeZoneDiffers } from '../settings/timeZoneCheck'
+import AppLogo from './AppLogo.vue'
 import AvatarMenu from './AvatarMenu.vue'
 
 defineProps<{ title?: string }>()
+const pushOff = usePushOff()
 </script>
 
 <template>
@@ -15,7 +17,7 @@ defineProps<{ title?: string }>()
     <RouterLink to="/settings" class="relative text-xl text-muted" :aria-label="$t('nav.settings')">
       ⚙︎
       <span
-        v-if="timeZoneDiffers"
+        v-if="timeZoneDiffers || pushOff"
         class="absolute -top-0.5 -right-1 h-2.5 w-2.5 rounded-full bg-urgent-yellow"
         :title="$t('settings.problem')"
       />

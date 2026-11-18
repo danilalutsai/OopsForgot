@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CATEGORY_ICONS, dashboardGroup, type DashboardGroup } from '@oopsproof/shared'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import { useItemActions } from '../items/actions'
 import AddItemSheet from '../items/AddItemSheet.vue'
@@ -8,6 +9,9 @@ import CalendarView from '../items/CalendarView.vue'
 import { dueDateOf, handledNow, questionOf, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
 import ItemSheet from '../items/ItemSheet.vue'
+import { formatDateTime } from '../format'
+import { online } from '../online'
+import { usePushOff } from '../push/pushOff'
 import { useAuth } from '../stores/auth'
 import { useToasts } from '../stores/toasts'
 import { today } from '../today'
@@ -16,6 +20,8 @@ const auth = useAuth()
 const items = useItems()
 const actions = useItemActions()
 const toasts = useToasts()
+const pushOff = usePushOff()
+const lastUpdated = computed(() => formatDateTime(items.dataUpdatedAt.value))
 const adding = ref(false)
 const showArchived = ref(false)
 const mode = ref<'list' | 'calendar'>('list')
@@ -27,6 +33,20 @@ function switchMode() {
 }
 const openId = ref<string | null>(null)
 const openItem = computed(() => items.data.value?.find((i) => i.id === openId.value) ?? null)
+
+// A push Reminder opens the app at /?item=<id>: show that Item, then tidy the address.
+const route = useRoute()
+const router = useRouter()
+watch(
+  () => [route.query.item, items.data.value] as const,
+  ([id, list]) => {
+    if (typeof id !== 'string' || !list) return
+    if (list.some((i) => i.id === id)) openId.value = id
+    const { item: _opened, ...rest } = route.query
+    void router.replace({ query: rest })
+  },
+  { immediate: true },
+)
 
 const active = computed(() => (items.data.value ?? []).filter((i) => !i.archived_at))
 const archived = computed(() => (items.data.value ?? []).filter((i) => i.archived_at))
@@ -87,6 +107,14 @@ const groups = computed(() =>
       {{ $t(`items.${m}`) }}
     </button>
   </div>
+
+  <p v-if="!online" role="status" class="mx-4 mb-2 rounded-xl bg-line px-3 py-2 text-sm">
+    {{ items.dataUpdatedAt.value ? $t('offline.banner', { when: lastUpdated }) : $t('offline.bannerNever') }}
+  </p>
+  <p v-if="pushOff && online" class="mx-4 mb-2 rounded-xl bg-urgent-yellow/15 px-3 py-2 text-sm">
+    {{ $t('push.offBanner') }}
+    <RouterLink to="/settings" class="font-semibold text-accent underline">{{ $t('push.offBannerLink') }}</RouterLink>
+  </p>
 
   <p v-if="items.isError.value" role="alert" class="px-6 py-10 text-center text-urgent-red">
     {{ $t('items.loadError') }}

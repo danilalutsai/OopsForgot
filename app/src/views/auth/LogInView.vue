@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AuthCard from '../../components/AuthCard.vue'
 import TextField from '../../components/TextField.vue'
 import { useAuth } from '../../stores/auth'
@@ -8,23 +8,33 @@ import { authErrorKey } from './errors'
 
 const auth = useAuth()
 const router = useRouter()
+const route = useRoute()
+/** Set by Delete account through page state; cleared once the person tries to log in. */
+const accountDeleted = ref(!!(history.state as { accountDeleted?: boolean } | null)?.accountDeleted)
 const email = ref('')
 const password = ref('')
 const error = ref<string | null>(null)
 const busy = ref(false)
 
 async function submit() {
+  accountDeleted.value = false
   error.value = null
   busy.value = true
   const failed = await auth.logIn(email.value.trim(), password.value)
   busy.value = false
   if (failed) error.value = authErrorKey(failed)
-  else await router.replace('/')
+  else {
+    // only paths inside the app, never another site
+    const next =
+      typeof route.query.next === 'string' && route.query.next.startsWith('/') && !route.query.next.startsWith('//')
+    await router.replace(next ? (route.query.next as string) : '/')
+  }
 }
 </script>
 
 <template>
   <AuthCard :title="$t('auth.logInTitle')">
+    <p v-if="accountDeleted" role="status" class="rounded-xl bg-bg p-3 text-sm">{{ $t('deleteAccount.done') }}</p>
     <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
       <TextField v-model="email" :label="$t('auth.email')" type="email" autocomplete="email" />
       <TextField v-model="password" :label="$t('auth.password')" type="password" autocomplete="current-password" />

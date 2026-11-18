@@ -9,6 +9,10 @@ export default defineConfig({
     vue(),
     tailwindcss(),
     VitePWA({
+      // our own service worker (src/sw.ts), needed for push
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon-180x180.png'],
       manifest: {

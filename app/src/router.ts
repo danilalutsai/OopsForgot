@@ -30,6 +30,8 @@ router.beforeEach(async (to) => {
   const auth = useAuth()
   await auth.ready
   if (auth.recovering && to.name !== 'reset-password') return { name: 'reset-password' }
-  if (!to.meta.public && !auth.loggedIn) return { name: 'login' }
+  // keep where the person was going (a Reminder link, say) to continue there after logging in
+  if (!to.meta.public && !auth.loggedIn)
+    return { name: 'login', query: to.fullPath === '/' ? {} : { next: to.fullPath } }
   if ((to.name === 'login' || to.name === 'signup') && auth.loggedIn) return { name: 'items' }
 })

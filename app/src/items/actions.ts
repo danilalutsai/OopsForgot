@@ -1,5 +1,6 @@
 import { addMonths, keptTrialName } from '@oopsproof/shared'
 import { useQueryClient } from '@tanstack/vue-query'
+import { blockedOffline } from '../online'
 import { supabase } from '../supabase'
 import { fittingOrDefault } from './reminderFit'
 import { useToasts } from '../stores/toasts'
@@ -17,6 +18,7 @@ export function useItemActions() {
   const queryClient = useQueryClient()
 
   async function run(action: () => Promise<unknown>): Promise<boolean> {
+    if (blockedOffline()) return false
     try {
       await action()
       return true
@@ -43,6 +45,7 @@ export function useItemActions() {
 
   /** Flips Handled on screen at once and saves it behind any earlier change to the same Item. */
   function queueHandled(item: Item, next: string | null, then?: () => void) {
+    if (blockedOffline()) return Promise.resolve()
     showNow(item.id, { handled_due_date: next })
     const step = (handledQueue.get(item.id) ?? Promise.resolve()).then(async () => {
       if (await saveHandled(item, next)) then?.()
@@ -107,25 +110,25 @@ export function useItemActions() {
     /** Answers "Kept it?" with Yes: a monthly Subscription from one month after the trial ended. */
     async keepTrial(item: Item) {
       const name = keptTrialName(item.name)
-      const changes = {
-        id: item.id,
-        name,
-        category: 'subscriptions' as const,
-        recurrence_unit: 'month' as const,
-        recurrence_every: 1,
-        due_date: addMonths(item.due_date, 1),
-        reminder_offsets: fittingOrDefault(item.reminder_offsets, {
-          dueDate: addMonths(item.due_date, 1),
-          dueTime: item.due_time,
-          recurrence: { unit: 'month', every: 1 },
-        }),
-      }
-      if (await run(() => update.mutateAsync(changes))) toasts.show('questions.kept', { name })
+      const reminders = fittingOrDefault(item.reminder_offsets, {
+        dueDate: addMonths(item.due_date, 1),
+        dueTime: item.due_time,
+        recurrence: { unit: 'month', every: 1 },
+      })
+      // one step on the server: the Subscription and its first charge on the trial's Due date
+      const kept = await run(async () => {
+        const { error } = await supabase.rpc('keep_trial', { p_item_id: item.id, p_name: name, p_reminders: reminders })
+        if (error) throw error
+      })
+      void queryClient.invalidateQueries({ queryKey: ['items'] })
+      void queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      if (kept) toasts.show('questions.kept', { name })
     },
     async restore(item: Item) {
       if (await run(() => update.mutateAsync({ id: item.id, archived_at: null }))) toasts.show('items.restored')
     },
     async delete(item: Item) {
+      if (blockedOffline()) return
       // The full row (Reminders included, as they live on it) and when it was added, so Undo brings it back exactly.
       // Rows in other tables that belong to the Item (Expenses) must be copied here too once they exist.
       const { data: copy, error } = await supabase.from('items').select('*').eq('id', item.id).single()
