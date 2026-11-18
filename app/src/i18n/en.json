@@ -120,11 +120,19 @@
       "taken": "An account already uses this email. Try logging in.",
       "weakPassword": "Use at least 8 characters.",
       "required": "Please fill in every field.",
-      "age": "OopsProof is for people 16 or older."
+      "age": "OopsProof is for people 16 or older.",
+      "google": "Could not reach Google. Check your connection and try again."
     },
     "linkExpiredTitle": "This link no longer works",
     "linkExpired": "Reset links work once and only for a short time. Ask for a new one and use it straight away.",
-    "newLink": "Send a new link"
+    "newLink": "Send a new link",
+    "google": "Continue with Google",
+    "or": "or",
+    "welcomeTitle": "Nice to meet you, {name} 👋",
+    "welcomeNoName": "Nice to meet you 👋",
+    "welcomeIntro": "Check your name is right, then one last thing.",
+    "continue": "Continue",
+    "notSixteen": "I’m not 16 yet: remove my signup"
   },
   "privacy": {
     "title": "Privacy notice",
@@ -384,8 +392,51 @@
     "errors": {
       "password": "That password isn’t right.",
       "confirm": "Type DELETE in capitals.",
-      "failed": "Could not delete your account. Check your connection and try again."
+      "failed": "Could not delete your account. Check your connection and try again.",
+      "signInAgain": "Please sign in with Google again, then delete within 10 minutes."
     },
-    "done": "Your account and everything in it have been deleted."
+    "done": "Your account and everything in it have been deleted.",
+    "googleAgain": "To make sure it’s you, sign in with Google again first.",
+    "googleButton": "Sign in with Google again"
+  },
+  "login": {
+    "email": "Email",
+    "newEmail": "New email",
+    "sendLinks": "Send confirmation links",
+    "emailHint": "We send a link to both addresses. Your current email keeps working until you open both.",
+    "emailPending": "Waiting for {email}",
+    "emailPendingHint": "Open the links we sent to {old} and {new}. Until then, log in with {old}.",
+    "emailSent": "Links sent ✅",
+    "password": "Password",
+    "passwordSet": "Set",
+    "passwordNone": "Not set",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "savePassword": "Save password",
+    "addPassword": "Add password",
+    "addPasswordHint": "Then you can also log in with your email and this password.",
+    "passwordSaved": "Password saved ✅",
+    "google": "Google",
+    "googleOn": "Connected",
+    "googleOff": "Not connected",
+    "connectGoogle": "Connect Google",
+    "connectHint": "Then you can also log in with Google.",
+    "disconnectGoogle": "Disconnect Google",
+    "disconnectHint": "You will log in with your email and password. Logging in with Google again connects it again.",
+    "googleDisconnected": "Google disconnected",
+    "logOutEverywhere": "Log out everywhere",
+    "logOutEverywhereHint": "Logs you out here at once, and on your other phones and computers within an hour. Reminders stop on all of them until you turn push on again.",
+    "logOutEverywhereConfirm": "Log out everywhere?",
+    "logOutEverywhereYes": "Log out everywhere",
+    "cancel": "Cancel",
+    "copyTitle": "Copy of my data",
+    "copyBody": "Email {contact} and you will get a copy of everything OopsProof keeps about you within 30 days.",
+    "errors": {
+      "email": "Type a whole email address.",
+      "failed": "Could not save. Check your connection and try again.",
+      "samePassword": "That’s your current password. Choose a new one.",
+      "signInAgain": "To make sure it’s you, sign in with Google again, then add your password within 10 minutes."
+    },
+    "googleStays": "Your account was made with Google, so Google stays one of your ways in. You can still add a password above."
   }
 }

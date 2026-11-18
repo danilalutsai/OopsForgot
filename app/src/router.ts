@@ -22,6 +22,7 @@ export const router = createRouter({
       component: () => import('./views/auth/ResetPasswordView.vue'),
       meta: { public: true },
     },
+    { path: '/welcome', name: 'welcome', component: () => import('./views/auth/WelcomeView.vue') },
     { path: '/privacy', name: 'privacy', component: () => import('./views/PrivacyView.vue'), meta: { public: true } },
   ],
 })
@@ -34,4 +35,9 @@ router.beforeEach(async (to) => {
   if (!to.meta.public && !auth.loggedIn)
     return { name: 'login', query: to.fullPath === '/' ? {} : { next: to.fullPath } }
   if ((to.name === 'login' || to.name === 'signup') && auth.loggedIn) return { name: 'items' }
+  // a Google signup says they are 16 or older before using the app (the Privacy notice stays readable)
+  if (auth.loggedIn) await auth.profileLoaded()
+  if (auth.loggedIn && auth.needsWelcome && to.name !== 'welcome' && to.name !== 'privacy')
+    return { name: 'welcome', query: to.fullPath === '/' ? {} : { next: to.fullPath } }
+  if (to.name === 'welcome' && !auth.needsWelcome) return { name: 'items' }
 })

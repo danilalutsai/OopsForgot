@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import AuthCard from '../../components/AuthCard.vue'
+import GoogleButton from '../../components/GoogleButton.vue'
 import TextField from '../../components/TextField.vue'
 import { useAuth } from '../../stores/auth'
 import { authErrorKey } from './errors'
@@ -39,6 +40,7 @@ async function submit() {
     <RouterLink to="/login" class="font-semibold text-accent">{{ $t('auth.backToLogIn') }}</RouterLink>
   </AuthCard>
   <AuthCard v-else :title="$t('auth.signUpTitle')">
+    <GoogleButton />
     <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
       <div class="grid grid-cols-2 gap-3">
         <TextField v-model="name" :label="$t('auth.name')" autocomplete="given-name" />

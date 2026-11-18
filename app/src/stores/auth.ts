@@ -21,9 +21,12 @@ export interface Profile {
   photo_path: string | null
   /** the Calendar feed's secret, or null when the feed is off */
   calendar_token: string | null
+  /** null for a Google signup that has not yet said they are 16 or older */
+  confirmed_16_plus_at: string | null
 }
 
-const PROFILE_COLUMNS = 'name, surname, time_zone, currency, day_reminder_time, photo_path, calendar_token'
+const PROFILE_COLUMNS =
+  'name, surname, time_zone, currency, day_reminder_time, photo_path, calendar_token, confirmed_16_plus_at'
 
 /** The profile is saved on the device next to the offline copy, so dates and money stay right offline. */
 const PROFILE_KEY = 'oopsproof-profile'
@@ -43,9 +46,30 @@ export const useAuth = defineStore('auth', () => {
   const recovering = ref(false)
   const loggedIn = computed(() => session.value !== null)
   const initials = computed(() => (profile.value ? initialsOf(profile.value.name, profile.value.surname) : ''))
+  /** A Google signup still to confirm 16+ (a copy saved before this was known counts as confirmed). */
+  const needsWelcome = computed(() => profile.value?.confirmed_16_plus_at === null)
+  /**
+   * Whether the account has a password to type again; Google-only accounts sign in with Google instead.
+   * Asked from the server (a password added later leaves no trace in the session), guessed until then.
+   */
+  const passwordOnServer = ref<boolean | null>(null)
+  const hasPassword = computed(
+    () => passwordOnServer.value ?? (session.value?.user.identities ?? []).some((i) => i.provider === 'email'),
+  )
+  /** Whether Google is one of the ways in, and whether another way in remains without it. */
+  const googleConnected = computed(() => (session.value?.user.identities ?? []).some((i) => i.provider === 'google'))
+  const googleRemovable = computed(() => googleConnected.value && (session.value?.user.identities ?? []).length > 1)
+  /** A new email waiting for its confirmation links; the old one works until then. */
+  const pendingEmail = computed(() => session.value?.user.new_email ?? null)
 
   /** A short-lived link to the profile photo, renewed before it expires; a late answer for an older photo is dropped. */
-  const photoUrl = ref<string | null>(null)
+  const ownPhotoUrl = ref<string | null>(null)
+  /** The person's own photo, or their Google one until they add their own. */
+  const photoUrl = computed(() => {
+    if (profile.value?.photo_path) return ownPhotoUrl.value
+    const google = session.value?.user.user_metadata?.avatar_url
+    return typeof google === 'string' && google.startsWith('https://') ? google : null
+  })
   let photoTimer: ReturnType<typeof setInterval> | undefined
   watch(
     () => profile.value?.photo_path,
@@ -53,7 +77,7 @@ export const useAuth = defineStore('auth', () => {
       clearInterval(photoTimer)
       const load = async () => {
         const url = path ? await signedPhotoUrl(path) : null
-        if (profile.value?.photo_path === path) photoUrl.value = url
+        if (profile.value?.photo_path === path) ownPhotoUrl.value = url
       }
       await load()
       if (path) photoTimer = setInterval(load, 50 * 60 * 1000)
@@ -94,8 +118,17 @@ export const useAuth = defineStore('auth', () => {
     }
   }
 
+  /** The latest profile load, so the router can wait for it after a login. */
+  let profileLoad: Promise<unknown> = Promise.resolve()
+  const profileLoaded = () => profileLoad
+
   /** Loads the profile of whoever is logged in now; a slower answer for an earlier person is dropped. */
-  async function loadProfile() {
+  function loadProfile() {
+    profileLoad = readProfile()
+    return profileLoad
+  }
+
+  async function readProfile() {
     const userId = session.value?.user.id
     if (!userId) return (profile.value = null)
     // offline the request would only retry and hold up the app: use the copy saved on this device
@@ -117,6 +150,19 @@ export const useAuth = defineStore('auth', () => {
     fromSavedCopy = false
     saveProfileCopy()
     void noteActivity(userId)
+    void checkAccount()
+  }
+
+  /**
+   * Reads how the person logs in from the server: the password, and the account itself (ways in,
+   * an email change waiting), which the saved session may hold an old copy of.
+   */
+  async function checkAccount() {
+    const userId = session.value?.user.id
+    const [password, account] = await Promise.all([supabase.rpc('has_password'), supabase.auth.getUser()])
+    if (session.value?.user.id !== userId) return
+    if (!password.error) passwordOnServer.value = password.data as boolean
+    if (!account.error && session.value) session.value = { ...session.value, user: account.data.user }
   }
 
   // Registered before anything is awaited: Supabase fires PASSWORD_RECOVERY while it starts up.
@@ -129,6 +175,7 @@ export const useAuth = defineStore('auth', () => {
     const changedUser = next?.user.id !== session.value?.user.id
     session.value = next
     if (changedUser) {
+      passwordOnServer.value = null
       // Never show one person's data to the next person on the same device: the saved offline copy
       // is kept only if it is this person's (an expired session or a new login wipes anyone else's).
       // And never let the previous person's Reminders keep arriving in this browser.
@@ -175,6 +222,80 @@ export const useAuth = defineStore('auth', () => {
   async function logIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return error
+  }
+
+  /** Leaves for Google's page; Supabase brings the person back to `next`, logged in. */
+  async function signInWithGoogle(next = '/') {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${origin()}${next}` },
+    })
+    return error
+  }
+
+  /** A Google signup checks their names and confirms 16+. */
+  async function finishSignup(name: string, surname: string) {
+    const { error } = await supabase.rpc('finish_signup', { name: name.trim(), surname: surname.trim() })
+    if (error) return error
+    await loadProfile()
+    return null
+  }
+
+  /** Saves the account the server just sent back, so a reload shows it too. */
+  async function keepFreshAccount() {
+    const { data } = await supabase.auth.refreshSession()
+    if (data.session) session.value = data.session
+  }
+
+  /** Asks for a new email; links go to the old and the new address, and the change waits for both. */
+  async function changeEmail(email: string) {
+    const { error } = await supabase.auth.updateUser({ email }, { emailRedirectTo: `${origin()}/settings` })
+    if (!error) await keepFreshAccount()
+    return error
+  }
+
+  /**
+   * Changes the password, or adds a first one to a Google-only account. The server checks it is
+   * really them (the current password, or a fresh Google sign-in). Returns the server's reason
+   * when it refuses: "password", "weak", "same", "sign-in-again" or "busy".
+   */
+  async function changePassword(password: string, current?: string): Promise<string | null> {
+    const { error } = await supabase.functions.invoke('change-password', { body: { password, current } })
+    if (!error) {
+      passwordOnServer.value = true
+      return null
+    }
+    const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+    return typeof body?.error === 'string' ? body.error : 'busy'
+  }
+
+  /** Adds Google to this account; Google sends the person back to Settings. */
+  async function connectGoogle() {
+    const { error } = await supabase.auth.linkIdentity({
+      provider: 'google',
+      options: { redirectTo: `${origin()}/settings` },
+    })
+    return error
+  }
+
+  /** Removes Google from an account that has another way in (Supabase allows it only then). */
+  async function disconnectGoogle() {
+    const google = session.value?.user.identities?.find((i) => i.provider === 'google')
+    if (!google) return null
+    const { error } = await supabase.auth.unlinkIdentity(google)
+    if (!error) await keepFreshAccount()
+    return error
+  }
+
+  /**
+   * Ends every session of this person, on every device, and stops Reminders reaching any of them
+   * (one server call). This device is then cleared like a normal log out.
+   */
+  async function logOutEverywhere() {
+    const { error } = await supabase.functions.invoke('log-out-everywhere')
+    if (error) return error
+    await logOut()
+    return null
   }
 
   async function logOut() {
@@ -239,12 +360,26 @@ export const useAuth = defineStore('auth', () => {
     session,
     profile,
     initials,
+    needsWelcome,
+    hasPassword,
+    passwordOnServer,
+    googleConnected,
+    googleRemovable,
+    pendingEmail,
     photoUrl,
     recovering,
     loggedIn,
     ready,
+    profileLoaded,
     signUp,
     logIn,
+    signInWithGoogle,
+    finishSignup,
+    changeEmail,
+    changePassword,
+    connectGoogle,
+    disconnectGoogle,
+    logOutEverywhere,
     logOut,
     sendPasswordReset,
     setNewPassword,
