@@ -256,13 +256,17 @@ export const useAuth = defineStore('auth', () => {
 
   /**
    * Changes the password, or adds a first one to a Google-only account. The server checks it is
-   * really them (the current password, or a fresh Google sign-in). Returns the server's reason
+   * really them (the current password, or a fresh Google sign-in), and other devices are logged
+   * out. Returns the server's reason
    * when it refuses: "password", "weak", "same", "sign-in-again" or "busy".
    */
   async function changePassword(password: string, current?: string): Promise<string | null> {
     const { error } = await supabase.functions.invoke('change-password', { body: { password, current } })
     if (!error) {
       passwordOnServer.value = true
+      // a new password ends every session, this one too: log this device straight back in with it
+      const email = session.value?.user.email
+      if (email) await supabase.auth.signInWithPassword({ email, password })
       return null
     }
     const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
