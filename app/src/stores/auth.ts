@@ -21,9 +21,12 @@ export interface Profile {
   photo_path: string | null
   /** the Calendar feed's secret, or null when the feed is off */
   calendar_token: string | null
+  /** null for a Google signup that has not yet said they are 16 or older */
+  confirmed_16_plus_at: string | null
 }
 
-const PROFILE_COLUMNS = 'name, surname, time_zone, currency, day_reminder_time, photo_path, calendar_token'
+const PROFILE_COLUMNS =
+  'name, surname, time_zone, currency, day_reminder_time, photo_path, calendar_token, confirmed_16_plus_at'
 
 /** The profile is saved on the device next to the offline copy, so dates and money stay right offline. */
 const PROFILE_KEY = 'oopsproof-profile'
@@ -43,9 +46,19 @@ export const useAuth = defineStore('auth', () => {
   const recovering = ref(false)
   const loggedIn = computed(() => session.value !== null)
   const initials = computed(() => (profile.value ? initialsOf(profile.value.name, profile.value.surname) : ''))
+  /** A Google signup still to confirm 16+ (a copy saved before this was known counts as confirmed). */
+  const needsWelcome = computed(() => profile.value?.confirmed_16_plus_at === null)
+  /** Whether the account has a password to type again; Google-only accounts sign in with Google instead. */
+  const hasPassword = computed(() => (session.value?.user.identities ?? []).some((i) => i.provider === 'email'))
 
   /** A short-lived link to the profile photo, renewed before it expires; a late answer for an older photo is dropped. */
-  const photoUrl = ref<string | null>(null)
+  const ownPhotoUrl = ref<string | null>(null)
+  /** The person's own photo, or their Google one until they add their own. */
+  const photoUrl = computed(() => {
+    if (profile.value?.photo_path) return ownPhotoUrl.value
+    const google = session.value?.user.user_metadata?.avatar_url
+    return typeof google === 'string' && google.startsWith('https://') ? google : null
+  })
   let photoTimer: ReturnType<typeof setInterval> | undefined
   watch(
     () => profile.value?.photo_path,
@@ -53,7 +66,7 @@ export const useAuth = defineStore('auth', () => {
       clearInterval(photoTimer)
       const load = async () => {
         const url = path ? await signedPhotoUrl(path) : null
-        if (profile.value?.photo_path === path) photoUrl.value = url
+        if (profile.value?.photo_path === path) ownPhotoUrl.value = url
       }
       await load()
       if (path) photoTimer = setInterval(load, 50 * 60 * 1000)
@@ -94,8 +107,17 @@ export const useAuth = defineStore('auth', () => {
     }
   }
 
+  /** The latest profile load, so the router can wait for it after a login. */
+  let profileLoad: Promise<unknown> = Promise.resolve()
+  const profileLoaded = () => profileLoad
+
   /** Loads the profile of whoever is logged in now; a slower answer for an earlier person is dropped. */
-  async function loadProfile() {
+  function loadProfile() {
+    profileLoad = readProfile()
+    return profileLoad
+  }
+
+  async function readProfile() {
     const userId = session.value?.user.id
     if (!userId) return (profile.value = null)
     // offline the request would only retry and hold up the app: use the copy saved on this device
@@ -177,6 +199,23 @@ export const useAuth = defineStore('auth', () => {
     return error
   }
 
+  /** Leaves for Google's page; Supabase brings the person back to `next`, logged in. */
+  async function signInWithGoogle(next = '/') {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${origin()}${next}` },
+    })
+    return error
+  }
+
+  /** A Google signup checks their names and confirms 16+. */
+  async function finishSignup(name: string, surname: string) {
+    const { error } = await supabase.rpc('finish_signup', { name: name.trim(), surname: surname.trim() })
+    if (error) return error
+    await loadProfile()
+    return null
+  }
+
   async function logOut() {
     // This browser's push subscription must not keep delivering this person's Reminders to the next person.
     await forgetThisDevice()
@@ -239,12 +278,17 @@ export const useAuth = defineStore('auth', () => {
     session,
     profile,
     initials,
+    needsWelcome,
+    hasPassword,
     photoUrl,
     recovering,
     loggedIn,
     ready,
+    profileLoaded,
     signUp,
     logIn,
+    signInWithGoogle,
+    finishSignup,
     logOut,
     sendPasswordReset,
     setNewPassword,

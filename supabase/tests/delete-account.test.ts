@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
-import { anonymous, signUpPerson } from './people.ts'
+import { anonymous, signUpPerson, signUpWithGoogle } from './people.ts'
 import { query } from './db.ts'
 
 const local = JSON.parse(
@@ -63,6 +63,26 @@ describe('Delete account', () => {
     expect((await deleteAccount(token, { password: 'wrong-password', confirm: 'DELETE' })).status).toBe(403)
     expect((await deleteAccount(token, { password, confirm: 'delete' })).status).toBe(400)
     expect(await query(`select 1 from public.profiles where id = '${ana.id}'`)).toHaveLength(1)
+  })
+
+  it('a Google-only person, just back from Google, deletes without a password', async () => {
+    const ben = await signUpWithGoogle({ full_name: 'Ben Ortiz' })
+    const token = (await ben.client.auth.getSession()).data.session!.access_token
+    const res = await deleteAccount(token, { confirm: 'DELETE' })
+    expect(res.status).toBe(200)
+    expect(await query(`select 1 from public.profiles where id = '${ben.id}'`)).toEqual([])
+  })
+
+  it('a Google-only person signed in long ago must sign in with Google again first', async () => {
+    const ben = await signUpWithGoogle({ full_name: 'Ben Ortiz' })
+    // the session's sign-in happened an hour ago; a renewed token keeps that time
+    await query(`update auth.mfa_amr_claims set created_at = now() - interval '1 hour', updated_at = now() - interval '1 hour'
+                 where session_id in (select id from auth.sessions where user_id = '${ben.id}')`)
+    const { data } = await ben.client.auth.refreshSession()
+    const res = await deleteAccount(data.session!.access_token, { confirm: 'DELETE' })
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ error: 'sign-in-again' })
+    expect(await query(`select 1 from public.profiles where id = '${ben.id}'`)).toHaveLength(1)
   })
 
   it('cannot be called without a session', async () => {

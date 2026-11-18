@@ -9,8 +9,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from 'reka-ui'
-import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { INPUT } from '../items/ui'
 import { blockedOffline } from '../online'
 import { useAuth } from '../stores/auth'
@@ -18,6 +18,7 @@ import { supabase } from '../supabase'
 
 const auth = useAuth()
 const router = useRouter()
+const route = useRoute()
 const open = ref(false)
 const password = ref('')
 const typed = ref('')
@@ -30,6 +31,24 @@ watch(open, (isOpen) => {
   error.value = null
 })
 
+// A Google-only account has no password to type: the person signs in with Google again and
+// comes back here with the dialog open, and has a few minutes to finish.
+const BACK_FROM_GOOGLE = 'delete-account'
+onMounted(() => {
+  if (route.query.then !== BACK_FROM_GOOGLE) return
+  void router.replace({ query: {} })
+  open.value = true
+})
+async function googleAgain() {
+  if (blockedOffline()) return
+  busy.value = true
+  const failed = await auth.signInWithGoogle(`${route.path}?then=${BACK_FROM_GOOGLE}`)
+  if (failed) {
+    busy.value = false
+    error.value = 'auth.errors.google'
+  }
+}
+
 async function deleteAccount() {
   if (blockedOffline()) return
   if (typed.value !== 'DELETE') return (error.value = 'deleteAccount.errors.confirm')
@@ -41,7 +60,9 @@ async function deleteAccount() {
   if (failed) {
     busy.value = false
     const status = (failed as { context?: Response }).context?.status
-    error.value = status === 403 ? 'deleteAccount.errors.password' : 'deleteAccount.errors.failed'
+    if (status === 403)
+      error.value = auth.hasPassword ? 'deleteAccount.errors.password' : 'deleteAccount.errors.signInAgain'
+    else error.value = 'deleteAccount.errors.failed'
     return
   }
   // the account is gone: clear this device too (saved copy, push, session)
@@ -70,10 +91,21 @@ async function deleteAccount() {
         <AlertDialogTitle class="text-lg font-semibold">{{ $t('deleteAccount.title') }}</AlertDialogTitle>
         <AlertDialogDescription class="mt-1 text-muted">{{ $t('deleteAccount.body') }}</AlertDialogDescription>
         <form class="mt-4 flex flex-col gap-3 text-sm" novalidate @submit.prevent="deleteAccount">
-          <label class="flex flex-col gap-1">
+          <label v-if="auth.hasPassword" class="flex flex-col gap-1">
             <span class="font-medium">{{ $t('deleteAccount.password') }}</span>
             <input v-model="password" type="password" autocomplete="current-password" :class="INPUT" />
           </label>
+          <template v-else>
+            <p>{{ $t('deleteAccount.googleAgain') }}</p>
+            <button
+              type="button"
+              :disabled="busy"
+              class="rounded-xl border border-line py-2.5 font-semibold disabled:opacity-40"
+              @click="googleAgain"
+            >
+              {{ $t('deleteAccount.googleButton') }}
+            </button>
+          </template>
           <label class="flex flex-col gap-1">
             <span class="font-medium">{{ $t('deleteAccount.type') }}</span>
             <input v-model="typed" autocomplete="off" autocapitalize="characters" :class="INPUT" />
@@ -81,7 +113,7 @@ async function deleteAccount() {
           <p v-if="error" role="alert" class="font-medium text-urgent-red-text">{{ $t(error) }}</p>
           <button
             type="submit"
-            :disabled="busy || !password"
+            :disabled="busy || (auth.hasPassword && !password)"
             class="rounded-xl bg-urgent-red py-2.5 font-semibold text-white disabled:opacity-40"
           >
             {{ $t('deleteAccount.confirm') }}

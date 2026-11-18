@@ -12,7 +12,14 @@ const auth = useAuth()
       size === 'lg' ? 'h-16 w-16 text-xl' : 'h-8 w-8 text-xs',
     ]"
   >
-    <img v-if="auth.photoUrl" :src="auth.photoUrl" alt="" class="h-full w-full object-cover" />
+    <!-- a Google photo is fetched without telling Google which page asks -->
+    <img
+      v-if="auth.photoUrl"
+      :src="auth.photoUrl"
+      alt=""
+      referrerpolicy="no-referrer"
+      class="h-full w-full object-cover"
+    />
     <template v-else>{{ auth.initials }}</template>
   </span>
 </template>
