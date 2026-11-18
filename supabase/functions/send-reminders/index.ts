@@ -3,6 +3,7 @@
 // bundles them per person and sends one push to each of that person's devices.
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0'
 import * as webpush from 'npm:web-push@4.0.0'
+import { isServerCaller } from '../_shared/serverCaller.ts'
 import {
   automaticExpenseDates,
   dueReminders,
@@ -191,7 +192,7 @@ async function remind(person: SenderPerson, items: SenderItem[], targets: Device
 }
 
 Deno.serve(async (req) => {
-  if (req.headers.get('Authorization') !== `Bearer ${SERVICE_KEY}`) return new Response('Forbidden', { status: 403 })
+  if (!(await isServerCaller(req))) return new Response('Forbidden', { status: 403 })
   // nothing is marked sent and the run marker stays put, so the next run catches up once it's fixed
   if (pushProblem) return Response.json({ error: 'push-not-set-up', reason: pushProblem }, { status: 503 })
   const input = await req.json().catch(() => ({}))
