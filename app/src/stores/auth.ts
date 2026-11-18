@@ -1,4 +1,4 @@
-import type { Session } from '@supabase/supabase-js'
+import { createClient, type Session } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
 import { initials as initialsOf } from '@oopsproof/shared'
 import { computed, ref, watch } from 'vue'
@@ -7,7 +7,7 @@ import { keepOfflineCopyFor, restored, wipeOfflineCopy } from '../query'
 import { guessCurrency } from '../currency'
 import { photoUrl as signedPhotoUrl } from '../settings/photo'
 import { forgetThisDevice, unsubscribeThisBrowser } from '../push/forget'
-import { supabase } from '../supabase'
+import { SUPABASE_KEY, SUPABASE_URL, supabase } from '../supabase'
 
 export const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
 
@@ -48,8 +48,18 @@ export const useAuth = defineStore('auth', () => {
   const initials = computed(() => (profile.value ? initialsOf(profile.value.name, profile.value.surname) : ''))
   /** A Google signup still to confirm 16+ (a copy saved before this was known counts as confirmed). */
   const needsWelcome = computed(() => profile.value?.confirmed_16_plus_at === null)
-  /** Whether the account has a password to type again; Google-only accounts sign in with Google instead. */
-  const hasPassword = computed(() => (session.value?.user.identities ?? []).some((i) => i.provider === 'email'))
+  /**
+   * Whether the account has a password to type again; Google-only accounts sign in with Google instead.
+   * Asked from the server (a password added later leaves no trace in the session), guessed until then.
+   */
+  const passwordOnServer = ref<boolean | null>(null)
+  const hasPassword = computed(
+    () => passwordOnServer.value ?? (session.value?.user.identities ?? []).some((i) => i.provider === 'email'),
+  )
+  /** Whether Google is one of the ways in. */
+  const googleConnected = computed(() => (session.value?.user.identities ?? []).some((i) => i.provider === 'google'))
+  /** A new email waiting for its confirmation links; the old one works until then. */
+  const pendingEmail = computed(() => session.value?.user.new_email ?? null)
 
   /** A short-lived link to the profile photo, renewed before it expires; a late answer for an older photo is dropped. */
   const ownPhotoUrl = ref<string | null>(null)
@@ -139,6 +149,19 @@ export const useAuth = defineStore('auth', () => {
     fromSavedCopy = false
     saveProfileCopy()
     void noteActivity(userId)
+    void checkAccount()
+  }
+
+  /**
+   * Reads how the person logs in from the server: the password, and the account itself (ways in,
+   * an email change waiting), which the saved session may hold an old copy of.
+   */
+  async function checkAccount() {
+    const userId = session.value?.user.id
+    const [password, account] = await Promise.all([supabase.rpc('has_password'), supabase.auth.getUser()])
+    if (session.value?.user.id !== userId) return
+    if (!password.error) passwordOnServer.value = password.data as boolean
+    if (!account.error && session.value) session.value = { ...session.value, user: account.data.user }
   }
 
   // Registered before anything is awaited: Supabase fires PASSWORD_RECOVERY while it starts up.
@@ -151,6 +174,7 @@ export const useAuth = defineStore('auth', () => {
     const changedUser = next?.user.id !== session.value?.user.id
     session.value = next
     if (changedUser) {
+      passwordOnServer.value = null
       // Never show one person's data to the next person on the same device: the saved offline copy
       // is kept only if it is this person's (an expired session or a new login wipes anyone else's).
       // And never let the previous person's Reminders keep arriving in this browser.
@@ -213,6 +237,63 @@ export const useAuth = defineStore('auth', () => {
     const { error } = await supabase.rpc('finish_signup', { name: name.trim(), surname: surname.trim() })
     if (error) return error
     await loadProfile()
+    return null
+  }
+
+  /** Asks for a new email; links go to the old and the new address, and the change waits for both. */
+  async function changeEmail(email: string) {
+    const { error } = await supabase.auth.updateUser({ email }, { emailRedirectTo: `${origin()}/settings` })
+    if (!error) await checkAccount()
+    return error
+  }
+
+  /**
+   * Changes the password (the current one is checked first, on a separate client so this session
+   * is untouched), or adds the first one to a Google-only account.
+   */
+  async function changePassword(newPassword: string, currentPassword?: string) {
+    const email = session.value?.user.email
+    if (currentPassword !== undefined && email) {
+      const check = createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, storageKey: 'oopsproof-password-check' },
+      })
+      const { error } = await check.auth.signInWithPassword({ email, password: currentPassword })
+      if (error) return error
+      await check.auth.signOut({ scope: 'local' })
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (!error) await checkAccount()
+    return error
+  }
+
+  /** Adds Google to this account; Google sends the person back to Settings. */
+  async function connectGoogle() {
+    const { error } = await supabase.auth.linkIdentity({
+      provider: 'google',
+      options: { redirectTo: `${origin()}/settings` },
+    })
+    return error
+  }
+
+  /** Only allowed by the server while a password remains to log in with. */
+  async function disconnectGoogle() {
+    const { error } = await supabase.rpc('disconnect_google')
+    if (!error) await checkAccount()
+    return error
+  }
+
+  /**
+   * Ends every session of this person, on every device, and stops Reminders reaching any of them.
+   * This device is cleared like a normal log out.
+   */
+  async function logOutEverywhere() {
+    const userId = session.value?.user.id
+    if (!userId) return null
+    const { error: devices } = await supabase.from('push_devices').delete().eq('user_id', userId)
+    if (devices) return devices
+    const { error } = await supabase.auth.signOut({ scope: 'global' })
+    if (error) return error
+    await logOut()
     return null
   }
 
@@ -280,6 +361,8 @@ export const useAuth = defineStore('auth', () => {
     initials,
     needsWelcome,
     hasPassword,
+    googleConnected,
+    pendingEmail,
     photoUrl,
     recovering,
     loggedIn,
@@ -289,6 +372,11 @@ export const useAuth = defineStore('auth', () => {
     logIn,
     signInWithGoogle,
     finishSignup,
+    changeEmail,
+    changePassword,
+    connectGoogle,
+    disconnectGoogle,
+    logOutEverywhere,
     logOut,
     sendPasswordReset,
     setNewPassword,

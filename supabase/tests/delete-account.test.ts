@@ -95,6 +95,15 @@ describe('Delete account', () => {
     expect(await query(`select 1 from auth.users where id = '${kid.id}'`)).toEqual([])
   })
 
+  it('a Google person who added a password types it, like everyone with a password', async () => {
+    const ben = await signUpWithGoogle({ full_name: 'Ben Ortiz' })
+    await ben.client.rpc('finish_signup', { name: 'Ben', surname: 'Ortiz' })
+    await ben.client.auth.updateUser({ password })
+    const token = (await ben.client.auth.getSession()).data.session!.access_token
+    expect((await deleteAccount(token, { confirm: 'DELETE' })).status).toBe(403)
+    expect((await deleteAccount(token, { password, confirm: 'DELETE' })).status).toBe(200)
+  })
+
   it('cannot be called without a session', async () => {
     expect((await deleteAccount('not-a-token', { password, confirm: 'DELETE' })).status).toBe(401)
   })

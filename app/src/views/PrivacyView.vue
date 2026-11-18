@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import AppLogo from '../components/AppLogo.vue'
+import { CONTACT_EMAIL as contact } from '../contact'
 
-// TODO(owner): replace with the app's contact address before launch.
-const contact = '(contact email coming soon)'
 const owner = 'Danila Lutsai'
 const sections = ['who', 'what', 'why', 'where', 'howLong', 'rights'] as const
 </script>

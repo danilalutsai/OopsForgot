@@ -15,6 +15,8 @@ import AvatarImage from '../components/AvatarImage.vue'
 import PushSettings from '../push/PushSettings.vue'
 import CalendarFeed from '../settings/CalendarFeed.vue'
 import DeleteAccount from '../settings/DeleteAccount.vue'
+import LoginSettings from '../settings/LoginSettings.vue'
+import { CONTACT_EMAIL } from '../contact'
 import { usePushDevices } from '../push/devices'
 
 const auth = useAuth()
@@ -276,11 +278,16 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
         </label>
       </div>
     </SheetLine>
+    <LoginSettings :open-line="openLine" @toggle="toggle" />
     <DeleteAccount />
 
     <h2 :class="heading">{{ $t('settings.sections.privacy') }}</h2>
     <RouterLink to="/privacy" class="flex justify-between rounded-xl px-3 py-3 hover:bg-bg">
       <span>{{ $t('settings.privacyNotice') }}</span><span class="text-muted" aria-hidden="true">›</span>
     </RouterLink>
+    <section class="px-3 py-3" :aria-label="$t('login.copyTitle')">
+      <h3 class="font-medium">{{ $t('login.copyTitle') }}</h3>
+      <p class="mt-1 text-sm text-muted">{{ $t('login.copyBody', { contact: CONTACT_EMAIL }) }}</p>
+    </section>
   </div>
 </template>

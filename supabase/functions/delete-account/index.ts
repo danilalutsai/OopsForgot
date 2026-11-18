@@ -60,7 +60,9 @@ Deno.serve(async (req) => {
     .maybeSingle()
   const unconfirmed = profile !== null && profile.confirmed_16_plus_at === null
 
-  const hasPassword = (me.user.identities ?? []).some((i) => i.provider === 'email')
+  // a Google-only person may have added a password since: ask the account, not its identities
+  const { data: hasPassword, error: unknown } = await admin.rpc('account_has_password', { p_user: me.user.id })
+  if (unknown) return answer(503, { error: 'busy' })
   if (unconfirmed) {
     // nothing to check
   } else if (hasPassword && me.user.email) {

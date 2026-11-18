@@ -38,8 +38,8 @@ export async function signUpPerson(name: string, surname = 'Tester', extra: obje
 
 /**
  * A fake person who signed up with Google: made straight in the auth table the way Google signups
- * arrive (provider "google", Google's own details, no 16+ confirmation yet). A password is set only
- * so the test can log in as them.
+ * arrive (provider "google", Google's own details, no 16+ confirmation yet). A password is set just
+ * long enough for the test to log in as them, then removed.
  */
 export async function signUpWithGoogle(googleDetails: object): Promise<Person> {
   const { query } = await import('./db.ts')
@@ -62,5 +62,12 @@ export async function signUpWithGoogle(googleDetails: object): Promise<Person> {
   const client = anonymous()
   const login = await client.auth.signInWithPassword({ email, password })
   if (login.error) throw login.error
+  // now logged in: make the account truly Google-only (a Google identity, no password)
+  await query(
+    `insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+     values ($1, $2, jsonb_build_object('sub', $1::text, 'email', $3::text), 'google', now(), now(), now())`,
+    [`google-${id}`, id, email],
+  )
+  await query(`update auth.users set encrypted_password = '' where id = $1`, [id])
   return { id, email, client }
 }
