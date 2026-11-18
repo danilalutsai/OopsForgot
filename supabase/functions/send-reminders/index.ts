@@ -191,7 +191,7 @@ async function remind(person: SenderPerson, items: SenderItem[], targets: Device
   }
 }
 
-Deno.serve(async (req) => {
+async function serveRun(req: Request): Promise<Response> {
   if (!(await isServerCaller(req))) return new Response('Forbidden', { status: 403 })
   // nothing is marked sent and the run marker stays put, so the next run catches up once it's fixed
   if (pushProblem) return Response.json({ error: 'push-not-set-up', reason: pushProblem }, { status: 503 })
@@ -269,4 +269,14 @@ Deno.serve(async (req) => {
     await db.from('reminder_runs').upsert({ id: 1, last_run_at: to.toISOString() })
   }
   return Response.json({ from, to, sent: report, failed: anyFailed })
-})
+}
+
+// A crash answers with what went wrong (database and push errors carry no secrets), so the
+// cron's stored answer says why a run failed.
+Deno.serve((req) =>
+  serveRun(req).catch((e) => {
+    console.error('Run failed', e)
+    const reason = e instanceof Error ? e.message : typeof e === 'object' ? JSON.stringify(e) : String(e)
+    return Response.json({ error: 'run-failed', reason: reason.slice(0, 500) }, { status: 500 })
+  }),
+)

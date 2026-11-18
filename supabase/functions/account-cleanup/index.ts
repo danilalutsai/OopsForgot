@@ -80,7 +80,7 @@ async function handle(p: Row, now: Date): Promise<Report | null> {
   return { id: p.id, step, done: sent }
 }
 
-Deno.serve(async (req) => {
+async function serveRun(req: Request): Promise<Response> {
   if (!(await isServerCaller(req))) return new Response('Forbidden', { status: 403 })
   const input = await req.json().catch(() => ({}))
   const now = testing && input.now ? new Date(input.now) : new Date()
@@ -97,4 +97,14 @@ Deno.serve(async (req) => {
     })
   }
   return Response.json({ now, report })
-})
+}
+
+// A crash answers with what went wrong (database and push errors carry no secrets), so the
+// cron's stored answer says why a run failed.
+Deno.serve((req) =>
+  serveRun(req).catch((e) => {
+    console.error('Run failed', e)
+    const reason = e instanceof Error ? e.message : typeof e === 'object' ? JSON.stringify(e) : String(e)
+    return Response.json({ error: 'run-failed', reason: reason.slice(0, 500) }, { status: 500 })
+  }),
+)
