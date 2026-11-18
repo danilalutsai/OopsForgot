@@ -8,6 +8,11 @@ import { type Item, recurrenceOf, useDeleteItem, useRestoreDeletedItem, useUpdat
 
 /** Handled changes per Item run one after another, so quick taps toggle in order instead of racing. */
 const handledQueue = new Map<string, Promise<unknown>>()
+/**
+ * While an Item's changes are in flight, the Handled state the person last asked for. A list reload
+ * landing mid-way may show an older state; the next tap must still flip what the person saw.
+ */
+const intendedHandled = new Map<string, string | null>()
 
 /** Handled, Archive, Restore and Delete, each with its message and (where it helps) Undo. */
 export function useItemActions() {
@@ -46,6 +51,9 @@ export function useItemActions() {
   /** Flips Handled on screen at once and saves it behind any earlier change to the same Item. */
   function queueHandled(item: Item, next: string | null, then?: () => void) {
     if (blockedOffline()) return Promise.resolve()
+    intendedHandled.set(item.id, next)
+    // a reload already on its way would land with the old state and undo this on screen
+    void queryClient.cancelQueries({ queryKey: ['items'] })
     showNow(item.id, { handled_due_date: next })
     const step = (handledQueue.get(item.id) ?? Promise.resolve()).then(async () => {
       if (await saveHandled(item, next)) then?.()
@@ -54,6 +62,7 @@ export function useItemActions() {
     return step.finally(() => {
       if (handledQueue.get(item.id) !== step) return
       handledQueue.delete(item.id)
+      intendedHandled.delete(item.id)
       // only now, with nothing left in flight, check the screen against the server
       void queryClient.invalidateQueries({ queryKey: ['items'] })
     })
@@ -62,9 +71,10 @@ export function useItemActions() {
   return {
     /** Flips Handled for the Due date the Item is on now (`due`). */
     async toggleHandled(item: Item, due: string) {
-      // decided from what is on screen now, which already includes earlier taps
-      const before = (queryClient.getQueryData<Item[]>(['items'])?.find((i) => i.id === item.id) ?? item)
-        .handled_due_date
+      // decided from the last tap still saving, else from what is on screen now
+      const before = intendedHandled.has(item.id)
+        ? (intendedHandled.get(item.id) as string | null)
+        : (queryClient.getQueryData<Item[]>(['items'])?.find((i) => i.id === item.id) ?? item).handled_due_date
       const next = before === due ? null : due
       await queueHandled(item, next, () =>
         toasts.show(next ? 'toasts.handled' : 'toasts.unhandled', {}, () => queueHandled(item, before)),
