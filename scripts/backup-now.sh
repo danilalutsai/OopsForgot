@@ -4,7 +4,8 @@
 set -euo pipefail
 repo=danilalutsai/oopsproof-backups
 started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-gh workflow run backup.yml -R "$repo"
+# the branch is named: the token may not read the repo's default branch
+gh workflow run backup.yml -R "$repo" --ref main
 # the new run appears after a moment; pick the first one created after we asked
 for _ in $(seq 1 30); do
   id=$(gh run list -R "$repo" -w backup.yml -e workflow_dispatch -L 5 --json databaseId,createdAt \
