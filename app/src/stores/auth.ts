@@ -48,8 +48,19 @@ export const useAuth = defineStore('auth', () => {
   const initials = computed(() => (profile.value ? initialsOf(profile.value.name, profile.value.surname) : ''))
   /** A Google signup still to confirm 16+ (a copy saved before this was known counts as confirmed). */
   const needsWelcome = computed(() => profile.value?.confirmed_16_plus_at === null)
-  /** Whether the account has a password to type again; Google-only accounts sign in with Google instead. */
-  const hasPassword = computed(() => (session.value?.user.identities ?? []).some((i) => i.provider === 'email'))
+  /**
+   * Whether the account has a password to type again; Google-only accounts sign in with Google instead.
+   * Asked from the server (a password added later leaves no trace in the session), guessed until then.
+   */
+  const passwordOnServer = ref<boolean | null>(null)
+  const hasPassword = computed(
+    () => passwordOnServer.value ?? (session.value?.user.identities ?? []).some((i) => i.provider === 'email'),
+  )
+  /** Whether Google is one of the ways in, and whether another way in remains without it. */
+  const googleConnected = computed(() => (session.value?.user.identities ?? []).some((i) => i.provider === 'google'))
+  const googleRemovable = computed(() => googleConnected.value && (session.value?.user.identities ?? []).length > 1)
+  /** A new email waiting for its confirmation links; the old one works until then. */
+  const pendingEmail = computed(() => session.value?.user.new_email ?? null)
 
   /** A short-lived link to the profile photo, renewed before it expires; a late answer for an older photo is dropped. */
   const ownPhotoUrl = ref<string | null>(null)
@@ -139,6 +150,19 @@ export const useAuth = defineStore('auth', () => {
     fromSavedCopy = false
     saveProfileCopy()
     void noteActivity(userId)
+    void checkAccount()
+  }
+
+  /**
+   * Reads how the person logs in from the server: the password, and the account itself (ways in,
+   * an email change waiting), which the saved session may hold an old copy of.
+   */
+  async function checkAccount() {
+    const userId = session.value?.user.id
+    const [password, account] = await Promise.all([supabase.rpc('has_password'), supabase.auth.getUser()])
+    if (session.value?.user.id !== userId) return
+    if (!password.error) passwordOnServer.value = password.data as boolean
+    if (!account.error && session.value) session.value = { ...session.value, user: account.data.user }
   }
 
   // Registered before anything is awaited: Supabase fires PASSWORD_RECOVERY while it starts up.
@@ -151,6 +175,7 @@ export const useAuth = defineStore('auth', () => {
     const changedUser = next?.user.id !== session.value?.user.id
     session.value = next
     if (changedUser) {
+      passwordOnServer.value = null
       // Never show one person's data to the next person on the same device: the saved offline copy
       // is kept only if it is this person's (an expired session or a new login wipes anyone else's).
       // And never let the previous person's Reminders keep arriving in this browser.
@@ -213,6 +238,63 @@ export const useAuth = defineStore('auth', () => {
     const { error } = await supabase.rpc('finish_signup', { name: name.trim(), surname: surname.trim() })
     if (error) return error
     await loadProfile()
+    return null
+  }
+
+  /** Saves the account the server just sent back, so a reload shows it too. */
+  async function keepFreshAccount() {
+    const { data } = await supabase.auth.refreshSession()
+    if (data.session) session.value = data.session
+  }
+
+  /** Asks for a new email; links go to the old and the new address, and the change waits for both. */
+  async function changeEmail(email: string) {
+    const { error } = await supabase.auth.updateUser({ email }, { emailRedirectTo: `${origin()}/settings` })
+    if (!error) await keepFreshAccount()
+    return error
+  }
+
+  /**
+   * Changes the password, or adds a first one to a Google-only account. The server checks it is
+   * really them (the current password, or a fresh Google sign-in). Returns the server's reason
+   * when it refuses: "password", "weak", "same", "sign-in-again" or "busy".
+   */
+  async function changePassword(password: string, current?: string): Promise<string | null> {
+    const { error } = await supabase.functions.invoke('change-password', { body: { password, current } })
+    if (!error) {
+      passwordOnServer.value = true
+      return null
+    }
+    const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+    return typeof body?.error === 'string' ? body.error : 'busy'
+  }
+
+  /** Adds Google to this account; Google sends the person back to Settings. */
+  async function connectGoogle() {
+    const { error } = await supabase.auth.linkIdentity({
+      provider: 'google',
+      options: { redirectTo: `${origin()}/settings` },
+    })
+    return error
+  }
+
+  /** Removes Google from an account that has another way in (Supabase allows it only then). */
+  async function disconnectGoogle() {
+    const google = session.value?.user.identities?.find((i) => i.provider === 'google')
+    if (!google) return null
+    const { error } = await supabase.auth.unlinkIdentity(google)
+    if (!error) await keepFreshAccount()
+    return error
+  }
+
+  /**
+   * Ends every session of this person, on every device, and stops Reminders reaching any of them
+   * (one server call). This device is then cleared like a normal log out.
+   */
+  async function logOutEverywhere() {
+    const { error } = await supabase.functions.invoke('log-out-everywhere')
+    if (error) return error
+    await logOut()
     return null
   }
 
@@ -280,6 +362,10 @@ export const useAuth = defineStore('auth', () => {
     initials,
     needsWelcome,
     hasPassword,
+    passwordOnServer,
+    googleConnected,
+    googleRemovable,
+    pendingEmail,
     photoUrl,
     recovering,
     loggedIn,
@@ -289,6 +375,11 @@ export const useAuth = defineStore('auth', () => {
     logIn,
     signInWithGoogle,
     finishSignup,
+    changeEmail,
+    changePassword,
+    connectGoogle,
+    disconnectGoogle,
+    logOutEverywhere,
     logOut,
     sendPasswordReset,
     setNewPassword,

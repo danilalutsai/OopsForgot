@@ -45,8 +45,8 @@ export function inDays(page: Page, days: number): Promise<string> {
 
 /**
  * Creates an account the way a Google signup arrives (provider "google", Google's details, no 16+
- * confirmation yet) and logs in. The real Google page can't run in tests, so the account gets a
- * password only the test uses; the app still sees a Google-only account.
+ * confirmation yet) and logs in. The real Google page can't run in tests, so the account has a
+ * password just long enough to log in, then only a Google identity.
  */
 export async function logInAsNewGooglePerson(page: Page, googleDetails: object = { full_name: 'Ben Ortiz' }) {
   const email = `google.${crypto.randomUUID()}@example.test`
@@ -73,5 +73,38 @@ export async function logInAsNewGooglePerson(page: Page, googleDetails: object =
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Log in' }).click()
+  await expect(page).toHaveURL(/\/welcome/)
+  // logged in now: make the account truly Google-only (a Google identity, no password)
+  const after = new pg.Client(local.DB_URL)
+  await after.connect()
+  try {
+    await after.query(
+      `insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+       select 'google-' || id, id, jsonb_build_object('sub', 'google-' || id, 'email', email), 'google', now(), now(), now()
+         from auth.users where email = $1`,
+      [email],
+    )
+    await after.query(`update auth.users set encrypted_password = '' where email = $1`, [email])
+  } finally {
+    await after.end()
+  }
+  // the app reads the account's ways in again
+  await page.reload()
   return { email, password }
+}
+
+/** Connects a (fake) Google identity to an existing account, as Connect Google would. */
+export async function connectFakeGoogle(email: string) {
+  const db = new pg.Client(local.DB_URL)
+  await db.connect()
+  try {
+    await db.query(
+      `insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+       select 'google-' || id, id, jsonb_build_object('sub', 'google-' || id, 'email', email), 'google', now(), now(), now()
+         from auth.users where email = $1`,
+      [email],
+    )
+  } finally {
+    await db.end()
+  }
 }
