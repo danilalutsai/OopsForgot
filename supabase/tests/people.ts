@@ -35,3 +35,32 @@ export async function signUpPerson(name: string, surname = 'Tester', extra: obje
   if (login.error) throw login.error
   return { id: data.user.id, email, client }
 }
+
+/**
+ * A fake person who signed up with Google: made straight in the auth table the way Google signups
+ * arrive (provider "google", Google's own details, no 16+ confirmation yet). A password is set only
+ * so the test can log in as them.
+ */
+export async function signUpWithGoogle(googleDetails: object): Promise<Person> {
+  const { query } = await import('./db.ts')
+  const email = `google.${crypto.randomUUID()}@example.test`
+  const password = 'correct-horse-battery'
+  const [made] = await query<{ id: string }>(
+    `
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+      raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+      confirmation_token, recovery_token, email_change_token_new, email_change
+    ) values (
+      '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated',
+      $1, extensions.crypt($2, extensions.gen_salt('bf')), now(),
+      '{"provider": "google", "providers": ["google"]}', $3, now(), now(), '', '', '', ''
+    ) returning id`,
+    [email, password, JSON.stringify({ ...googleDetails, email })],
+  )
+  const id = made!.id
+  const client = anonymous()
+  const login = await client.auth.signInWithPassword({ email, password })
+  if (login.error) throw login.error
+  return { id, email, client }
+}
