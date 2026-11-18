@@ -5,6 +5,7 @@ import AuthCard from '../../components/AuthCard.vue'
 import GoogleButton from '../../components/GoogleButton.vue'
 import TextField from '../../components/TextField.vue'
 import { useAuth } from '../../stores/auth'
+import { safeNext } from '../../safeNext'
 import { authErrorKey } from './errors'
 
 const auth = useAuth()
@@ -25,10 +26,7 @@ async function submit() {
   busy.value = false
   if (failed) error.value = authErrorKey(failed)
   else {
-    // only paths inside the app, never another site
-    const next =
-      typeof route.query.next === 'string' && route.query.next.startsWith('/') && !route.query.next.startsWith('//')
-    await router.replace(next ? (route.query.next as string) : '/')
+    await router.replace(safeNext(route.query.next))
   }
 }
 </script>

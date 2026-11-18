@@ -31,7 +31,12 @@ begin
   elsif coalesce(new.raw_app_meta_data ->> 'provider', 'email') = 'google' then
     -- Google's given and family name when sent; otherwise the first word of the full name, and the rest
     first_name := coalesce(nullif(trim(meta ->> 'given_name'), ''), split_part(full_name, ' ', 1));
-    last_name := coalesce(nullif(trim(meta ->> 'family_name'), ''), trim(substr(full_name, length(split_part(full_name, ' ', 1)) + 1)));
+    last_name := coalesce(
+      nullif(trim(meta ->> 'family_name'), ''),
+      -- the full name after the given name (or after its first word)
+      trim(substr(full_name, length(case when full_name like first_name || '%' then first_name
+                                         else split_part(full_name, ' ', 1) end) + 1))
+    );
     insert into public.profiles (id, name, surname, confirmed_16_plus_at, time_zone, currency)
     values (new.id, first_name, last_name, null, zone, money);
   else
@@ -55,3 +60,38 @@ $$;
 
 revoke execute on function public.finish_signup(text, text) from public, anon;
 grant execute on function public.finish_signup(text, text) to authenticated;
+
+-- Until the 16+ confirmation, nothing of the person's is saved: the app asks first, and the
+-- database refuses anyway, so skipping the app's welcome page gets nobody further.
+create function public.is_confirmed() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce((select confirmed_16_plus_at is not null from public.profiles where id = (select auth.uid())), false);
+$$;
+
+revoke execute on function public.is_confirmed() from public, anon;
+grant execute on function public.is_confirmed() to authenticated;
+
+create policy "only after the 16+ confirmation" on public.items
+  as restrictive for all to authenticated using ((select public.is_confirmed())) with check ((select public.is_confirmed()));
+create policy "only after the 16+ confirmation" on public.expenses
+  as restrictive for all to authenticated using ((select public.is_confirmed())) with check ((select public.is_confirmed()));
+create policy "only after the 16+ confirmation" on public.push_devices
+  as restrictive for all to authenticated using ((select public.is_confirmed())) with check ((select public.is_confirmed()));
+create policy "photos only after the 16+ confirmation" on storage.objects
+  as restrictive for insert to authenticated with check (bucket_id <> 'avatars' or (select public.is_confirmed()));
+
+create or replace function public.claim_push_device(p_endpoint text, p_p256dh text, p_auth text, p_label text)
+returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not logged in';
+  end if;
+  if not public.is_confirmed() then
+    raise exception 'People must confirm they are 16 or older';
+  end if;
+  delete from public.push_devices where endpoint = p_endpoint;
+  insert into public.push_devices (user_id, endpoint, p256dh, auth, label)
+  values (auth.uid(), p_endpoint, p_p256dh, p_auth, left(p_label, 80));
+end;
+$$;

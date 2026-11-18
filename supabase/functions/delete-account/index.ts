@@ -29,7 +29,12 @@ function signedInRecently(token: string): boolean {
   try {
     const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
     const claims = JSON.parse(atob(part.padEnd(Math.ceil(part.length / 4) * 4, '=')))
-    const latest = Math.max(...(claims.amr ?? []).map((a: { timestamp: number }) => a.timestamp))
+    // only a real sign-in counts, never a link from an email (someone may hold the inbox too)
+    const latest = Math.max(
+      ...(claims.amr ?? [])
+        .filter((a: { method: string }) => a.method === 'oauth' || a.method === 'password')
+        .map((a: { timestamp: number }) => a.timestamp),
+    )
     return Date.now() / 1000 - latest < RECENT_SECONDS
   } catch {
     return false
@@ -47,8 +52,18 @@ Deno.serve(async (req) => {
   const { password, confirm } = await req.json().catch(() => ({}))
   if (confirm !== 'DELETE') return answer(400, { error: 'confirm' })
 
+  // someone who never confirmed 16+ has nothing saved yet: their signup goes at once
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('confirmed_16_plus_at')
+    .eq('id', me.user.id)
+    .maybeSingle()
+  const unconfirmed = profile !== null && profile.confirmed_16_plus_at === null
+
   const hasPassword = (me.user.identities ?? []).some((i) => i.provider === 'email')
-  if (hasPassword && me.user.email) {
+  if (unconfirmed) {
+    // nothing to check
+  } else if (hasPassword && me.user.email) {
     // they type their password again: a stolen session alone can't delete the account
     const check = createClient(URL, env('SUPABASE_ANON_KEY'), { auth: { persistSession: false } })
     const { error: wrong } = await check.auth.signInWithPassword({

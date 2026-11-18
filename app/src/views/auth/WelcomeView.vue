@@ -3,7 +3,9 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AuthCard from '../../components/AuthCard.vue'
 import TextField from '../../components/TextField.vue'
+import { safeNext } from '../../safeNext'
 import { useAuth } from '../../stores/auth'
+import { supabase } from '../../supabase'
 
 /** After a Google signup: the names Google gave, to check, and the 16+ confirmation only the person can give. */
 const auth = useAuth()
@@ -23,11 +25,15 @@ async function submit() {
   const failed = await auth.finishSignup(name.value, surname.value)
   busy.value = false
   if (failed) return (error.value = 'auth.errors.generic')
-  const next = route.query.next
-  await router.replace(typeof next === 'string' && next.startsWith('/') && !next.startsWith('//') ? next : '/')
+  await router.replace(safeNext(route.query.next))
 }
 
-async function logOut() {
+/** Under 16: the signup is removed at once, nothing of it kept. */
+async function notSixteen() {
+  busy.value = true
+  const { error: failed } = await supabase.functions.invoke('delete-account', { body: { confirm: 'DELETE' } })
+  busy.value = false
+  if (failed) return (error.value = 'auth.errors.generic')
   await auth.logOut()
   await router.replace({ name: 'login' })
 }
@@ -61,6 +67,8 @@ async function logOut() {
         {{ $t('auth.continue') }}
       </button>
     </form>
-    <button type="button" class="text-sm text-accent" @click="logOut">{{ $t('auth.notSixteen') }}</button>
+    <button type="button" :disabled="busy" class="text-sm text-accent disabled:opacity-50" @click="notSixteen">
+      {{ $t('auth.notSixteen') }}
+    </button>
   </AuthCard>
 </template>

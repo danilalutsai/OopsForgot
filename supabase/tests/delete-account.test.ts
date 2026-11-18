@@ -75,6 +75,7 @@ describe('Delete account', () => {
 
   it('a Google-only person signed in long ago must sign in with Google again first', async () => {
     const ben = await signUpWithGoogle({ full_name: 'Ben Ortiz' })
+    await ben.client.rpc('finish_signup', { name: 'Ben', surname: 'Ortiz' })
     // the session's sign-in happened an hour ago; a renewed token keeps that time
     await query(`update auth.mfa_amr_claims set created_at = now() - interval '1 hour', updated_at = now() - interval '1 hour'
                  where session_id in (select id from auth.sessions where user_id = '${ben.id}')`)
@@ -83,6 +84,15 @@ describe('Delete account', () => {
     expect(res.status).toBe(403)
     expect(await res.json()).toEqual({ error: 'sign-in-again' })
     expect(await query(`select 1 from public.profiles where id = '${ben.id}'`)).toHaveLength(1)
+  })
+
+  it('someone who never confirmed 16+ can remove their Google signup at once', async () => {
+    const kid = await signUpWithGoogle({ full_name: 'Kid Young' })
+    await query(`update auth.mfa_amr_claims set created_at = now() - interval '1 hour', updated_at = now() - interval '1 hour'
+                 where session_id in (select id from auth.sessions where user_id = '${kid.id}')`)
+    const { data } = await kid.client.auth.refreshSession()
+    expect((await deleteAccount(data.session!.access_token, { confirm: 'DELETE' })).status).toBe(200)
+    expect(await query(`select 1 from auth.users where id = '${kid.id}'`)).toEqual([])
   })
 
   it('cannot be called without a session', async () => {

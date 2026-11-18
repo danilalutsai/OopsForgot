@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { onBackFromAnotherSite, safeNext } from '../safeNext'
 import { useAuth } from '../stores/auth'
 
 const auth = useAuth()
@@ -8,16 +9,14 @@ const route = useRoute()
 const error = ref(false)
 const busy = ref(false)
 
-/** Back from Google to where the person was going, if that is a page inside the app. */
-function next() {
-  const n = route.query.next
-  return typeof n === 'string' && n.startsWith('/') && !n.startsWith('//') ? n : '/'
-}
+let stop = () => {}
+onMounted(() => (stop = onBackFromAnotherSite(() => (busy.value = false))))
+onUnmounted(() => stop())
 
 async function go() {
   error.value = false
   busy.value = true
-  const failed = await auth.signInWithGoogle(next())
+  const failed = await auth.signInWithGoogle(safeNext(route.query.next))
   // on success the browser is already leaving for Google
   if (failed) {
     busy.value = false

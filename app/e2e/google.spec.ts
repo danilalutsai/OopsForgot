@@ -43,3 +43,13 @@ test('a Google-only account deletes without a password', async ({ page }) => {
   await ask.getByRole('button', { name: 'Delete my account' }).click()
   await expect(page.getByText('Your account and everything in it have been deleted.')).toBeVisible()
 })
+
+test('someone under 16 removes their Google signup straight away', async ({ page }) => {
+  const kid = await logInAsNewGooglePerson(page, { full_name: 'Kid Young' })
+  await page.getByRole('button', { name: 'I’m not 16 yet: remove my signup' }).click()
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  await page.getByLabel('Email').fill(kid.email)
+  await page.getByLabel('Password').fill(kid.password)
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await expect(page.getByRole('alert')).toHaveText("That email and password don't match an account.")
+})

@@ -9,10 +9,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from 'reka-ui'
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { INPUT } from '../items/ui'
 import { blockedOffline } from '../online'
+import { onBackFromAnotherSite } from '../safeNext'
 import { useAuth } from '../stores/auth'
 import { supabase } from '../supabase'
 
@@ -34,7 +35,10 @@ watch(open, (isOpen) => {
 // A Google-only account has no password to type: the person signs in with Google again and
 // comes back here with the dialog open, and has a few minutes to finish.
 const BACK_FROM_GOOGLE = 'delete-account'
+let stop = () => {}
+onUnmounted(() => stop())
 onMounted(() => {
+  stop = onBackFromAnotherSite(() => (busy.value = false))
   if (route.query.then !== BACK_FROM_GOOGLE) return
   void router.replace({ query: {} })
   open.value = true
