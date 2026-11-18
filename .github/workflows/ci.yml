@@ -123,3 +123,6 @@ jobs:
           curl -fsS https://oopsproof.pages.dev/ | grep -q '<div id="app">'
           curl -fsS -X POST "${{ vars.SUPABASE_URL }}/rest/v1/rpc/keep_alive" \
             -H "apikey: ${{ vars.SUPABASE_ANON_KEY }}" -H "Content-Type: application/json" -d '{}'
+          # the Edge Functions answer: the sender refuses strangers, the feed refuses bad links
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST '${{ vars.SUPABASE_URL }}/functions/v1/send-reminders')" = 403
+          test "$(curl -s -o /dev/null -w '%{http_code}' '${{ vars.SUPABASE_URL }}/functions/v1/calendar-feed?token=x')" = 404
