@@ -66,6 +66,13 @@
   color-scheme: light;
 }
 
+/* The phone tab bar: its row, 8px more so the labels sit clear of the bottom edge, and the
+   home-indicator inset in the home-screen app. The page, the + button and messages keep clear of it. */
+:root {
+  --tab-bar-lift: 0.5rem;
+  --tab-bar: calc(3.5rem + var(--tab-bar-lift) + env(safe-area-inset-bottom, 0px));
+}
+
 @theme inline {
   --font-sans: 'Inter Variable', system-ui, sans-serif;
   --color-bg: var(--c-bg);

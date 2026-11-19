@@ -14,7 +14,7 @@ onBeforeUnmount(() => props.inSheet && toasts.sheetsOpen--)
   <div
     v-if="inSheet || !toasts.sheetsOpen"
     role="status"
-    class="pointer-events-none fixed inset-x-0 bottom-36 z-[60] flex justify-center md:bottom-8"
+    class="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tab-bar)+5.5rem)] z-[60] flex justify-center md:bottom-8"
   >
     <div
       v-if="toasts.current"
