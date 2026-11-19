@@ -3,6 +3,7 @@
     "name": "oopsproof"
   },
   "nav": {
+    "main": "Main",
     "items": "Items",
     "money": "Money",
     "settings": "Settings",
