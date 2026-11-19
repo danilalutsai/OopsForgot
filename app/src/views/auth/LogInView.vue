@@ -6,7 +6,7 @@ import GoogleButton from '../../components/GoogleButton.vue'
 import TextField from '../../components/TextField.vue'
 import { useAuth } from '../../stores/auth'
 import { safeNext } from '../../safeNext'
-import { authErrorKey } from './errors'
+import { authErrorKey, takeLinkError } from './errors'
 
 const auth = useAuth()
 const router = useRouter()
@@ -15,7 +15,8 @@ const route = useRoute()
 const accountDeleted = ref(!!(history.state as { accountDeleted?: boolean } | null)?.accountDeleted)
 const email = ref('')
 const password = ref('')
-const error = ref<string | null>(null)
+// an expired sign-up link sends the person here with the reason in the address
+const error = ref<string | null>(takeLinkError())
 const busy = ref(false)
 
 async function submit() {

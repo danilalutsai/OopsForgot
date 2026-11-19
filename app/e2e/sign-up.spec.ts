@@ -65,6 +65,10 @@ test('a forgotten password can be reset by email', async ({ page }) => {
 
   await page.goto(await linkFromEmail(email))
   await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
+  // the old password again is refused with its own reason, not "check your connection"
+  await page.getByLabel('New password').fill('first-password-1')
+  await page.getByRole('button', { name: 'Save password' }).click()
+  await expect(page.getByRole('alert')).toHaveText('That’s your current password. Pick a new one.')
   await page.getByLabel('New password').fill('second-password-2')
   await page.getByRole('button', { name: 'Save password' }).click()
   await expect(page.getByText('Welcome, Ben')).toBeVisible()
@@ -83,4 +87,33 @@ test('an expired reset link offers a new one', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'This link no longer works' })).toBeVisible()
   await page.getByRole('link', { name: 'Send a new link' }).click()
   await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
+})
+
+test('a reset link that can’t be emailed says so, not "check your connection"', async ({ page }) => {
+  await page.route('**/auth/v1/recover**', (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      headers: { 'x-supabase-api-version': '2024-01-01' },
+      body: JSON.stringify({ code: 'unexpected_failure', msg: 'Error sending recovery email' }),
+    }),
+  )
+  await page.goto('/forgot-password')
+  await page.getByLabel('Email').fill('ben@example.test')
+  await page.getByRole('button', { name: 'Send link' }).click()
+  await expect(page.getByRole('alert')).toHaveText('We couldn’t send the email right now. Please try again later.')
+})
+
+test('only a request that never reached the server says "check your connection"', async ({ page }) => {
+  await page.route('**/auth/v1/recover**', (route) => route.abort('internetdisconnected'))
+  await page.goto('/forgot-password')
+  await page.getByLabel('Email').fill('ben@example.test')
+  await page.getByRole('button', { name: 'Send link' }).click()
+  await expect(page.getByRole('alert')).toHaveText('Couldn’t reach OopsForgot. Check your connection and try again.')
+})
+
+test('an expired sign-up link lands on Log in with the reason', async ({ page }) => {
+  await page.goto('/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired')
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveText('This link has expired or was already used. Ask for a new one.')
 })
