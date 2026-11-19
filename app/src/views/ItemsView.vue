@@ -173,13 +173,12 @@ const groups = computed(() =>
     </template>
   </div>
 
-
   <!-- room to scroll the last row above the floating + button on phones -->
   <div class="h-28 shrink-0 md:hidden" aria-hidden="true" />
 
   <button
     type="button"
-    class="fixed right-5 bottom-[4.25rem] flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl text-on-accent shadow-lg md:hidden"
+    class="fixed right-5 bottom-[4.75rem] flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl text-on-accent shadow-lg md:hidden"
     :aria-label="$t('items.add')"
     @click="adding = true"
   >
