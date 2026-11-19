@@ -12,7 +12,7 @@ test('change the day Reminder time in Settings', async ({ page }) => {
   await line.click()
   await page.getByLabel('Day Reminders at').fill('08:07')
   await page.getByLabel('Day Reminders at').blur()
-  await expect(page.getByRole('status')).toHaveText('Saved ✅')
+  await expect(page.getByRole('status')).toHaveText('Saved')
   await expect(page.getByLabel('Day Reminders at')).toHaveValue('08:00')
   await page.getByLabel('Day Reminders at').fill('08:10')
   await page.getByLabel('Day Reminders at').blur()
@@ -59,7 +59,7 @@ test('add and remove a profile photo', async ({ page }) => {
   // any real image will do: a small screenshot of the page itself
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 60, height: 40 } })
   await page.getByLabel('Photo').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: png })
-  await expect(page.getByRole('status')).toHaveText('Saved ✅')
+  await expect(page.getByRole('status')).toHaveText('Saved')
   await expect(page.getByRole('button', { name: 'Change photo' })).toBeVisible()
   await expect(page.locator('img').first()).toHaveAttribute('src', /avatars/)
 

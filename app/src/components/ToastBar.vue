@@ -18,13 +18,13 @@ onBeforeUnmount(() => props.inSheet && toasts.sheetsOpen--)
   >
     <div
       v-if="toasts.current"
-      class="pointer-events-auto flex w-max max-w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl bg-text py-2 pr-2 pl-4 text-sm text-bg shadow-lg"
+      class="pointer-events-auto flex w-max max-w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-line bg-raised py-2 pr-2 pl-4 text-sm font-medium text-text shadow-xl shadow-black/25"
     >
       <span class="min-w-0">{{ $t(toasts.current.key, toasts.current.params ?? {}) }}</span>
       <button
         v-if="toasts.current.undo"
         type="button"
-        class="shrink-0 rounded-full px-3 py-1 font-semibold text-bg underline"
+        class="shrink-0 rounded-full border border-accent/50 px-3 py-1 font-semibold text-accent hover:bg-accent/10"
         @click="toasts.undo"
       >
         {{ $t('toasts.undo') }}

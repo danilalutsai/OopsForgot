@@ -20,7 +20,7 @@ test('change the password: the current one is checked first', async ({ page }) =
 
   await page.getByLabel('Current password').fill(person.password)
   await page.getByRole('button', { name: 'Save password' }).click()
-  await expect(page.getByText('Password saved ✅ Your other devices are logged out.')).toBeVisible()
+  await expect(page.getByText('Password saved. Your other devices are logged out.')).toBeVisible()
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Account' }).click()
@@ -58,7 +58,7 @@ test('a Google-only person adds a password; Google stays their way in', async ({
   await expect(page.getByLabel('Current password')).toHaveCount(0)
   await page.getByLabel('New password').fill('a-brand-new-password')
   await page.getByRole('button', { name: 'Add password' }).click()
-  await expect(page.getByText('Password saved ✅ Your other devices are logged out.')).toBeVisible()
+  await expect(page.getByText('Password saved. Your other devices are logged out.')).toBeVisible()
   await expect(page.getByRole('button', { name: /^Password/ })).toContainText('Set')
 
   await page.getByRole('button', { name: /^Google/ }).click()

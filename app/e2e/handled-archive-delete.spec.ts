@@ -31,7 +31,24 @@ test('mark an Item Handled in place, then undo it', async ({ page }) => {
   await expect(page.getByRole('region', { name: 'This week' }).getByText('Netflix')).toBeVisible()
   await expectAccessible(page)
 
-  await page.getByRole('status').getByRole('button', { name: 'Undo' }).click()
+  // the message sits on a raised card in the app's colours, Undo is an outlined button
+  const toast = page.getByRole('status')
+  await expect(toast).toHaveText(/^Marked as Handled\s*Undo$/)
+  const look = await toast.getByRole('button', { name: 'Undo' }).evaluate((undo) => {
+    const card = getComputedStyle(undo.parentElement!)
+    const body = getComputedStyle(document.body)
+    return {
+      cardText: card.color,
+      bodyText: body.color,
+      undoBorder: parseFloat(getComputedStyle(undo).borderTopWidth),
+      underline: getComputedStyle(undo).textDecorationLine,
+    }
+  })
+  expect(look.cardText).toBe(look.bodyText)
+  expect(look.undoBorder).toBeGreaterThan(0)
+  expect(look.underline).toBe('none')
+
+  await toast.getByRole('button', { name: 'Undo' }).click()
   await expect(row(page, 'Netflix')).toContainText('Due in 2 days')
 })
 

@@ -18,7 +18,7 @@ test('add an Item and see it in the right group', async ({ page }) => {
   await page.getByLabel('Price').fill('35,00')
   await page.getByRole('button', { name: 'Save' }).click()
 
-  await expect(page.getByRole('status')).toHaveText('Item added ✅')
+  await expect(page.getByRole('status')).toHaveText('Item added')
   const thisWeek = page.getByRole('region', { name: 'This week' })
   await expect(thisWeek.getByText('Gym')).toBeVisible()
   await expect(thisWeek.getByText('Due in 3 days')).toBeVisible()
