@@ -40,7 +40,7 @@
     "archivedCount": "Archived ({n})",
     "hideArchived": "Hide archived",
     "restore": "Restore",
-    "restored": "Restored ✅"
+    "restored": "Restored"
   },
   "money": {
     "title": "Money",
@@ -69,7 +69,7 @@
       "delete": "Delete",
       "deleteTitle": "Delete this Expense?",
       "deleteBody": "It leaves your monthly totals.",
-      "saved": "Expense saved ✅",
+      "saved": "Expense saved",
       "deleted": "Expense deleted",
       "errors": {
         "amount": "Type an amount like 12.50.",
@@ -178,7 +178,7 @@
     "numberWarning": "Don't store full card or document numbers here.",
     "save": "Save",
     "cancel": "Cancel",
-    "saved": "Item added ✅",
+    "saved": "Item added",
     "errors": {
       "name": "Give the Item a name.",
       "category": "Pick a Category.",
@@ -233,7 +233,7 @@
   "settings": {
     "title": "Settings",
     "back": "Back",
-    "saved": "Saved ✅",
+    "saved": "Saved",
     "saveError": "Could not save. Check your connection and try again.",
     "tzTitle": "Update time zone?",
     "tzBody": "This device is in {here}, but your Reminders use {saved}.",
@@ -264,7 +264,7 @@
     "pushOff": "Off"
   },
   "toasts": {
-    "handled": "Marked as Handled ✅",
+    "handled": "Marked as Handled",
     "unhandled": "No longer Handled",
     "archived": "{name} archived",
     "deleted": "{name} deleted",
@@ -288,7 +288,7 @@
     "trialTitle": "Did you keep {name}?",
     "yes": "Yes, I kept it",
     "no": "No, I cancelled",
-    "kept": "{name} is now a monthly Subscription ✅",
+    "kept": "{name} is now a monthly Subscription",
     "answerFirst": "Answer the question above first."
   },
   "calendar": {
@@ -367,7 +367,7 @@
     "setUp": "Set up Calendar feed",
     "link": "Your Calendar feed link",
     "copy": "Copy link",
-    "copied": "Link copied ✅",
+    "copied": "Link copied",
     "warning": "Anyone with this link can see your Item names and Due dates. Don’t share it.",
     "guidesTitle": "Add it to your calendar",
     "google": "Google Calendar (on a computer): Other calendars → + → From URL → paste the link.",
@@ -407,7 +407,7 @@
     "emailHint": "We send a link to both addresses. Your current email keeps working until you open both.",
     "emailPending": "Waiting for {email}",
     "emailPendingHint": "Open the links we sent to {old} and {new}. Until then, log in with {old}.",
-    "emailSent": "Links sent ✅",
+    "emailSent": "Links sent",
     "password": "Password",
     "passwordSet": "Set",
     "passwordNone": "Not set",
@@ -416,7 +416,7 @@
     "savePassword": "Save password",
     "addPassword": "Add password",
     "addPasswordHint": "Then you can also log in with your email and this password.",
-    "passwordSaved": "Password saved ✅ Your other devices are logged out.",
+    "passwordSaved": "Password saved. Your other devices are logged out.",
     "google": "Google",
     "googleOn": "Connected",
     "googleOff": "Not connected",

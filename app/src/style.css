@@ -8,6 +8,8 @@
   --c-text: #0f172a;
   --c-muted: #64748b;
   --c-line: #e2e8f0;
+  /* floating things (toasts): a step up from the cards they cover */
+  --c-raised: #ffffff;
   --c-accent: #4f46e5;
   --c-on-accent: #ffffff;
   --c-red: #dc2626;
@@ -28,6 +30,7 @@
     --c-text: #e2e8f0;
     --c-muted: #94a3b8;
     --c-line: #26304a;
+    --c-raised: #1e2640;
     --c-accent: #818cf8;
     --c-on-accent: #0b1020;
     --c-red: #f87171;
@@ -47,6 +50,7 @@
   --color-text: var(--c-text);
   --color-muted: var(--c-muted);
   --color-line: var(--c-line);
+  --color-raised: var(--c-raised);
   --color-accent: var(--c-accent);
   --color-on-accent: var(--c-on-accent);
   --color-urgent-red: var(--c-red);
