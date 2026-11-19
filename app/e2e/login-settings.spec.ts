@@ -89,7 +89,6 @@ test('the copy of my data line says whom to email', async ({ page }) => {
   await logInAsNewPerson(page)
   await openFromAvatar(page, 'Settings')
   const line = page.getByRole('region', { name: 'Copy of my data' })
-  // the Gmail address keeps the old app name for now (external name)
-  await expect(line).toContainText('oopsproof.app@gmail.com')
+  await expect(line).toContainText('oopsforgot.app@gmail.com')
   await expect(line).toContainText('within 30 days')
 })
