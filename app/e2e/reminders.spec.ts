@@ -95,10 +95,18 @@ test('three quick taps on ✓ end up Handled', async ({ page }) => {
   await page.getByLabel('Due date').fill(await inDays(page, 5))
   await page.getByRole('button', { name: 'Save' }).click()
   const tick = page.getByRole('listitem').filter({ hasText: 'Phone bill' }).getByRole('button').nth(1)
+  // the three saves go out one after another; reload only once all have reached the server
+  let saved = 0
+  const allSaved = new Promise<void>((done) =>
+    page.on('response', (r) => {
+      if (r.request().method() === 'PATCH' && r.url().includes('/rest/v1/items') && ++saved === 3) done()
+    }),
+  )
   await tick.click()
   await tick.click()
   await tick.click()
   await expect(page.getByRole('listitem').filter({ hasText: 'Phone bill' })).toContainText('Handled')
+  await allSaved
   await page.reload()
   await expect(page.getByRole('listitem').filter({ hasText: 'Phone bill' })).toContainText('Handled')
 })
