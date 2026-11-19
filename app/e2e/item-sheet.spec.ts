@@ -156,3 +156,37 @@ test('a Reminder link opened while logged out opens its Item after logging in', 
   await page.getByRole('button', { name: 'Log in' }).click()
   await expect(page.getByRole('dialog', { name: 'Gym' })).toBeVisible()
 })
+
+test('an opened line and its editor share one darker block', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await addGym(page)
+  await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
+  const sheet = page.getByRole('dialog', { name: 'Gym' })
+  const line = sheet.getByRole('button', { name: /^Notes/ })
+  await line.click()
+  await expect(line).toHaveAttribute('aria-expanded', 'true')
+  await expect(sheet.getByLabel('Notes')).toBeVisible()
+
+  const look = await line.evaluate((button) => {
+    const block = button.parentElement!
+    const editor = block.lastElementChild!
+    const page = getComputedStyle(document.body).backgroundColor
+    return {
+      block: getComputedStyle(block).backgroundColor,
+      page,
+      editorInside: block.contains(editor) && editor !== button,
+      editorBottom: editor.getBoundingClientRect().bottom,
+      blockBottom: block.getBoundingClientRect().bottom,
+    }
+  })
+  expect(look.block).toBe(look.page)
+  expect(look.editorInside).toBe(true)
+  expect(look.blockBottom).toBeGreaterThanOrEqual(look.editorBottom)
+
+  // a closed line has no block
+  await line.click()
+  await expect(line).toHaveAttribute('aria-expanded', 'false')
+  await expect
+    .poll(() => line.evaluate((b) => getComputedStyle(b.parentElement!).backgroundColor))
+    .toBe('rgba(0, 0, 0, 0)')
+})
