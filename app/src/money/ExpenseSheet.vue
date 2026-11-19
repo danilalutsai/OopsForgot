@@ -152,7 +152,14 @@ async function confirmDelete() {
           />
           <label class="flex flex-col gap-1 text-sm">
             <span class="font-medium">{{ $t('money.sheet.date') }}</span>
-            <input v-model="date" type="date" :min="minDate" :max="today" :class="INPUT" />
+            <input
+              v-model="date"
+              type="date"
+              :data-empty="!date || undefined"
+              :min="minDate"
+              :max="today"
+              :class="INPUT"
+            />
           </label>
           <p v-if="expense?.item_id && expense.item_name" class="rounded-xl bg-bg p-3 text-sm">
             {{ $t('money.fromItem', { name: expense.item_name }) }}

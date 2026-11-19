@@ -89,6 +89,22 @@ body {
   @apply bg-bg font-sans text-text antialiased;
 }
 
+/* Touch screens (iOS Safari above all) fill an empty date or time field with a grey example
+   value, so it looks filled in. Mark such fields data-empty and show them blank instead.
+   Not on computers: there the date is typed piece by piece, and the pieces must stay visible. */
+@media (pointer: coarse) {
+  input:is([type='date'], [type='time'])[data-empty] {
+    color: transparent;
+  }
+}
+/* iOS lets an empty date or time field shrink and centres its value; keep it like the others */
+input:is([type='date'], [type='time']) {
+  min-height: 2.875rem;
+}
+input:is([type='date'], [type='time'])::-webkit-date-and-time-value {
+  text-align: left;
+}
+
 /* Selects draw their own arrow, set in from the right edge like the other inputs' icons. */
 select {
   appearance: none;

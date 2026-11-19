@@ -23,7 +23,14 @@ const daysAgo = computed(() => {
       <h3 class="font-semibold">{{ $t('questions.expiredTitle', { days: daysAgo }, daysAgo) }}</h3>
       <div class="mt-3 flex flex-col gap-3 text-text">
         <div class="flex gap-2">
-          <input v-model="newDate" type="date" :min="today" :aria-label="$t('questions.newDueDate')" :class="INPUT" />
+          <input
+            v-model="newDate"
+            type="date"
+            :data-empty="!newDate || undefined"
+            :min="today"
+            :aria-label="$t('questions.newDueDate')"
+            :class="INPUT"
+          />
           <button
             type="button"
             class="shrink-0 rounded-xl bg-accent px-3 font-semibold text-on-accent disabled:opacity-40"
