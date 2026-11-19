@@ -125,11 +125,11 @@ async function save() {
           </label>
           <CategoryChips v-model="category" :legend="$t('itemForm.category')" name="add-category" />
           <div class="grid grid-cols-2 gap-3">
-            <label class="flex flex-col gap-1 text-sm">
+            <label class="flex min-w-0 flex-col gap-1 text-sm">
               <span class="font-medium">{{ $t('itemForm.dueDate') }}</span>
               <input v-model="dueDate" type="date" :data-empty="!dueDate || undefined" :class="input" />
             </label>
-            <label class="flex flex-col gap-1 text-sm">
+            <label class="flex min-w-0 flex-col gap-1 text-sm">
               <span class="font-medium">{{ $t('itemForm.time') }}</span>
               <input v-model="dueTime" type="time" :data-empty="!dueTime || undefined" :class="input" />
             </label>
