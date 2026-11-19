@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { logInAsNewGooglePerson } from './people'
+import { logInAsNewGooglePerson, openFromAvatar } from './people'
 
 test('signup and login offer Google', async ({ page }) => {
   for (const path of ['/signup', '/login']) {
@@ -33,7 +33,7 @@ test('a Google-only account deletes without a password', async ({ page }) => {
   await logInAsNewGooglePerson(page)
   await page.getByLabel('I am 16 or older').check()
   await page.getByRole('button', { name: 'Continue' }).click()
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await openFromAvatar(page, 'Account')
   await page.getByRole('button', { name: 'Delete account' }).click()
   const ask = page.getByRole('alertdialog', { name: 'Delete your account?' })
   await expect(ask.getByLabel('Your password')).toHaveCount(0)

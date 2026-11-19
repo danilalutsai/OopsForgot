@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { logInAsNewPerson } from './people'
+import { logInAsNewPerson, openFromAvatar } from './people'
 
 test('set up, reset and turn off the Calendar feed', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await openFromAvatar(page, 'Settings')
   const line = page.getByRole('button', { name: /^Calendar feed/ })
   await expect(line).toContainText('Off')
   await line.click()

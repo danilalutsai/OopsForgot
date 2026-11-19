@@ -7,6 +7,7 @@ export const router = createRouter({
   routes: [
     { path: '/', name: 'items', component: ItemsView },
     { path: '/money', name: 'money', component: () => import('./views/MoneyView.vue') },
+    { path: '/account', name: 'account', component: () => import('./views/AccountView.vue') },
     { path: '/settings', name: 'settings', component: () => import('./views/SettingsView.vue') },
     { path: '/signup', name: 'signup', component: () => import('./views/auth/SignUpView.vue'), meta: { public: true } },
     { path: '/login', name: 'login', component: () => import('./views/auth/LogInView.vue'), meta: { public: true } },

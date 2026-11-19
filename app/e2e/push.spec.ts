@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { logInAsNewPerson } from './people'
+import { logInAsNewPerson, openFromAvatar } from './people'
 
 // Real push services aren't reachable from tests: the browser's permission prompt and
 // push subscription are stood in for, everything else (saving the device, the screens) is real.
@@ -22,10 +22,10 @@ async function fakePush(page: import('@playwright/test').Page) {
   })
 }
 
-test('with no device getting push, the app says so and the gear shows a dot', async ({ page }) => {
+test('with no device getting push, the app says so and the avatar shows a dot', async ({ page }) => {
   await logInAsNewPerson(page)
   await expect(page.getByText('Push is off, so Reminders can’t reach you yet.')).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Settings' }).locator('span')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Account menu/ }).getByTitle('Needs your attention')).toBeVisible()
 })
 
 test('turn on push on this device, then remove it', async ({ page }, info) => {
@@ -50,7 +50,7 @@ test('turn on push on this device, then remove it', async ({ page }, info) => {
 test('an iPhone not added to the Home Screen gets the steps instead', async ({ page }, info) => {
   test.skip(info.project.name !== 'phone-webkit', 'iPhone only')
   await logInAsNewPerson(page)
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await openFromAvatar(page, 'Settings')
   await page.getByRole('button', { name: /^Push/ }).click()
   await expect(page.getByRole('heading', { name: 'On iPhone, add OopsProof to your Home Screen first' })).toBeVisible()
   await expect(page.getByText('Choose “Add to Home Screen”.')).toBeVisible()

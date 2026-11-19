@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { logInAsNewPerson } from './people'
+import { logInAsNewPerson, openFromAvatar } from './people'
 
 test('delete the account: password and DELETE, then everything is gone', async ({ page }) => {
   const person = await logInAsNewPerson(page)
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await openFromAvatar(page, 'Account')
   await page.getByRole('button', { name: 'Delete account' }).click()
   const ask = page.getByRole('alertdialog', { name: 'Delete your account?' })
   await expectAccessible(page)
