@@ -10,6 +10,7 @@ import { browserTimeZone, useAuth } from '../stores/auth'
 import { useProfileSave } from '../settings/profileSave'
 import PageHeader from '../components/PageHeader.vue'
 import { dayReminderTime } from '../today'
+import { setTheme, theme, THEMES } from '../theme'
 import PushSettings from '../push/PushSettings.vue'
 import CalendarFeed from '../settings/CalendarFeed.vue'
 import { CONTACT_EMAIL } from '../contact'
@@ -151,6 +152,34 @@ const lines = {
       >
         <option v-for="c in currencies" :key="c" :value="c">{{ c }}</option>
       </select>
+    </SheetLine>
+
+    <h2 :class="SECTION_TITLE">{{ $t('settings.sections.appearance') }}</h2>
+    <SheetLine
+      :label="$t('settings.theme')"
+      :value="$t(`settings.themes.${theme}`)"
+      :open="openLine === 'theme'"
+      @toggle="toggle('theme')"
+    >
+      <fieldset class="flex gap-2">
+        <legend class="sr-only">{{ $t('settings.theme') }}</legend>
+        <label
+          v-for="choice in THEMES"
+          :key="choice"
+          class="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-line bg-surface py-2 font-medium has-[:checked]:border-accent has-[:checked]:text-accent has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent"
+        >
+          <input
+            type="radio"
+            name="theme"
+            class="sr-only"
+            :value="choice"
+            :checked="theme === choice"
+            @change="setTheme(choice)"
+          />
+          {{ $t(`settings.themes.${choice}`) }}
+        </label>
+      </fieldset>
+      <p class="mt-2 text-sm text-muted">{{ $t('settings.themeHint') }}</p>
     </SheetLine>
 
     <h2 :class="SECTION_TITLE">{{ $t('settings.sections.privacy') }}</h2>
