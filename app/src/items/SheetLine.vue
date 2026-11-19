@@ -6,14 +6,12 @@ defineEmits<{ toggle: [] }>()
 </script>
 
 <template>
-  <div>
+  <!-- an opened line and its editor sit together on one darker block -->
+  <div :class="['rounded-xl', open && 'bg-bg']">
     <button
       type="button"
       :aria-expanded="open"
-      :class="[
-        'flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left hover:bg-bg',
-        open && 'bg-bg',
-      ]"
+      class="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left hover:bg-bg"
       @click="$emit('toggle')"
     >
       <span class="text-muted">{{ label }}</span>
