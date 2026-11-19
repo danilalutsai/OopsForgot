@@ -67,3 +67,17 @@ test('add and remove a profile photo', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Add photo' })).toBeVisible()
   await expect(page.locator('img')).toHaveCount(0)
 })
+
+test('section titles stand out: main text colour, bold', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await page.getByRole('link', { name: 'Settings' }).click()
+  for (const name of ['Reminders', 'Calendar', 'Money', 'Privacy']) {
+    const title = page.getByRole('heading', { name, exact: true })
+    const look = await title.evaluate((el) => {
+      const s = getComputedStyle(el)
+      return { color: s.color, weight: Number(s.fontWeight), text: getComputedStyle(document.body).color }
+    })
+    expect(look.color, name).toBe(look.text)
+    expect(look.weight, name).toBeGreaterThanOrEqual(700)
+  }
+})

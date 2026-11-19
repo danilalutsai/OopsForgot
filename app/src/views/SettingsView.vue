@@ -4,7 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatTime } from '../format'
 import SheetLine from '../items/SheetLine.vue'
-import { INPUT } from '../items/ui'
+import { INPUT, SECTION_TITLE } from '../items/ui'
 import { removePhoto, squarePhoto, uploadPhoto } from '../settings/photo'
 import { keepSavedTimeZone, timeZoneDiffers } from '../settings/timeZoneCheck'
 import { browserTimeZone, type Profile, useAuth } from '../stores/auth'
@@ -118,7 +118,6 @@ const lines = {
   currency: () => profile.value?.currency ?? '',
   profile: () => (profile.value ? `${profile.value.name} ${profile.value.surname}` : ''),
 }
-const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-muted uppercase'
 </script>
 
 <template>
@@ -154,7 +153,7 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
       {{ $t(error) }}
     </p>
 
-    <h2 :class="heading">{{ $t('settings.sections.reminders') }}</h2>
+    <h2 :class="SECTION_TITLE">{{ $t('settings.sections.reminders') }}</h2>
     <SheetLine :label="$t('push.section')" :value="lines.push()" :open="openLine === 'push'" @toggle="toggle('push')">
       <PushSettings />
     </SheetLine>
@@ -201,7 +200,7 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
       <p class="mt-2 text-sm text-muted">{{ $t('settings.timeZoneHint', { here }) }}</p>
     </SheetLine>
 
-    <h2 :class="heading">{{ $t('calendarFeed.section') }}</h2>
+    <h2 :class="SECTION_TITLE">{{ $t('calendarFeed.section') }}</h2>
     <SheetLine
       :label="$t('calendarFeed.line')"
       :value="profile.calendar_token ? $t('calendarFeed.on') : $t('calendarFeed.off')"
@@ -211,7 +210,7 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
       <CalendarFeed />
     </SheetLine>
 
-    <h2 :class="heading">{{ $t('settings.sections.money') }}</h2>
+    <h2 :class="SECTION_TITLE">{{ $t('settings.sections.money') }}</h2>
     <SheetLine
       :label="$t('settings.currency')"
       :value="lines.currency()"
@@ -230,7 +229,7 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
       </select>
     </SheetLine>
 
-    <h2 :class="heading">{{ $t('settings.sections.account') }}</h2>
+    <h2 :class="SECTION_TITLE">{{ $t('settings.sections.account') }}</h2>
     <SheetLine
       :label="$t('settings.profile')"
       :value="lines.profile()"
@@ -281,7 +280,7 @@ const heading = 'px-3 pt-6 pb-1 text-[13px] font-semibold tracking-wide text-mut
     <LoginSettings :open-line="openLine" @toggle="toggle" />
     <DeleteAccount />
 
-    <h2 :class="heading">{{ $t('settings.sections.privacy') }}</h2>
+    <h2 :class="SECTION_TITLE">{{ $t('settings.sections.privacy') }}</h2>
     <RouterLink to="/privacy" class="flex justify-between rounded-xl px-3 py-3 hover:bg-bg">
       <span>{{ $t('settings.privacyNotice') }}</span><span class="text-muted" aria-hidden="true">›</span>
     </RouterLink>
