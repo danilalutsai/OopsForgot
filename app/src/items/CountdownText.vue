@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Countdown } from '@oopsproof/shared'
+import type { Countdown } from '@oopsforgot/shared'
 
 defineProps<{ countdown: Countdown }>()
 </script>

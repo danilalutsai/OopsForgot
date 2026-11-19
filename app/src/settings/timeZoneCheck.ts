@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { browserTimeZone, useAuth } from '../stores/auth'
 
 // "Keep old" is remembered per browser time zone, so the question comes back only after another move.
-const KEEP_KEY = 'oopsproof.keepTimeZone'
+const KEEP_KEY = 'oopsforgot.keepTimeZone'
 const kept = ref(read())
 
 function read(): string | null {

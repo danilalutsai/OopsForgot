@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
-import { initials as initialsOf } from '@oopsproof/shared'
+import { initials as initialsOf } from '@oopsforgot/shared'
 import { computed, ref, watch } from 'vue'
 import { online } from '../online'
 import { keepOfflineCopyFor, restored, wipeOfflineCopy } from '../query'
@@ -29,7 +29,7 @@ const PROFILE_COLUMNS =
   'name, surname, time_zone, currency, day_reminder_time, photo_path, calendar_token, confirmed_16_plus_at'
 
 /** The profile is saved on the device next to the offline copy, so dates and money stay right offline. */
-const PROFILE_KEY = 'oopsproof-profile'
+const PROFILE_KEY = 'oopsforgot-profile'
 
 function savedProfile(userId: string): Profile | null {
   try {
@@ -91,7 +91,7 @@ export const useAuth = defineStore('auth', () => {
    * Told to the server at most once a day per person.
    */
   async function noteActivity(userId: string) {
-    const key = `oopsproof-active-${userId}`
+    const key = `oopsforgot-active-${userId}`
     const day = new Date().toISOString().slice(0, 10)
     try {
       if (localStorage.getItem(key) === day) return

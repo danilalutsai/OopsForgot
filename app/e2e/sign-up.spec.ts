@@ -38,7 +38,7 @@ test('signup is refused without the 16+ confirmation', async ({ page }) => {
   await page.getByLabel('Email').fill(`young.${crypto.randomUUID()}@example.test`)
   await page.getByLabel('Password').fill('correct-horse-battery')
   await page.getByRole('button', { name: 'Sign up' }).click()
-  await expect(page.getByRole('alert')).toHaveText('OopsProof is for people 16 or older.')
+  await expect(page.getByRole('alert')).toHaveText('OopsForgot is for people 16 or older.')
 })
 
 test('a forgotten password can be reset by email', async ({ page }) => {

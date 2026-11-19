@@ -6,7 +6,7 @@ import {
   openQuestion,
   type Recurrence,
   type ReminderOffset,
-} from '@oopsproof/shared'
+} from '@oopsforgot/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { supabase } from '../supabase'
 

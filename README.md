@@ -1,6 +1,6 @@
-# OopsProof
+# OopsForgot
 
-OopsProof: never miss an expiry, renewal or payment date. Track document expiries, card expiry dates, free trials, subscriptions and bills, get Reminders before they're due, follow them in your calendar, and see monthly spending by Category.
+OopsForgot: never miss an expiry, renewal or payment date. Track document expiries, card expiry dates, free trials, subscriptions and bills, get Reminders before they're due, follow them in your calendar, and see monthly spending by Category.
 
 ## Run it locally
 
@@ -33,8 +33,10 @@ Every push to `main` that passes the checks deploys (the `deploy` job in `.githu
 1. an encrypted backup first, in the private `oopsproof-backups` repo (restore steps: its `RESTORE.md`)
 2. database migrations (`supabase db push`, over IPv4 through the pooler: `scripts/pooler-url.sh`)
 3. Edge Functions
-4. the web app to Cloudflare Pages: https://oopsproof.pages.dev
+4. the web app to Cloudflare Pages: https://oopsforgot.pages.dev (the address lives in one place: `shared/src/app-url.ts`)
 5. a live check of the app and the functions
+
+The GitHub repos (`OopsProof`, `oopsproof-backups`) and the Gmail address (`oopsproof.app@gmail.com`) keep the old app name for now.
 
 Secret values live in the owner's password manager and in these places only, never in the repo:
 

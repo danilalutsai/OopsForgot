@@ -8,7 +8,7 @@ import {
   type Recurrence,
   type ReminderOffset,
   REMINDER_OFFSETS,
-} from '@oopsproof/shared'
+} from '@oopsforgot/shared'
 import { gsap } from 'gsap'
 import {
   AlertDialogAction,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Recurrence } from '@oopsproof/shared'
+import type { Recurrence } from '@oopsforgot/shared'
 import { computed, ref, watch } from 'vue'
 import { INPUT } from './ui'
 

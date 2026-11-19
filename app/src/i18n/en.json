@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "oopsproof"
+    "name": "oopsforgot"
   },
   "nav": {
     "main": "Main",
@@ -122,7 +122,7 @@
       "taken": "An account already uses this email. Try logging in.",
       "weakPassword": "Use at least 8 characters.",
       "required": "Please fill in every field.",
-      "age": "OopsProof is for people 16 or older.",
+      "age": "OopsForgot is for people 16 or older.",
       "google": "Could not reach Google. Check your connection and try again."
     },
     "linkExpiredTitle": "This link no longer works",
@@ -139,8 +139,8 @@
   "privacy": {
     "title": "Privacy notice",
     "updated": "Last updated 17 November 2026",
-    "whoTitle": "Who runs OopsProof",
-    "who": "OopsProof is a free personal project run by {owner}. Questions or requests: {contact}.",
+    "whoTitle": "Who runs OopsForgot",
+    "who": "OopsForgot is a free personal project run by {owner}. Questions or requests: {contact}.",
     "whatTitle": "What we store",
     "what": "Your email, Name, Surname, profile photo if you add one, time zone, currency, your Items, Reminders, Expenses and the devices you allow to get push. We never ask for full card or document numbers.",
     "whyTitle": "Why",
@@ -343,14 +343,14 @@
     "thisDevice": "This device",
     "turnOn": "Turn on here",
     "turnOnHint": "Get Reminders on this device as notifications.",
-    "denied": "Notifications are blocked for OopsProof in this browser. Allow them in the browser settings, then try again.",
+    "denied": "Notifications are blocked for OopsForgot in this browser. Allow them in the browser settings, then try again.",
     "notSetUp": "Push isn’t set up on this copy of the app yet.",
     "unsupported": "This browser can’t show push notifications. Try Chrome, Edge, Firefox or Safari.",
-    "iphoneTitle": "On iPhone, add OopsProof to your Home Screen first",
+    "iphoneTitle": "On iPhone, add OopsForgot to your Home Screen first",
     "iphoneSteps": [
       "Tap the Share button at the bottom of Safari.",
       "Choose “Add to Home Screen”.",
-      "Open OopsProof from your Home Screen and turn on push in Settings."
+      "Open OopsForgot from your Home Screen and turn on push in Settings."
     ],
     "iphoneLater": "Until then, Reminders can’t reach this iPhone.",
     "offBanner": "Push is off, so Reminders can’t reach you yet.",
@@ -440,7 +440,7 @@
     "logOutEverywhereYes": "Log out everywhere",
     "cancel": "Cancel",
     "copyTitle": "Copy of my data",
-    "copyBody": "Email {contact} and you will get a copy of everything OopsProof keeps about you within 30 days.",
+    "copyBody": "Email {contact} and you will get a copy of everything OopsForgot keeps about you within 30 days.",
     "errors": {
       "email": "Type a whole email address.",
       "failed": "Could not save. Check your connection and try again.",

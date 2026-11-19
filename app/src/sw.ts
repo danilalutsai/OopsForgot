@@ -23,12 +23,12 @@ interface PushMessage {
 }
 
 self.addEventListener('push', (event) => {
-  let message: PushMessage = { title: 'OopsProof' }
+  let message: PushMessage = { title: 'OopsForgot' }
   try {
     message = event.data?.json() ?? message
   } catch {
     // a push must always show something
-    message = { title: 'OopsProof', body: event.data?.text() }
+    message = { title: 'OopsForgot', body: event.data?.text() }
   }
   event.waitUntil(
     self.registration.showNotification(message.title, {

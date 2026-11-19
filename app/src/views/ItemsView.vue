@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CATEGORY_ICONS, dashboardGroup, type DashboardGroup } from '@oopsproof/shared'
+import { CATEGORY_ICONS, dashboardGroup, type DashboardGroup } from '@oopsforgot/shared'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'

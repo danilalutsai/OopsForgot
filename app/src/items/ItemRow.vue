@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CATEGORY_ICONS, countdown, type OpenQuestion, urgency } from '@oopsproof/shared'
+import { CATEGORY_ICONS, countdown, type OpenQuestion, urgency } from '@oopsforgot/shared'
 import { gsap } from 'gsap'
 import { computed, ref } from 'vue'
 import { formatDate, formatMoney, formatTime } from '../format'

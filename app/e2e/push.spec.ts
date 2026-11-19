@@ -52,7 +52,7 @@ test('an iPhone not added to the Home Screen gets the steps instead', async ({ p
   await logInAsNewPerson(page)
   await openFromAvatar(page, 'Settings')
   await page.getByRole('button', { name: /^Push/ }).click()
-  await expect(page.getByRole('heading', { name: 'On iPhone, add OopsProof to your Home Screen first' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'On iPhone, add OopsForgot to your Home Screen first' })).toBeVisible()
   await expect(page.getByText('Choose “Add to Home Screen”.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Turn on here' })).toHaveCount(0)
 })

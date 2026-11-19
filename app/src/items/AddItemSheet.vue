@@ -6,7 +6,7 @@ import {
   parseAmount,
   type Recurrence,
   type ReminderOffset,
-} from '@oopsproof/shared'
+} from '@oopsforgot/shared'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { blockedOffline } from '../online'

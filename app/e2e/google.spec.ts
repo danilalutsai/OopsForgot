@@ -19,7 +19,7 @@ test('after a Google signup: check the names, confirm 16+, then the app opens', 
 
   await page.getByLabel('Surname').fill('Sarkisian')
   await page.getByRole('button', { name: 'Continue' }).click()
-  await expect(page.getByRole('alert')).toHaveText('OopsProof is for people 16 or older.')
+  await expect(page.getByRole('alert')).toHaveText('OopsForgot is for people 16 or older.')
   await page.getByLabel('I am 16 or older').check()
   await page.getByRole('button', { name: 'Continue' }).click()
   // back to where they were going

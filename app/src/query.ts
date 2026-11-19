@@ -16,9 +16,9 @@ export const queryClient = new QueryClient({
 // The saved copy for offline use lives in IndexedDB on this device, for one person at a time.
 const persister = createAsyncStoragePersister({
   storage: { getItem: (k) => get(k), setItem: (k, v) => set(k, v), removeItem: (k) => del(k) },
-  key: 'oopsproof-offline-copy',
+  key: 'oopsforgot-offline-copy',
 })
-const OWNER_KEY = 'oopsproof-offline-owner'
+const OWNER_KEY = 'oopsforgot-offline-owner'
 
 const [, restore] = persistQueryClient({ queryClient, persister, maxAge: 1000 * 60 * 60 * 24 * 7 })
 /** Resolves once the saved copy (if any) is back in the cache. */

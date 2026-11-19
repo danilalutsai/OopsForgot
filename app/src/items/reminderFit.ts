@@ -1,4 +1,4 @@
-import { DEFAULT_REMINDERS, type Recurrence, type ReminderOffset, reminderChoices } from '@oopsproof/shared'
+import { DEFAULT_REMINDERS, type Recurrence, type ReminderOffset, reminderChoices } from '@oopsforgot/shared'
 import { dayReminderTime, nowLocal, today } from '../today'
 
 interface FitItem {

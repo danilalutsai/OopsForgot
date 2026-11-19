@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CATEGORIES, CATEGORY_ICONS, type Category } from '@oopsproof/shared'
+import { CATEGORIES, CATEGORY_ICONS, type Category } from '@oopsforgot/shared'
 
 withDefaults(defineProps<{ legend: string; name: string; options?: readonly Category[] }>(), {
   options: () => CATEGORIES,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Category } from '@oopsproof/shared'
+import type { Category } from '@oopsforgot/shared'
 import { computed } from 'vue'
 import { CATEGORY_COLORS } from './colors'
 

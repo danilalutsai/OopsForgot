@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CATEGORIES, type Category, parseAmount } from '@oopsproof/shared'
+import { CATEGORIES, type Category, parseAmount } from '@oopsforgot/shared'
 import {
   AlertDialogAction,
   AlertDialogCancel,

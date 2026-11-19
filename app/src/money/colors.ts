@@ -1,4 +1,4 @@
-import type { Category } from '@oopsproof/shared'
+import type { Category } from '@oopsforgot/shared'
 
 /** One colour per Category for the ring and chips; distinct in light and dark, never relied on alone. */
 export const CATEGORY_COLORS: Record<Category, string> = {

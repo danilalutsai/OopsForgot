@@ -65,7 +65,7 @@ jobs:
           done
           cat functions.log; exit 1
       - run: cp .env.example .env.local
-      - run: pnpm --filter @oopsproof/app exec playwright install --with-deps chromium webkit
+      - run: pnpm --filter @oopsforgot/app exec playwright install --with-deps chromium webkit
       - run: pnpm test:e2e
       - name: Keep the failure traces
         if: failure()
@@ -129,11 +129,14 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm dlx wrangler@4.164.0 pages deploy app/dist --project-name oopsproof --branch main --commit-dirty=true
+        run: pnpm dlx wrangler@4.164.0 pages deploy app/dist --project-name oopsforgot --branch main --commit-dirty=true
 
       - name: Check the live app
         run: |
-          curl -fsS https://oopsproof.pages.dev/ | grep -q '<div id="app">'
+          # the address lives in one place: shared/src/app-url.ts
+          app_url=$(sed -n "s/^export const APP_URL = '\(.*\)'$/\1/p" shared/src/app-url.ts)
+          test -n "$app_url"
+          curl -fsS "$app_url/" | grep -q '<div id="app">'
           curl -fsS -X POST "${{ vars.SUPABASE_URL }}/rest/v1/rpc/keep_alive" \
             -H "apikey: ${{ vars.SUPABASE_ANON_KEY }}" -H "Content-Type: application/json" -d '{}'
           # the Edge Functions answer: the sender refuses strangers, the feed refuses bad links

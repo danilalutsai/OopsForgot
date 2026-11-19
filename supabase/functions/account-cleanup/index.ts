@@ -2,7 +2,7 @@
 // 12 months without use. An account is never deleted unless both warnings really went out, and
 // never if it was used since this run read it.
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0'
-import { unusedAccountStep, type UsageState } from '../../../shared/src/index.ts'
+import { APP_URL as DEFAULT_APP_URL, unusedAccountStep, type UsageState } from '../../../shared/src/index.ts'
 import { deleteAccount } from '../_shared/deleteAccount.ts'
 import { sendMail } from '../_shared/mail.ts'
 import { allRows, type Row } from '../_shared/rows.ts'
@@ -11,7 +11,7 @@ import { isServerCaller } from '../_shared/serverCaller.ts'
 const env = (name: string) => Deno.env.get(name) ?? ''
 const SERVICE_KEY = env('SUPABASE_SERVICE_ROLE_KEY')
 const testing = env('REMINDERS_TEST_MODE') === '1'
-const APP_URL = env('APP_URL') || 'https://oopsproof.pages.dev'
+const APP_URL = env('APP_URL') || DEFAULT_APP_URL
 const admin = createClient(env('SUPABASE_URL'), SERVICE_KEY, { auth: { persistSession: false } })
 const COLUMNS = 'id, name, last_active_at, warned_30_at, warned_7_at'
 
@@ -23,15 +23,15 @@ const usage = (p: Row): UsageState => ({
 
 function warning(name: string, days: 30 | 7) {
   return {
-    subject: `Your OopsProof account will be deleted in ${days} days`,
+    subject: `Your OopsForgot account will be deleted in ${days} days`,
     text: [
       `Hi ${name},`,
       '',
-      `You haven't used OopsProof for almost a year, so your account and everything in it will be deleted in ${days} days.`,
+      `You haven't used OopsForgot for almost a year, so your account and everything in it will be deleted in ${days} days.`,
       '',
       `Keep my account: ${APP_URL}/?keep=1`,
       '',
-      'Just open the link (or the app) and log in; nothing else is needed. If you no longer need OopsProof, do nothing.',
+      'Just open the link (or the app) and log in; nothing else is needed. If you no longer need OopsForgot, do nothing.',
     ].join('\n'),
   }
 }

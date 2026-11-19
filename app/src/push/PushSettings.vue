@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { formatDate } from '../format'
 import { blockedOffline } from '../online'
 import { useToasts } from '../stores/toasts'
-import { todayIn } from '@oopsproof/shared'
+import { todayIn } from '@oopsforgot/shared'
 import { timeZone, today } from '../today'
 import { pushSupport, thisDeviceEndpoint, useRemoveDevice, usePushDevices, useTurnOnPush } from './devices'
 
