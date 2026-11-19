@@ -5,6 +5,7 @@ import { today } from '../today'
 import { useItemActions } from './actions'
 import type { Item } from './api'
 import { INPUT } from './ui'
+import DateTimeInput from '../components/DateTimeInput.vue'
 
 const props = defineProps<{ item: Item; question: OpenQuestion; disabled: boolean }>()
 defineEmits<{ archive: [] }>()
@@ -23,13 +24,13 @@ const daysAgo = computed(() => {
       <h3 class="font-semibold">{{ $t('questions.expiredTitle', { days: daysAgo }, daysAgo) }}</h3>
       <div class="mt-3 flex flex-col gap-3 text-text">
         <div class="flex gap-2">
-          <input
+          <DateTimeInput
             v-model="newDate"
+            class="flex-1"
             type="date"
-            :data-empty="!newDate || undefined"
             :min="today"
             :aria-label="$t('questions.newDueDate')"
-            :class="INPUT"
+            :placeholder="$t('itemForm.chooseDate')"
           />
           <button
             type="button"

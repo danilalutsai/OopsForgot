@@ -190,3 +190,14 @@ test('an opened line and its editor share one darker block', async ({ page }) =>
     .poll(() => line.evaluate((b) => getComputedStyle(b.parentElement!).backgroundColor))
     .toBe('rgba(0, 0, 0, 0)')
 })
+
+test('the Time row of an Item with no time says so, also when opened', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await addGym(page)
+  await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
+  const sheet = page.getByRole('dialog', { name: 'Gym' })
+  const line = sheet.getByRole('button', { name: /^Time/ })
+  await expect(line).toContainText('No time')
+  await line.click()
+  await expect(sheet.getByText('No time (all day)')).toBeVisible()
+})

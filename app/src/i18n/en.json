@@ -213,7 +213,9 @@
       "year": "year | years"
     },
     "repeatHint": "Each next Due date is counted from this one.",
-    "repeatUnit": "Repeat unit"
+    "repeatUnit": "Repeat unit",
+    "chooseDate": "Choose a date",
+    "noTimeAllDay": "No time (all day)"
   },
   "itemSheet": {
     "unsaved": "Unsaved changes",

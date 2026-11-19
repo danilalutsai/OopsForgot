@@ -82,6 +82,7 @@ test('on a phone, empty date and time fields look empty, not filled with an exam
   const textColor = (field: typeof date) => field.evaluate((el) => getComputedStyle(el).color)
 
   await date.fill('')
+  await date.blur()
   expect(await textColor(date)).toBe('rgba(0, 0, 0, 0)')
   expect(await textColor(time)).toBe('rgba(0, 0, 0, 0)')
   // still a full-height field, like the others
@@ -91,4 +92,27 @@ test('on a phone, empty date and time fields look empty, not filled with an exam
   await time.fill('09:30')
   expect(await textColor(date)).not.toBe('rgba(0, 0, 0, 0)')
   expect(await textColor(time)).not.toBe('rgba(0, 0, 0, 0)')
+})
+
+test('New Item sheet: Due date, then Time, stacked; no time reads "No time (all day)"', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  const sheet = page.getByRole('dialog')
+  const date = (await sheet.getByLabel('Due date').boundingBox())!
+  const time = (await sheet.getByLabel('Time', { exact: true }).boundingBox())!
+  // stacked, same width, Time below Due date
+  expect(time.y).toBeGreaterThanOrEqual(date.y + date.height)
+  expect(Math.abs(time.x - date.x)).toBeLessThan(1)
+  expect(Math.abs(time.width - date.width)).toBeLessThan(1)
+  // the hint sits under Time
+  const hint = (await sheet.getByText('Optional. Needed for Reminders hours before.').boundingBox())!
+  expect(hint.y).toBeGreaterThanOrEqual(time.y + time.height)
+
+  await expect(sheet.getByText('No time (all day)')).toBeVisible()
+  await expect(sheet.getByText('Choose a date')).toBeVisible()
+  await sheet.getByLabel('Due date').fill(await inDays(page, 3))
+  await sheet.getByLabel('Time', { exact: true }).fill('09:30')
+  await sheet.getByLabel('Name').click()
+  await expect(sheet.getByText('No time (all day)')).toBeHidden()
+  await expect(sheet.getByText('Choose a date')).toBeHidden()
 })

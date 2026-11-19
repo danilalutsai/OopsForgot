@@ -23,6 +23,7 @@ import { blockedOffline } from '../online'
 import { useToasts } from '../stores/toasts'
 import { today } from '../today'
 import { type Expense, useAddExpense, useDeleteExpense, useUpdateExpense } from './api'
+import DateTimeInput from '../components/DateTimeInput.vue'
 
 const props = defineProps<{
   /** the Expense to edit, or null to add one */
@@ -152,13 +153,13 @@ async function confirmDelete() {
           />
           <label class="flex flex-col gap-1 text-sm">
             <span class="font-medium">{{ $t('money.sheet.date') }}</span>
-            <input
+            <DateTimeInput
               v-model="date"
               type="date"
-              :data-empty="!date || undefined"
+              :aria-label="$t('money.sheet.date')"
               :min="minDate"
               :max="today"
-              :class="INPUT"
+              :placeholder="$t('itemForm.chooseDate')"
             />
           </label>
           <p v-if="expense?.item_id && expense.item_name" class="rounded-xl bg-bg p-3 text-sm">
