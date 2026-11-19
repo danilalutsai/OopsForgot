@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuth } from './stores/auth'
+// read a failed email link's error from the address before the first redirect drops it
+import './views/auth/errors'
 import ItemsView from './views/ItemsView.vue'
 
 export const router = createRouter({

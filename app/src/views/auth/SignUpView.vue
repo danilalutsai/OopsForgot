@@ -29,7 +29,7 @@ async function submit() {
     surname: surname.value,
   })
   busy.value = false
-  if (failed) error.value = authErrorKey(failed)
+  if (failed) error.value = authErrorKey(failed, { sendsEmail: true })
   else sent.value = true
 }
 </script>

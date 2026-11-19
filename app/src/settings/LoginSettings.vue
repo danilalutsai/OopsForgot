@@ -65,7 +65,7 @@ async function saveEmail() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return (error.value = 'login.errors.email')
   const ok = await run(
     () => auth.changeEmail(email),
-    (e: AuthError) => authErrorKey(e),
+    (e: AuthError) => authErrorKey(e, { sendsEmail: true }),
   )
   if (ok) {
     newEmail.value = ''
