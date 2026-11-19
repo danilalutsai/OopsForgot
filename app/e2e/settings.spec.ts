@@ -79,3 +79,44 @@ test('section titles stand out: main text colour, bold', async ({ page }) => {
     expect(look.weight, name).toBeGreaterThanOrEqual(700)
   }
 })
+
+for (const scheme of ['light', 'dark'] as const)
+  test(`Settings and Account look like the opened Item sheet (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme })
+    await logInAsNewPerson(page)
+    const colours = () =>
+      page.evaluate(() => {
+        const root = getComputedStyle(document.documentElement)
+        const probe = document.createElement('div')
+        document.body.append(probe)
+        const paint = (v: string) => (
+          (probe.style.backgroundColor = root.getPropertyValue(v)),
+          getComputedStyle(probe).backgroundColor
+        )
+        const result = { surface: paint('--c-surface'), dark: paint('--c-bg') }
+        probe.remove()
+        return result
+      })
+    for (const [name, line] of [
+      ['Settings', /^Currency/],
+      ['Account', /^Profile/],
+    ] as const) {
+      await openFromAvatar(page, name)
+      const { surface, dark } = await colours()
+      const heading = page.getByRole('heading', { name, level: 1 })
+      // the page behind the header is the sheet's surface colour
+      const pageColour = await heading.evaluate((el) => {
+        for (let n: Element | null = el; n; n = n.parentElement) {
+          const c = getComputedStyle(n).backgroundColor
+          if (c !== 'rgba(0, 0, 0, 0)') return c
+        }
+        return ''
+      })
+      expect(pageColour, name).toBe(surface)
+      // an opened row is the darker block, as in the Item sheet
+      const row = page.getByRole('button', { name: line })
+      await row.click()
+      await expect(row).toHaveAttribute('aria-expanded', 'true')
+      expect(await row.evaluate((b) => getComputedStyle(b.parentElement!).backgroundColor), name).toBe(dark)
+    }
+  })
