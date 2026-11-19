@@ -173,6 +173,7 @@ const groups = computed(() =>
     </template>
   </div>
 
+
   <!-- room to scroll the last row above the floating + button on phones -->
   <div class="h-28 shrink-0 md:hidden" aria-hidden="true" />
 
