@@ -82,3 +82,25 @@ test('priced Items due later this month show as still coming; tapping one opens 
   await list.getByRole('button', { name: /Gym/ }).click()
   await expect(page.getByRole('dialog', { name: 'Gym' })).toBeVisible()
 })
+
+test('a long Item name in still coming stays on screen instead of widening the page', async ({ page }) => {
+  await logInAsNewPerson(page)
+  const tomorrow = await page.evaluate(() => {
+    const d = new Date()
+    const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+    return t.getMonth() === d.getMonth() ? t.toLocaleDateString('en-CA') : null
+  })
+  test.skip(!tomorrow, 'last day of the month: nothing can still be coming')
+  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByLabel('Name').fill('Gym membership with a very long name that would not fit on a phone screen at all')
+  await page.getByText('Health').click()
+  await page.getByLabel('Due date').fill(tomorrow!)
+  await page.getByLabel('Price').fill('35')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('dialog')).toBeHidden()
+
+  await page.getByRole('link', { name: 'Money' }).filter({ visible: true }).click()
+  await expect(page.getByRole('list', { name: 'Still coming this month' })).toBeVisible()
+  const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+  expect(sideways).toBeLessThanOrEqual(0)
+})
