@@ -72,3 +72,23 @@ test("after Ana logs out, Ben never sees Ana's Items on the same device", async 
   await logInAsNewPerson(page, 'Ben', 'Tester')
   await expect(page.getByText('Ana passport')).toHaveCount(0)
 })
+
+test('on a phone, empty date and time fields look empty, not filled with an example', async ({ page }, info) => {
+  test.skip(!info.project.name.startsWith('phone'), 'touch screens show an example value in empty fields')
+  await logInAsNewPerson(page)
+  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  const date = page.getByLabel('Due date')
+  const time = page.getByLabel('Time', { exact: true })
+  const textColor = (field: typeof date) => field.evaluate((el) => getComputedStyle(el).color)
+
+  await date.fill('')
+  expect(await textColor(date)).toBe('rgba(0, 0, 0, 0)')
+  expect(await textColor(time)).toBe('rgba(0, 0, 0, 0)')
+  // still a full-height field, like the others
+  expect((await date.boundingBox())!.height).toBeGreaterThanOrEqual(40)
+
+  await date.fill(await inDays(page, 3))
+  await time.fill('09:30')
+  expect(await textColor(date)).not.toBe('rgba(0, 0, 0, 0)')
+  expect(await textColor(time)).not.toBe('rgba(0, 0, 0, 0)')
+})

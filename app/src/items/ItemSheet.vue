@@ -393,7 +393,13 @@ const lineText = {
             :open="openLine === 'dueDate'"
             @toggle="toggle('dueDate')"
           >
-            <input v-model="draft.due_date" type="date" :aria-label="$t('itemForm.dueDate')" :class="input" />
+            <input
+              v-model="draft.due_date"
+              type="date"
+              :data-empty="!draft.due_date || undefined"
+              :aria-label="$t('itemForm.dueDate')"
+              :class="input"
+            />
           </SheetLine>
           <SheetLine
             :label="$t('itemForm.time')"
@@ -402,7 +408,13 @@ const lineText = {
             @toggle="toggle('time')"
           >
             <div class="flex gap-2">
-              <input v-model="draft.due_time" type="time" :aria-label="$t('itemForm.time')" :class="input" />
+              <input
+                v-model="draft.due_time"
+                type="time"
+                :data-empty="!draft.due_time || undefined"
+                :aria-label="$t('itemForm.time')"
+                :class="input"
+              />
               <button type="button" class="shrink-0 rounded-xl border border-line px-3" @click="draft.due_time = ''">
                 {{ $t('itemSheet.noTime') }}
               </button>
