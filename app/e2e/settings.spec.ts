@@ -1,11 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { logInAsNewPerson } from './people'
+import { logInAsNewPerson, openFromAvatar } from './people'
 
 test('change the day Reminder time in Settings', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('link', { name: 'Settings' }).click()
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+  await openFromAvatar(page, 'Settings')
   await expectAccessible(page)
 
   const line = page.getByRole('button', { name: /^Day Reminders at/ })
@@ -22,11 +21,10 @@ test('change the day Reminder time in Settings', async ({ page }) => {
   await expect(page.getByLabel('Day Reminders at')).toHaveValue('12:00')
 })
 
-test('a device in another time zone gets an amber gear and an "Update time zone?" question', async ({ page }) => {
+test('a device in another time zone gets an amber dot and an "Update time zone?" question', async ({ page }) => {
   await logInAsNewPerson(page, 'Ana', 'Tester', 'Pacific/Auckland')
-  const gear = page.getByRole('link', { name: 'Settings' })
-  await expect(gear.locator('span')).toBeVisible()
-  await gear.click()
+  await expect(page.getByRole('button', { name: /Account menu/ }).getByTitle('Needs your attention')).toBeVisible()
+  await openFromAvatar(page, 'Settings')
   await expect(page.getByRole('heading', { name: 'Update time zone?' })).toBeVisible()
   await page.getByRole('button', { name: 'Use new' }).click()
   await expect(page.getByRole('heading', { name: 'Update time zone?' })).toBeHidden()
@@ -35,13 +33,13 @@ test('a device in another time zone gets an amber gear and an "Update time zone?
 
 test('change currency and name; the avatar follows', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await openFromAvatar(page, 'Settings')
   await page.getByRole('button', { name: /^Currency/ }).click()
   await expect(page.getByText('Existing amounts are not converted.')).toBeVisible()
   await page.getByLabel('Currency').selectOption('USD')
   await expect(page.getByRole('button', { name: /^Currency/ })).toContainText('USD')
 
-  await page.reload()
+  await openFromAvatar(page, 'Account')
   await page.getByRole('button', { name: /^Profile/ }).click()
   await expect(page.getByLabel('Surname')).toHaveValue('García López')
   await page.getByLabel('Name', { exact: true }).fill('Anna')
@@ -54,7 +52,7 @@ test('change currency and name; the avatar follows', async ({ page }) => {
 
 test('add and remove a profile photo', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await openFromAvatar(page, 'Account')
   await page.getByRole('button', { name: /^Profile/ }).click()
   // any real image will do: a small screenshot of the page itself
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 60, height: 40 } })
@@ -70,7 +68,7 @@ test('add and remove a profile photo', async ({ page }) => {
 
 test('section titles stand out: main text colour, bold', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await openFromAvatar(page, 'Settings')
   for (const name of ['Reminders', 'Calendar', 'Money', 'Privacy']) {
     const title = page.getByRole('heading', { name, exact: true })
     const look = await title.evaluate((el) => {

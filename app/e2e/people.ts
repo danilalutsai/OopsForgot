@@ -108,3 +108,10 @@ export async function connectFakeGoogle(email: string) {
     await db.end()
   }
 }
+
+/** Opens a page from the avatar menu (Account or Settings). */
+export async function openFromAvatar(page: Page, name: 'Account' | 'Settings') {
+  await page.getByRole('button', { name: /Account menu/ }).click()
+  await page.getByRole('menuitem', { name }).click()
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible()
+}

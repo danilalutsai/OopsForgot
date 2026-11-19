@@ -97,7 +97,7 @@ async function savePassword() {
 
 async function googleAgain() {
   await run(
-    () => auth.signInWithGoogle('/settings'),
+    () => auth.signInWithGoogle('/account'),
     () => 'auth.errors.google',
   )
 }

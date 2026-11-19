@@ -249,7 +249,7 @@ export const useAuth = defineStore('auth', () => {
 
   /** Asks for a new email; links go to the old and the new address, and the change waits for both. */
   async function changeEmail(email: string) {
-    const { error } = await supabase.auth.updateUser({ email }, { emailRedirectTo: `${origin()}/settings` })
+    const { error } = await supabase.auth.updateUser({ email }, { emailRedirectTo: `${origin()}/account` })
     if (!error) await keepFreshAccount()
     return error
   }
@@ -277,7 +277,7 @@ export const useAuth = defineStore('auth', () => {
   async function connectGoogle() {
     const { error } = await supabase.auth.linkIdentity({
       provider: 'google',
-      options: { redirectTo: `${origin()}/settings` },
+      options: { redirectTo: `${origin()}/account` },
     })
     return error
   }

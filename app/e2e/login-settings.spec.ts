@@ -1,16 +1,11 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
 import { clearInbox, linkFromEmail } from './inbox'
-import { connectFakeGoogle, logInAsNewGooglePerson, logInAsNewPerson } from './people'
-
-async function openSettings(page: Page) {
-  await page.getByRole('link', { name: 'Settings' }).click()
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
-}
+import { connectFakeGoogle, logInAsNewGooglePerson, logInAsNewPerson, openFromAvatar } from './people'
 
 test('change the password: the current one is checked first', async ({ page }) => {
   const person = await logInAsNewPerson(page)
-  await openSettings(page)
+  await openFromAvatar(page, 'Account')
   await page.getByRole('button', { name: /^Password/ }).click()
   await expectAccessible(page)
   await page.getByLabel('Current password').fill('not-my-password')
@@ -35,7 +30,7 @@ test('change the email: the old one works until both links are opened', async ({
   const person = await logInAsNewPerson(page)
   const newEmail = `ana.new.${crypto.randomUUID()}@example.test`
   await clearInbox(person.email)
-  await openSettings(page)
+  await openFromAvatar(page, 'Account')
   await page.getByRole('button', { name: /^Email/ }).click()
   await page.getByLabel('New email').fill(newEmail)
   await page.getByRole('button', { name: 'Send confirmation links' }).click()
@@ -44,7 +39,7 @@ test('change the email: the old one works until both links are opened', async ({
 
   await page.goto(await linkFromEmail(person.email))
   await page.goto(await linkFromEmail(newEmail))
-  await page.goto('/settings')
+  await page.goto('/account')
   await expect(page.getByRole('button', { name: /^Email/ })).toContainText(newEmail)
 })
 
@@ -52,7 +47,7 @@ test('a Google-only person adds a password; Google stays their way in', async ({
   await logInAsNewGooglePerson(page)
   await page.getByLabel('I am 16 or older').check()
   await page.getByRole('button', { name: 'Continue' }).click()
-  await openSettings(page)
+  await openFromAvatar(page, 'Account')
   await expect(page.getByRole('button', { name: /^Password/ })).toContainText('Not set')
   await page.getByRole('button', { name: /^Password/ }).click()
   await expect(page.getByLabel('Current password')).toHaveCount(0)
@@ -69,7 +64,7 @@ test('a Google-only person adds a password; Google stays their way in', async ({
 test('someone with a password who connected Google can disconnect it', async ({ page }) => {
   const person = await logInAsNewPerson(page)
   await connectFakeGoogle(person.email)
-  await page.goto('/settings')
+  await page.goto('/account')
   await expect(page.getByRole('button', { name: /^Google/ })).toContainText('Connected')
   await page.getByRole('button', { name: /^Google/ }).click()
   await page.getByRole('button', { name: 'Disconnect Google' }).click()
@@ -80,19 +75,19 @@ test('someone with a password who connected Google can disconnect it', async ({ 
 
 test('log out everywhere ends this session too', async ({ page }) => {
   await logInAsNewPerson(page)
-  await openSettings(page)
+  await openFromAvatar(page, 'Account')
   await page.getByRole('button', { name: 'Log out everywhere' }).click()
   const ask = page.getByRole('alertdialog', { name: 'Log out everywhere?' })
   await expectAccessible(page)
   await ask.getByRole('button', { name: 'Log out everywhere' }).click()
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
-  await page.goto('/settings')
+  await page.goto('/account')
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
 })
 
 test('the copy of my data line says whom to email', async ({ page }) => {
   await logInAsNewPerson(page)
-  await openSettings(page)
+  await openFromAvatar(page, 'Settings')
   const line = page.getByRole('region', { name: 'Copy of my data' })
   await expect(line).toContainText('oopsproof.app@gmail.com')
   await expect(line).toContainText('within 30 days')
