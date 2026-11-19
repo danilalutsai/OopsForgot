@@ -36,7 +36,7 @@ Every push to `main` that passes the checks deploys (the `deploy` job in `.githu
 4. the web app to Cloudflare Pages: https://oopsforgot.pages.dev (the address lives in one place: `shared/src/app-url.ts`)
 5. a live check of the app and the functions
 
-The GitHub repos (`OopsProof`, `oopsproof-backups`) and the Gmail address (`oopsproof.app@gmail.com`) keep the old app name for now.
+The GitHub repos (`OopsProof`, `oopsproof-backups`) keep the old app name for now. The app's Gmail is `oopsforgot.app@gmail.com`.
 
 Secret values live in the owner's password manager and in these places only, never in the repo:
 
