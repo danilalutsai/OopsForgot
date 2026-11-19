@@ -1,10 +1,16 @@
 // Calendar feed: calendar apps fetch it with the secret token in the link. No login, no other key.
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0'
-import { calendarFeed, type FeedItem, todayIn, usableTimeZone } from '../../../shared/src/index.ts'
+import {
+  APP_URL as DEFAULT_APP_URL,
+  calendarFeed,
+  type FeedItem,
+  todayIn,
+  usableTimeZone,
+} from '../../../shared/src/index.ts'
 
 const env = (name: string) => Deno.env.get(name) ?? ''
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
-const APP_URL = env('APP_URL') || 'https://oopsproof.pages.dev'
+const APP_URL = env('APP_URL') || DEFAULT_APP_URL
 
 Deno.serve(async (req) => {
   const token = new URL(req.url).searchParams.get('token') ?? ''
@@ -28,7 +34,7 @@ Deno.serve(async (req) => {
   if (error) return new Response('Try again later', { status: 503 })
 
   const timeZone = usableTimeZone(person.time_zone)
-  // a calendar app reading the feed means the person still relies on OopsProof: that counts as
+  // a calendar app reading the feed means the person still relies on OopsForgot: that counts as
   // use for unused-account clean-up (written at most once a day)
   await db
     .from('profiles')
@@ -49,7 +55,7 @@ Deno.serve(async (req) => {
   return new Response(body, {
     headers: {
       'Content-Type': 'text/calendar; charset=utf-8',
-      'Content-Disposition': 'inline; filename="oopsproof.ics"',
+      'Content-Disposition': 'inline; filename="oopsforgot.ics"',
       // never kept anywhere: a reset or turned-off link stops showing anything at once
       'Cache-Control': 'no-store',
     },

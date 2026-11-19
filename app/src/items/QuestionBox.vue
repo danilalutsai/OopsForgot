@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { countdown, type OpenQuestion } from '@oopsproof/shared'
+import { countdown, type OpenQuestion } from '@oopsforgot/shared'
 import { computed, ref } from 'vue'
 import { today } from '../today'
 import { useItemActions } from './actions'

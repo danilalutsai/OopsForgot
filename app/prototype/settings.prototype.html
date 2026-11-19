@@ -17,7 +17,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>OopsProof Settings prototype</title>
+<title>OopsForgot Settings prototype</title>
 <script src="https://cdn.tailwindcss.com/3.4.16"></script>
 <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
 <style>
@@ -62,11 +62,11 @@ const say = t => { S.toast = t; S.log.unshift(t); S.log.length = Math.min(S.log.
 
 const isIphone = computed(() => S.situation.startsWith('iphone'));
 const canPushHere = computed(() => S.situation !== 'iphone-web'); // iPhone needs Add to Home Screen first
-const thisDeviceName = computed(() => ({ 'iphone-web': 'Safari on iPhone', 'iphone-app': 'OopsProof on iPhone', android: 'Chrome on Android', computer: 'Chrome on Mac' })[S.situation]);
+const thisDeviceName = computed(() => ({ 'iphone-web': 'Safari on iPhone', 'iphone-app': 'OopsForgot on iPhone', android: 'Chrome on Android', computer: 'Chrome on Mac' })[S.situation]);
 const pushDevices = computed(() => S.pushHere ? [{ name: thisDeviceName.value + ' (this device)', added: 'today', here: true }, ...S.devices] : S.devices);
 const pushWorks = computed(() => pushDevices.value.length > 0);
 const tzMismatch = computed(() => S.tz !== S.browserTz && !S.tzDismissed);
-const calLink = computed(() => `https://oopsproof.app/cal/${S.calendar.secret}.ics`);
+const calLink = computed(() => `https://oopsforgot.app/cal/${S.calendar.secret}.ics`);
 const money = c => (c / 100).toLocaleString(undefined, { style: 'currency', currency: S.currency });
 const channelsText = computed(() => [pushWorks.value && `push (${pushDevices.value.length} device${pushDevices.value.length > 1 ? 's' : ''})`, S.email && 'email'].filter(Boolean).join(' + ') || 'nothing');
 const dayTimeText = computed(() => S.dayTimeMode === 'fixed' ? '12:00 (same for everyone)' : S.dayTime);
@@ -94,7 +94,7 @@ const PushEditor = { setup: () => ({ S, canPushHere, pushDevices, thisDeviceName
   <div class="space-y-3 text-sm">
     <div v-if="!canPushHere" class="rounded-xl bg-amber-50 p-3 text-amber-900">
       <b>Push needs the app on your Home Screen.</b>
-      <ol class="mt-1 list-decimal pl-5"><li>Tap <b>Share</b> (square with arrow) in Safari.</li><li>Tap <b>Add to Home Screen</b>.</li><li>Open OopsProof from the Home Screen and come back here.</li></ol>
+      <ol class="mt-1 list-decimal pl-5"><li>Tap <b>Share</b> (square with arrow) in Safari.</li><li>Tap <b>Add to Home Screen</b>.</li><li>Open OopsForgot from the Home Screen and come back here.</li></ol>
       <p class="mt-1 text-amber-800">Until then, Reminders come by email.</p>
     </div>
     <div v-else-if="!S.pushHere" class="flex items-center justify-between rounded-xl bg-slate-50 p-3">
@@ -209,7 +209,7 @@ const ProfileEditor = { components: { Avatar }, setup() { return { S, say,
 const DataCopyEditor = { setup: () => ({ say }), template: `
   <div class="space-y-2 text-sm">
     <p>Want a copy of everything we store about you? Email the owner and you'll get it within 30 days.</p>
-    <button class="btn btn-soft" @click="say('Opens your email app to owner@oopsproof.app')">Email owner@oopsproof.app</button>
+    <button class="btn btn-soft" @click="say('Opens your email app to owner@oopsforgot.app')">Email owner@oopsforgot.app</button>
   </div>` };
 
 const DeleteEditor = { setup() { const step = ref(0), pw = ref(''), word = ref(''); return { S, step, pw, word, money, say,
@@ -284,7 +284,7 @@ const VariantA = { name: 'One long list', components: { ...EDITORS, AppBar }, se
           <div v-if="open === l.k" class="px-4 pb-3 pt-1"><component :is="l.ed" /></div>
         </div>
       </section>
-      <p class="px-4 text-xs text-slate-400">OopsProof · free, no ads</p>
+      <p class="px-4 text-xs text-slate-400">OopsForgot · free, no ads</p>
     </div>
   </div>` };
 
@@ -333,7 +333,7 @@ const VariantB = { name: 'Menu + pages', components: { ...EDITORS, AppBar }, set
 const VariantC = { name: 'Check-up first', components: { ...EDITORS, AppBar }, setup() {
   const fold = ref(null), fixing = ref(null);
   const issues = computed(() => [
-    !pushWorks.value && { k: 'push', text: canPushHere.value ? 'Push is off on this device' : 'Add OopsProof to your Home Screen to get push', ed: 'PushEditor' },
+    !pushWorks.value && { k: 'push', text: canPushHere.value ? 'Push is off on this device' : 'Add OopsForgot to your Home Screen to get push', ed: 'PushEditor' },
     tzMismatch.value && { k: 'tz', text: `Your device moved to ${S.browserTz}`, ed: 'TzPrompt' },
     !S.calendar.on && { k: 'cal', text: 'Optional: see Due dates in your calendar', ed: 'CalendarEditor', soft: true },
   ].filter(Boolean));
@@ -374,7 +374,7 @@ const VariantF = { name: 'Final', components: { ...EDITORS, AppBar, Avatar }, se
   <div class="h-full">
     <div v-if="page === 'home'" class="relative h-full">
       <header class="border-b px-4 pb-3 pt-5">
-        <div class="flex items-center justify-between"><h1 class="text-2xl font-bold">OopsProof</h1>
+        <div class="flex items-center justify-between"><h1 class="text-2xl font-bold">OopsForgot</h1>
           <div class="relative flex items-center gap-2">
             <button class="relative grid h-9 w-9 place-items-center rounded-full text-xl hover:bg-slate-100" title="Settings" @click="page = 'settings'">⚙︎
               <span v-if="problem" class="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white"></span></button>

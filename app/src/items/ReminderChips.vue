@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type Recurrence, type ReminderOffset, reminderChoices } from '@oopsproof/shared'
+import { type Recurrence, type ReminderOffset, reminderChoices } from '@oopsforgot/shared'
 import { computed } from 'vue'
 import { formatTime } from '../format'
 import { dayReminderTime, nowLocal } from '../today'

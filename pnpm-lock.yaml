@@ -220,7 +220,7 @@ importers:
 
   app:
     dependencies:
-      '@oopsproof/shared':
+      '@oopsforgot/shared':
         specifier: workspace:*
         version: link:../shared
       '@supabase/supabase-js':

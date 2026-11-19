@@ -1,4 +1,4 @@
-import { addMonths, keptTrialName } from '@oopsproof/shared'
+import { addMonths, keptTrialName } from '@oopsforgot/shared'
 import { useQueryClient } from '@tanstack/vue-query'
 import { blockedOffline } from '../online'
 import { supabase } from '../supabase'

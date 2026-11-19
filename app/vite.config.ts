@@ -16,8 +16,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'OopsProof',
-        short_name: 'OopsProof',
+        name: 'OopsForgot',
+        short_name: 'OopsForgot',
         description: 'Never miss an expiry, renewal or payment date.',
         theme_color: '#4f46e5',
         background_color: '#f8fafc',

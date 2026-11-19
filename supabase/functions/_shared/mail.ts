@@ -1,4 +1,4 @@
-// Account emails (not Reminders) sent from the app's Gmail until OopsProof has its own domain.
+// Account emails (not Reminders) sent from the app's Gmail until OopsForgot has its own domain.
 // In test mode nothing is sent: the caller reports what would have gone out.
 import nodemailer from 'npm:nodemailer@10.6.0'
 
@@ -30,7 +30,7 @@ export async function sendMail(mail: Mail): Promise<boolean> {
       maxConnections: 2,
       auth: { user, pass },
     })
-    await transport.sendMail({ from: `OopsProof <${user}>`, ...mail })
+    await transport.sendMail({ from: `OopsForgot <${user}>`, ...mail })
     return true
   } catch (e) {
     console.error('Could not send account email', e)

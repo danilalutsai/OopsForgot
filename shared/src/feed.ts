@@ -64,9 +64,9 @@ export function calendarFeed(items: FeedItem[], { today, timeZone, appUrl, now }
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//OopsProof//Calendar feed//EN',
+    'PRODID:-//OopsForgot//Calendar feed//EN',
     'CALSCALE:GREGORIAN',
-    'X-WR-CALNAME:OopsProof',
+    'X-WR-CALNAME:OopsForgot',
     'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
     'X-PUBLISHED-TTL:PT6H',
   ]
@@ -74,7 +74,7 @@ export function calendarFeed(items: FeedItem[], { today, timeZone, appUrl, now }
   for (const item of items) {
     for (const date of dueDatesBetween({ dueDate: item.dueDate, recurrence: item.recurrence }, from, to)) {
       const handled = item.handledDueDate === date ? '✓ ' : ''
-      lines.push('BEGIN:VEVENT', `UID:${item.id}-${date}@oopsproof`, `DTSTAMP:${stamp}`)
+      lines.push('BEGIN:VEVENT', `UID:${item.id}-${date}@oopsforgot`, `DTSTAMP:${stamp}`)
       if (item.dueTime) {
         const start = localToInstant(`${date}T${item.dueTime.slice(0, 5)}`, timeZone)
         lines.push(`DTSTART:${utcStamp(start)}`, `DTEND:${utcStamp(new Date(start.getTime() + 3_600_000))}`)

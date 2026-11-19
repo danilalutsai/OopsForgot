@@ -1,4 +1,4 @@
-import { DEFAULT_DAY_REMINDER_TIME, nowIn, todayIn } from '@oopsproof/shared'
+import { DEFAULT_DAY_REMINDER_TIME, nowIn, todayIn } from '@oopsforgot/shared'
 import { computed, ref } from 'vue'
 import { browserTimeZone, useAuth } from './stores/auth'
 

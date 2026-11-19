@@ -1,4 +1,4 @@
-import type { Category } from '@oopsproof/shared'
+import type { Category } from '@oopsforgot/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { supabase } from '../supabase'
 

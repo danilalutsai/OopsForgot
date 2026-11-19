@@ -1,4 +1,4 @@
-# OopsProof
+# OopsForgot
 
 A free app that helps people never miss an expiry, renewal or payment date, and see where their money goes. Each person uses it on their own: nothing is shared with others.
 

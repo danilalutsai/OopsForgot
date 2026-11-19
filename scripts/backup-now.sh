@@ -2,6 +2,7 @@
 # Starts the backup workflow in the private backups repo and waits for it to succeed.
 # Needs GH_TOKEN with Actions read/write on that repo. Used by the deploy before any migration runs.
 set -euo pipefail
+# external name, kept for now: the backups repo has not been renamed
 repo=danilalutsai/oopsproof-backups
 started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 # the branch is named: the token may not read the repo's default branch

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { APP_URL } from './app-url.ts'
 import { calendarFeed, type FeedItem } from './feed.ts'
 
 const item = (over: Partial<FeedItem> = {}): FeedItem => ({
@@ -15,7 +16,7 @@ const feed = (items: FeedItem[]) =>
   calendarFeed(items, {
     today: '2026-11-18',
     timeZone: 'Europe/Tallinn',
-    appUrl: 'https://oopsproof.pages.dev',
+    appUrl: APP_URL,
     now: new Date('2026-11-18T10:00:00Z'),
   })
 const events = (text: string) => text.split('BEGIN:VEVENT').slice(1)
@@ -28,7 +29,7 @@ describe('calendarFeed', () => {
     expect(e).toContain('DTSTART;VALUE=DATE:20261202\r\n')
     expect(e).toContain('DTEND;VALUE=DATE:20261203\r\n')
     expect(e).toContain('SUMMARY:Passport — Due\r\n')
-    expect(e).toContain('URL:https://oopsproof.pages.dev/?item=i1\r\n')
+    expect(e).toContain(`URL:${APP_URL}/?item=i1\r\n`)
     expect(e).not.toContain('VALARM')
   })
 

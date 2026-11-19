@@ -2,6 +2,8 @@
 
 ### Issue tracker
 
+<!-- the GitHub repo keeps the old app name (OopsProof) for now -->
+
 Issues live in GitHub Issues for `danilalutsai/OopsProof`, accessed with the
 `gh` CLI. See `docs/agents/issue-tracker.md`.
 
@@ -17,5 +19,5 @@ Single-context: one `GLOSSARY.md` + `docs/adr/` at repo root. See
 
 ### Planning map
 
-Planning runs through `/wayfinder` on the map issue [Map: OopsProof MVP
+Planning runs through `/wayfinder` on the map issue [Map: OopsForgot MVP
 spec](https://github.com/danilalutsai/OopsProof/issues/1).
