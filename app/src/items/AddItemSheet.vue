@@ -17,6 +17,7 @@ import { fittingReminders } from './reminderFit'
 import ReminderChips from './ReminderChips.vue'
 import RepeatPicker from './RepeatPicker.vue'
 import { INPUT as input } from './ui'
+import DateTimeInput from '../components/DateTimeInput.vue'
 
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ saved: [] }>()
@@ -124,17 +125,31 @@ async function save() {
             <input v-model="name" :class="input" :placeholder="$t('itemForm.namePlaceholder')" />
           </label>
           <CategoryChips v-model="category" :legend="$t('itemForm.category')" name="add-category" />
-          <div class="grid grid-cols-2 gap-3">
+          <!-- one block, stacked: side by side they overlapped on phones -->
+          <div class="flex flex-col gap-3">
             <label class="flex min-w-0 flex-col gap-1 text-sm">
               <span class="font-medium">{{ $t('itemForm.dueDate') }}</span>
-              <input v-model="dueDate" type="date" :data-empty="!dueDate || undefined" :class="input" />
+              <DateTimeInput
+                v-model="dueDate"
+                type="date"
+                :aria-label="$t('itemForm.dueDate')"
+                :placeholder="$t('itemForm.chooseDate')"
+              />
             </label>
-            <label class="flex min-w-0 flex-col gap-1 text-sm">
-              <span class="font-medium">{{ $t('itemForm.time') }}</span>
-              <input v-model="dueTime" type="time" :data-empty="!dueTime || undefined" :class="input" />
-            </label>
+            <div class="flex min-w-0 flex-col gap-1 text-sm">
+              <label class="flex flex-col gap-1">
+                <span class="font-medium">{{ $t('itemForm.time') }}</span>
+                <DateTimeInput
+                  v-model="dueTime"
+                  type="time"
+                  :aria-label="$t('itemForm.time')"
+                  aria-describedby="add-time-hint"
+                  :placeholder="$t('itemForm.noTimeAllDay')"
+                />
+              </label>
+              <p id="add-time-hint" class="text-muted">{{ $t('itemForm.timeHint') }}</p>
+            </div>
           </div>
-          <p class="-mt-3 text-sm text-muted">{{ $t('itemForm.timeHint') }}</p>
           <RepeatPicker :key="session" v-model="recurrence" />
           <ReminderChips v-model="reminders" :due-date="dueDate" :due-time="dueTime || null" :recurrence="recurrence" />
           <label class="flex flex-col gap-1 text-sm">

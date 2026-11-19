@@ -41,6 +41,7 @@ import ReminderChips from './ReminderChips.vue'
 import { blockedOffline } from '../online'
 import SheetLine from './SheetLine.vue'
 import { INPUT as input } from './ui'
+import DateTimeInput from '../components/DateTimeInput.vue'
 import CountdownText from './CountdownText.vue'
 
 const props = defineProps<{ item: Item | null }>()
@@ -393,12 +394,11 @@ const lineText = {
             :open="openLine === 'dueDate'"
             @toggle="toggle('dueDate')"
           >
-            <input
+            <DateTimeInput
               v-model="draft.due_date"
               type="date"
-              :data-empty="!draft.due_date || undefined"
               :aria-label="$t('itemForm.dueDate')"
-              :class="input"
+              :placeholder="$t('itemForm.chooseDate')"
             />
           </SheetLine>
           <SheetLine
@@ -408,14 +408,19 @@ const lineText = {
             @toggle="toggle('time')"
           >
             <div class="flex gap-2">
-              <input
+              <DateTimeInput
                 v-model="draft.due_time"
+                class="flex-1"
                 type="time"
-                :data-empty="!draft.due_time || undefined"
                 :aria-label="$t('itemForm.time')"
-                :class="input"
+                :placeholder="$t('itemForm.noTimeAllDay')"
               />
-              <button type="button" class="shrink-0 rounded-xl border border-line px-3" @click="draft.due_time = ''">
+              <button
+                v-if="draft.due_time"
+                type="button"
+                class="shrink-0 rounded-xl border border-line px-3"
+                @click="draft.due_time = ''"
+              >
                 {{ $t('itemSheet.noTime') }}
               </button>
             </div>

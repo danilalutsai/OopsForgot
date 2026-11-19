@@ -89,14 +89,12 @@ body {
   @apply bg-bg font-sans text-text antialiased;
 }
 
-/* Touch screens (iOS Safari above all) fill an empty date or time field with a grey example
-   value, so it looks filled in. Mark such fields data-empty and show them blank instead.
-   Not on computers: there the date is typed piece by piece, and the pieces must stay visible. */
-@media (pointer: coarse) {
-  input:is([type='date'], [type='time'])[data-empty] {
-    color: transparent;
-  }
+/* An empty date or time field (DateTimeInput) shows its own placeholder instead of the browser's
+   example value (iOS: today's date, the time now) or "--:--"; while edited, the browser's shows. */
+input:is([type='date'], [type='time'])[data-empty]:not(:focus) {
+  color: transparent;
 }
+
 /* iOS Safari gives date and time fields a look and a minimum width of their own: they stuck out of
    the sheet. Drop both so they fit their box like the other inputs, at the same height (iOS lets
    an empty one shrink), with the value on the left (iOS centres it). */
