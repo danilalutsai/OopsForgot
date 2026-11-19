@@ -2,12 +2,14 @@
 import { addDays, addMonths, calendarDays, dueDatesBetween, urgency } from '@oopsforgot/shared'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { fadeTransition } from '../motion'
+import { gsap } from 'gsap'
+import { duration, fadeTransition } from '../motion'
 import { today } from '../today'
 import { firstDayOfWeek } from '../weekStart'
 import { useItemActions } from './actions'
 import { dueDateOf, type Item, questionOf, recurrenceOf } from './api'
 import ItemRow from './ItemRow.vue'
+import { usePeriodSwipe } from './periodSwipe'
 import { URGENCY_BG } from './urgencyClasses'
 
 const props = defineProps<{ items: Item[] }>()
@@ -100,13 +102,50 @@ function move(step: number) {
   anchor.value =
     view.value === 'week' ? addDays(anchor.value, 7 * step) : addMonths(`${anchor.value.slice(0, 7)}-01`, step)
 }
+const swipe = usePeriodSwipe(move)
 /** Switching between Week and Month keeps the selected day in view. */
 function setView(next: 'week' | 'month') {
+  swipe.direction.value = 0
   view.value = next
   anchor.value = selected.value
 }
 function goToday() {
+  swipe.direction.value = 0
   anchor.value = selected.value = today.value
+}
+
+/** A new period slides in from the side it was swiped (or stepped) towards; other changes fade. */
+const periodTransition = {
+  onLeave(el: Element, done: () => void) {
+    const step = swipe.direction.value
+    if (!step) return fadeTransition.onLeave(el, done)
+    const width = (el as HTMLElement).offsetWidth
+    gsap.fromTo(
+      el,
+      { x: swipe.takeOffset() },
+      { x: -step * width, opacity: 0, duration: duration(0.18), ease: 'power2.in', onComplete: done },
+    )
+  },
+  onEnter(el: Element, done: () => void) {
+    const step = swipe.direction.value
+    if (!step) return fadeTransition.onEnter(el, done)
+    const width = (el as HTMLElement).offsetWidth
+    gsap.fromTo(
+      el,
+      { x: (step * width) / 2, opacity: 0 },
+      {
+        x: 0,
+        opacity: 1,
+        duration: duration(0.2),
+        ease: 'power2.out',
+        clearProps: 'transform,opacity',
+        onComplete: () => {
+          swipe.direction.value = 0
+          done()
+        },
+      },
+    )
+  },
 }
 
 const selectedItems = computed(() => byDay.value.get(selected.value) ?? [])
@@ -116,11 +155,16 @@ const selectedLabel = computed(() => fmt(formats.long, selected.value))
 <template>
   <div class="px-4">
     <div class="flex items-center gap-2 py-2">
-      <button type="button" class="rounded-full px-2 text-xl" :aria-label="$t('calendar.previous')" @click="move(-1)">
+      <button
+        type="button"
+        class="rounded-full px-2 text-xl"
+        :aria-label="$t('calendar.previous')"
+        @click="swipe.go(-1)"
+      >
         ‹
       </button>
       <h2 class="flex-1 text-center font-semibold" aria-live="polite">{{ title }}</h2>
-      <button type="button" class="rounded-full px-2 text-xl" :aria-label="$t('calendar.next')" @click="move(1)">
+      <button type="button" class="rounded-full px-2 text-xl" :aria-label="$t('calendar.next')" @click="swipe.go(1)">
         ›
       </button>
     </div>
@@ -140,33 +184,38 @@ const selectedLabel = computed(() => fmt(formats.long, selected.value))
       <button type="button" class="font-semibold text-accent" @click="goToday">{{ $t('calendar.today') }}</button>
     </div>
 
-    <Transition mode="out-in" :css="false" @enter="fadeTransition.onEnter" @leave="fadeTransition.onLeave">
-      <div :key="`${view}-${days[0]}`" class="grid grid-cols-7 gap-1 text-center text-sm">
-        <span v-for="w in weekdays" :key="w" class="py-1 text-xs text-muted" aria-hidden="true">{{ w }}</span>
-        <button
-          v-for="cell in cells"
-          :key="cell.day"
-          type="button"
-          :aria-pressed="selected === cell.day"
-          :aria-label="cell.label"
-          :class="[
-            'flex h-12 flex-col items-center justify-start rounded-lg pt-1',
-            selected === cell.day ? 'bg-accent/15 ring-2 ring-accent' : 'hover:bg-bg',
-            cell.outside && 'text-muted',
-            cell.day === today && 'font-bold text-accent',
-          ]"
-          @click="selected = cell.day"
-        >
-          {{ cell.number }}
-          <span class="mt-1 flex gap-0.5" aria-hidden="true">
-            <span v-for="dot in cell.dots" :key="dot.id" :class="['h-1.5 w-1.5 rounded-full', dot.color]" />
-            <span v-if="cell.more" class="-mt-1 text-[9px] leading-none text-muted">
-              {{ $t('calendar.more', { n: cell.more }) }}
-            </span>
-          </span>
-        </button>
+    <!-- swipe sideways for the next or previous period; up and down still scroll the page -->
+    <div class="overflow-hidden">
+      <div data-testid="calendar-days" class="touch-pan-y select-none" v-bind="swipe.bind" @wheel="swipe.onWheel">
+        <Transition mode="out-in" :css="false" @enter="periodTransition.onEnter" @leave="periodTransition.onLeave">
+          <div :key="`${view}-${days[0]}`" class="grid grid-cols-7 gap-1 text-center text-sm">
+            <span v-for="w in weekdays" :key="w" class="py-1 text-xs text-muted" aria-hidden="true">{{ w }}</span>
+            <button
+              v-for="cell in cells"
+              :key="cell.day"
+              type="button"
+              :aria-pressed="selected === cell.day"
+              :aria-label="cell.label"
+              :class="[
+                'flex h-12 flex-col items-center justify-start rounded-lg pt-1',
+                selected === cell.day ? 'bg-accent/15 ring-2 ring-accent' : 'hover:bg-bg',
+                cell.outside && 'text-muted',
+                cell.day === today && 'font-bold text-accent',
+              ]"
+              @click="selected = cell.day"
+            >
+              {{ cell.number }}
+              <span class="mt-1 flex gap-0.5" aria-hidden="true">
+                <span v-for="dot in cell.dots" :key="dot.id" :class="['h-1.5 w-1.5 rounded-full', dot.color]" />
+                <span v-if="cell.more" class="-mt-1 text-[9px] leading-none text-muted">
+                  {{ $t('calendar.more', { n: cell.more }) }}
+                </span>
+              </span>
+            </button>
+          </div>
+        </Transition>
       </div>
-    </Transition>
+    </div>
   </div>
 
   <section class="mt-4" :aria-label="selectedLabel">
