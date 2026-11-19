@@ -243,6 +243,7 @@
     "sections": {
       "reminders": "Reminders",
       "money": "Money",
+      "appearance": "Appearance",
       "account": "Account",
       "privacy": "Privacy"
     },
@@ -262,7 +263,14 @@
     "privacyNotice": "Privacy notice",
     "problem": "Needs your attention",
     "pushOn": "On, {n} device | On, {n} devices",
-    "pushOff": "Off"
+    "pushOff": "Off",
+    "theme": "Theme",
+    "themes": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "themeHint": "System follows this device. The choice is kept on this device only."
   },
   "toasts": {
     "handled": "Marked as Handled",
