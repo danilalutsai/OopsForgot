@@ -38,14 +38,14 @@ const TAB_ON =
         {{ $t('nav.money') }}
       </RouterLink>
     </nav>
-    <main :class="['flex min-w-0 flex-1 flex-col', inApp && 'pb-16 md:pb-0']">
+    <main :class="['flex min-w-0 flex-1 flex-col', inApp && 'pb-[var(--tab-bar)] md:pb-0']">
       <RouterView />
     </main>
     <!-- phone: bottom tab bar -->
     <nav
       v-if="inApp"
       :aria-label="$t('nav.main')"
-      class="fixed inset-x-0 bottom-0 grid h-14 grid-cols-2 border-t border-line bg-surface text-[13px] md:hidden"
+      class="fixed inset-x-0 bottom-0 grid h-[var(--tab-bar)] grid-cols-2 border-t border-line bg-surface pb-[calc(var(--tab-bar-lift)+env(safe-area-inset-bottom,0px))] text-[13px] md:hidden"
     >
       <RouterLink v-for="tab in tabs" :key="tab.to" :to="tab.to" :class="TAB" :exact-active-class="TAB_ON">
         <svg
