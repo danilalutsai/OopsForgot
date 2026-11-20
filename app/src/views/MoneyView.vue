@@ -1,13 +1,7 @@
 <script setup lang="ts">
-import {
-  addDays,
-  CATEGORY_ICONS,
-  type Category,
-  monthTotals,
-  shiftMonth,
-  stillComing,
-  todayIn,
-} from '@oopsforgot/shared'
+import { addDays, type Category, monthTotals, shiftMonth, stillComing, todayIn } from '@oopsforgot/shared'
+import { ChevronLeft, ChevronRight, Plus } from '@lucide/vue'
+import CategoryIcon from '../components/CategoryIcon.vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -113,7 +107,7 @@ function saved(date: string) {
         :aria-label="$t('money.addLong')"
         @click="openNew"
       >
-        + {{ $t('money.add') }}
+        <Plus :size="16" :stroke-width="2.5" class="-mt-0.5 mr-0.5 inline" aria-hidden="true" />{{ $t('money.add') }}
       </button>
     </template>
   </TopBar>
@@ -132,7 +126,7 @@ function saved(date: string) {
           :disabled="month <= firstMonth"
           @click="month = shiftMonth(month, -1)"
         >
-          ‹
+          <ChevronLeft :size="22" aria-hidden="true" />
         </button>
         <h2 class="flex-1 text-center font-semibold" aria-live="polite">{{ monthName(month) }}</h2>
         <button
@@ -142,7 +136,7 @@ function saved(date: string) {
           :disabled="month >= thisMonth"
           @click="month = shiftMonth(month, 1)"
         >
-          ›
+          <ChevronRight :size="22" aria-hidden="true" />
         </button>
       </div>
 
@@ -207,7 +201,9 @@ function saved(date: string) {
           class="mt-3 rounded-full bg-accent px-4 py-1.5 font-semibold text-on-accent"
           @click="openNew"
         >
-          + {{ $t('money.addLong') }}
+          <Plus :size="16" :stroke-width="2.5" class="-mt-0.5 mr-0.5 inline" aria-hidden="true" />{{
+            $t('money.addLong')
+          }}
         </button>
       </div>
       <ul>
@@ -217,7 +213,7 @@ function saved(date: string) {
             class="flex w-full items-center gap-3 py-3 text-left hover:bg-bg"
             @click="openExpense(e)"
           >
-            <span class="text-xl" aria-hidden="true">{{ CATEGORY_ICONS[e.category] }}</span>
+            <CategoryIcon :category="e.category" :size="22" class="text-muted" />
             <span class="min-w-0 flex-1">
               <span class="block truncate font-medium">{{ label(e) }}</span>
               <span class="block text-[13px] text-muted">

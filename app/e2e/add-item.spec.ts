@@ -116,3 +116,19 @@ test('New Item sheet: Due date, then Time, stacked; no time reads "No time (all 
   await expect(sheet.getByText('No time (all day)')).toBeHidden()
   await expect(sheet.getByText('Choose a date')).toBeHidden()
 })
+
+test('Category chips show line icons, muted until picked, then in the chip’s own colour', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await openAddSheet(page)
+  const chips = page.getByRole('group', { name: 'Category' })
+  await expect(chips.locator('svg[data-category]')).toHaveCount(10)
+  await expect(chips).not.toContainText(/\p{Extended_Pictographic}/u)
+
+  const health = chips.locator('label').filter({ hasText: 'Health' })
+  const colour = (l: import('@playwright/test').Locator) => l.evaluate((el) => getComputedStyle(el).color)
+  const unpicked = await colour(health.locator('svg'))
+  expect(unpicked).not.toBe(await colour(health))
+
+  await health.click()
+  expect(await colour(health.locator('svg'))).toBe(await colour(health))
+})

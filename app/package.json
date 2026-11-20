@@ -28,6 +28,7 @@
     "workbox-routing": "^7.4.1"
   },
   "dependencies": {
+    "@lucide/vue": "1.69.0",
     "@oopsforgot/shared": "workspace:*",
     "@supabase/supabase-js": "^2.119.0",
     "@tanstack/query-async-storage-persister": "^5.107.1",

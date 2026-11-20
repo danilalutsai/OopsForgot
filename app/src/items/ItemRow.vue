@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { CATEGORY_ICONS, countdown, type OpenQuestion, urgency } from '@oopsforgot/shared'
+import { countdown, type OpenQuestion, urgency } from '@oopsforgot/shared'
+import { Check } from '@lucide/vue'
 import { gsap } from 'gsap'
+import CategoryIcon from '../components/CategoryIcon.vue'
 import { computed, ref } from 'vue'
 import { formatDate, formatMoney, formatTime } from '../format'
 import { duration } from '../motion'
@@ -111,7 +113,11 @@ function click(e: MouseEvent) {
       ]"
       aria-hidden="true"
     >
-      <template v-if="showing === 'handled'">✓ {{ handled ? $t('swipe.undo') : $t('swipe.handled') }}</template>
+      <template v-if="showing === 'handled'"
+        ><Check :size="16" :stroke-width="2.5" class="mr-1" />{{
+          handled ? $t('swipe.undo') : $t('swipe.handled')
+        }}</template
+      >
       <template v-else>{{ $t('swipe.archive') }}</template>
     </div>
     <div
@@ -129,7 +135,7 @@ function click(e: MouseEvent) {
         @click="$emit('open')"
       >
         <span :class="['h-10 w-1 shrink-0 rounded-full', URGENCY_BG[level]]" aria-hidden="true" />
-        <span class="text-xl" aria-hidden="true">{{ CATEGORY_ICONS[item.category] }}</span>
+        <CategoryIcon :category="item.category" :size="22" class="text-muted" />
         <div class="min-w-0 flex-1">
           <p :class="['truncate font-semibold', handled && 'text-muted line-through']">{{ item.name }}</p>
           <p class="flex flex-wrap gap-x-2 text-[13px]">
@@ -168,7 +174,7 @@ function click(e: MouseEvent) {
         "
         @click="$emit('toggleHandled')"
       >
-        ✓
+        <Check :size="16" :stroke-width="2.5" aria-hidden="true" />
       </button>
     </div>
   </li>

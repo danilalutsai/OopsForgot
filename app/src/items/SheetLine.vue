@@ -15,7 +15,9 @@ defineEmits<{ toggle: [] }>()
       @click="$emit('toggle')"
     >
       <span class="text-muted">{{ label }}</span>
-      <span class="truncate text-right font-medium">{{ value }}</span>
+      <span class="truncate text-right font-medium"
+        ><slot name="value">{{ value }}</slot></span
+      >
     </button>
     <Transition :css="false" @enter="heightTransition.onEnter" @leave="heightTransition.onLeave">
       <div v-if="open" class="overflow-hidden">

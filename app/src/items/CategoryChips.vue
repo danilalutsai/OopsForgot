@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { CATEGORIES, CATEGORY_ICONS, type Category } from '@oopsforgot/shared'
+import { CATEGORIES, type Category } from '@oopsforgot/shared'
+import CategoryIcon from '../components/CategoryIcon.vue'
 
 withDefaults(defineProps<{ legend: string; name: string; options?: readonly Category[] }>(), {
   options: () => CATEGORIES,
@@ -15,12 +16,13 @@ const model = defineModel<Category | null>({ required: true })
         v-for="c in options"
         :key="c"
         :class="[
-          'cursor-pointer rounded-full border px-3 py-1.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent',
+          'flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent',
           model === c ? 'border-accent bg-accent text-on-accent' : 'border-line',
         ]"
       >
         <input v-model="model" type="radio" :name="name" :value="c" class="sr-only" />
-        {{ CATEGORY_ICONS[c] }} {{ $t(`categories.${c}`) }}
+        <CategoryIcon :category="c" :size="16" :class="model !== c && 'text-muted'" />
+        {{ $t(`categories.${c}`) }}
       </label>
     </div>
   </fieldset>

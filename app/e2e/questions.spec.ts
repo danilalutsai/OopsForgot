@@ -14,7 +14,7 @@ const row = (page: Page, name: string) => page.getByRole('listitem').filter({ ha
 
 test('an Expired Item asks "What now?"; a new Due date answers it', async ({ page }) => {
   await logInAsNewPerson(page)
-  await addItem(page, 'ID card', '🪪 Documents', -3)
+  await addItem(page, 'ID card', 'Documents', -3)
   await expect(row(page, 'ID card').getByRole('button', { name: 'What now?' })).toBeVisible()
   await row(page, 'ID card').getByRole('button', { name: 'What now?' }).click()
 
@@ -31,7 +31,7 @@ test('an Expired Item asks "What now?"; a new Due date answers it', async ({ pag
 
 test('"Make it repeat" counts the next Due date forward from the old one', async ({ page }) => {
   await logInAsNewPerson(page)
-  await addItem(page, 'Window cleaning', '🏠 Home', -7)
+  await addItem(page, 'Window cleaning', 'Home', -7)
   await row(page, 'Window cleaning').getByRole('button', { name: 'What now?' }).click()
   const sheet = page.getByRole('dialog', { name: 'Window cleaning' })
   await sheet.getByLabel('Repeat').selectOption({ label: 'Every week' })
@@ -42,7 +42,7 @@ test('"Make it repeat" counts the next Due date forward from the old one', async
 
 test('a free trial asks "Kept it?"; Yes makes it a monthly Subscription', async ({ page }) => {
   await logInAsNewPerson(page)
-  await addItem(page, 'Disney+ free trial', '⏳ Free trials', 0)
+  await addItem(page, 'Disney+ free trial', 'Free trials', 0)
   await row(page, 'Disney+').getByRole('button', { name: 'Kept it?' }).click()
   const sheet = page.getByRole('dialog')
   await expect(sheet.getByRole('heading', { name: 'Did you keep Disney+ free trial?' })).toBeVisible()
@@ -56,7 +56,7 @@ test('a free trial asks "Kept it?"; Yes makes it a monthly Subscription', async 
 
 test('a free trial not kept is archived', async ({ page }) => {
   await logInAsNewPerson(page)
-  await addItem(page, 'Duolingo free trial', '⏳ Free trials', 0)
+  await addItem(page, 'Duolingo free trial', 'Free trials', 0)
   await row(page, 'Duolingo').getByRole('button', { name: 'Kept it?' }).click()
   await page.getByRole('button', { name: 'No, I cancelled' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'archived' })).toContainText('Duolingo free trial archived')
@@ -65,7 +65,7 @@ test('a free trial not kept is archived', async ({ page }) => {
 
 test('a past date cannot answer "What now?"', async ({ page }) => {
   await logInAsNewPerson(page)
-  await addItem(page, 'Visa', '✈️ Travel', -2)
+  await addItem(page, 'Visa', 'Travel', -2)
   await row(page, 'Visa').getByRole('button', { name: 'What now?' }).click()
   const sheet = page.getByRole('dialog', { name: 'Visa' })
   await sheet.getByLabel('New Due date').fill(await inDays(page, -1))
@@ -75,8 +75,8 @@ test('a past date cannot answer "What now?"', async ({ page }) => {
 test('rows with a question stay readable in dark mode', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await logInAsNewPerson(page)
-  await addItem(page, 'Old ID', '🪪 Documents', -3)
-  await addItem(page, 'Trial', '⏳ Free trials', 0)
+  await addItem(page, 'Old ID', 'Documents', -3)
+  await addItem(page, 'Trial', 'Free trials', 0)
   await expect(row(page, 'Old ID').getByRole('button', { name: 'What now?' })).toBeVisible()
   await expectAccessible(page)
 })

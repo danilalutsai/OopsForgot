@@ -62,10 +62,14 @@ test('Save in the leave question saves, then closes', async ({ page }) => {
   await sheet.getByRole('button', { name: /^Category/ }).click()
   await sheet.getByText('Home').click()
   await expect(sheet.getByRole('button', { name: /^Category/ })).toContainText('Home')
+  await expect(sheet.getByRole('button', { name: /^Category/ }).locator('svg[data-category="home"]')).toBeVisible()
   await sheet.getByRole('button', { name: 'Close' }).filter({ visible: true }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
-  await expect(page.getByRole('listitem').filter({ hasText: 'Gym' })).toContainText('🏠')
+  const row = page.getByRole('listitem').filter({ hasText: 'Gym' })
+  // a line icon, not an emoji
+  await expect(row.locator('svg[data-category="home"]')).toBeVisible()
+  await expect(row).not.toContainText('🏠')
 })
 
 test('on a phone, dragging the top bar down closes the sheet; a short drag springs back', async ({ page }, info) => {

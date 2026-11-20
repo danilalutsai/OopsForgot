@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { CATEGORY_ICONS, dashboardGroup, type DashboardGroup } from '@oopsforgot/shared'
+import { dashboardGroup, type DashboardGroup } from '@oopsforgot/shared'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Plus } from '@lucide/vue'
+import CategoryIcon from '../components/CategoryIcon.vue'
 import TopBar from '../components/TopBar.vue'
 import { useItemActions } from '../items/actions'
 import AddItemSheet from '../items/AddItemSheet.vue'
@@ -81,7 +83,7 @@ const groups = computed(() =>
         class="mr-2 hidden rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-on-accent md:block"
         @click="adding = true"
       >
-        + {{ $t('items.add') }}
+        <Plus :size="16" :stroke-width="2.5" class="-mt-0.5 mr-0.5 inline" aria-hidden="true" />{{ $t('items.add') }}
       </button>
     </template>
   </TopBar>
@@ -158,7 +160,7 @@ const groups = computed(() =>
         </button>
         <ul v-if="showArchived" class="mt-2" :aria-label="$t('items.archivedCount', { n: archived.length })">
           <li v-for="item in archived" :key="item.id" class="flex items-center gap-3 border-b border-line py-3">
-            <span class="text-xl" aria-hidden="true">{{ CATEGORY_ICONS[item.category] }}</span>
+            <CategoryIcon :category="item.category" :size="22" class="text-muted" />
             <span class="flex-1 truncate text-muted">{{ item.name }}</span>
             <button
               type="button"
@@ -182,7 +184,7 @@ const groups = computed(() =>
     :aria-label="$t('items.add')"
     @click="adding = true"
   >
-    +
+    <Plus :size="28" :stroke-width="2.25" aria-hidden="true" />
   </button>
   <AddItemSheet v-model:open="adding" @saved="toasts.show('itemForm.saved')" />
   <ItemSheet :item="openItem" @close="openId = null" />
