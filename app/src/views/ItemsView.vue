@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { dashboardGroup, type DashboardGroup } from '@oopsforgot/shared'
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, ArrowUp, Plus } from '@lucide/vue'
 import TopBar from '../components/TopBar.vue'
@@ -10,9 +10,7 @@ import CalendarView from '../items/CalendarView.vue'
 import { dueDateOf, expiredNow, handledNow, questionOf, useItems } from '../items/api'
 import ItemRow from '../items/ItemRow.vue'
 import ItemSheet from '../items/ItemSheet.vue'
-import { formatDateTime } from '../format'
-import { online } from '../online'
-import { usePushOff } from '../push/pushOff'
+import ListBanners from '../items/ListBanners.vue'
 import { useAuth } from '../stores/auth'
 import { useToasts } from '../stores/toasts'
 import { reducedMotion } from '../motion'
@@ -22,8 +20,6 @@ const auth = useAuth()
 const items = useItems()
 const actions = useItemActions()
 const toasts = useToasts()
-const pushOff = usePushOff()
-const lastUpdated = computed(() => formatDateTime(items.dataUpdatedAt.value))
 const adding = ref(false)
 /** The day a new Item starts on when added from the calendar. */
 const addingOn = ref<string>()
@@ -84,67 +80,68 @@ const rows = computed(() =>
 /** Expired Items, oldest first: the most recent sits right above Today. */
 const expired = computed(() => rows.value.filter((r) => r.expired))
 
-// Expired waits above Today, hidden: the list opens at Today. "↑ Expired" or pulling the list down
-// past its top shows it, at the newest (right above Today); "↓ Hide" puts the list back at its start.
-const showExpired = ref(false)
+// Expired sits right above Today and is always on the page, so scrolling up into it is plain
+// scrolling. The list opens at Today (the Expired rows are just out of sight above it); the top bar
+// stays pinned. "↑ Expired" glides to the newest Expired; "↓ Hide" glides back to Today.
+const pinned = ref<HTMLElement>()
 const expiredSection = ref<HTMLElement>()
+const listStart = ref<HTMLElement>()
 const smooth = (): ScrollBehavior => (reducedMotion() ? 'auto' : 'smooth')
-async function openExpired() {
-  showExpired.value = true
-  await nextTick()
+const pinnedHeight = () => pinned.value?.offsetHeight ?? 0
+function showNewestExpired() {
+  expiredSection.value?.scrollIntoView({ block: 'end', behavior: smooth() })
+}
+function backToToday() {
+  if (!listStart.value) return
+  const top = listStart.value.getBoundingClientRect().top + window.scrollY - pinnedHeight()
+  window.scrollTo({ top, behavior: smooth() })
+}
+
+// The pinned bar's height, for the sticky section headers right under it.
+let pinnedWatch: ResizeObserver | undefined
+// When the Expired rows grow or shrink (they first appear, one expires, one is deleted) while the
+// person is at or below Today, the page moves by as much, so what is on screen stays still. Done by
+// hand, the same in every browser (Safari has no scroll anchoring of its own).
+let expiredWatch: ResizeObserver | undefined
+let expiredHeight = 0
+function followExpired(height: number) {
   const section = expiredSection.value
-  if (!section) return
-  // the rows go in above what is on screen, out of sight, so nothing jumps and no old rows flash…
-  window.scrollBy({ top: section.offsetHeight, behavior: 'instant' })
-  // …then the newest slides into view; older ones are further up
-  section.scrollIntoView({ block: 'end', behavior: smooth() })
-}
-async function hideExpired() {
-  const height = expiredSection.value?.offsetHeight ?? 0
-  showExpired.value = false
-  await nextTick()
-  // keep what is on screen still as the rows go, then glide back to the start of the list
-  window.scrollBy({ top: -height, behavior: 'instant' })
-  window.scrollTo({ top: 0, behavior: smooth() })
-}
-/** Only on the list, at the very top of the page, with something Expired to show. */
-const canPull = () => mode.value === 'list' && !showExpired.value && expired.value.length > 0 && window.scrollY <= 0
-/** How far a finger (or the wheel) must go past the top. */
-const PULL = 70
-let touchStart: number | null = null
-let wheel = 0
-function onTouchStart(e: TouchEvent) {
-  touchStart = canPull() ? e.touches[0]!.clientY : null
-}
-function onTouchMove(e: TouchEvent) {
-  if (touchStart === null || !canPull()) return
-  if (e.touches[0]!.clientY - touchStart > PULL) {
-    touchStart = null
-    void openExpired()
+  const delta = height - expiredHeight
+  if (section && delta) {
+    const bottomBefore = section.getBoundingClientRect().top + window.scrollY + expiredHeight
+    if (window.scrollY + pinnedHeight() >= bottomBefore - 1) window.scrollBy({ top: delta, behavior: 'instant' })
   }
+  expiredHeight = height
 }
-function onWheel(e: WheelEvent) {
-  if (!canPull() || e.deltaY >= 0) return void (wheel = 0)
-  wheel -= e.deltaY
-  if (wheel > PULL) {
-    wheel = 0
-    void openExpired()
-  }
-}
+watch(expiredSection, (section, before) => {
+  if (before) expiredWatch?.unobserve(before)
+  expiredHeight = 0
+  if (section) expiredWatch?.observe(section)
+})
+// back on the list from the calendar: at Today again
+watch(mode, async (m) => {
+  if (m !== 'list') return
+  window.scrollTo({ top: 0, behavior: 'instant' })
+})
 onMounted(() => {
-  window.addEventListener('touchstart', onTouchStart, { passive: true })
-  window.addEventListener('touchmove', onTouchMove, { passive: true })
-  window.addEventListener('wheel', onWheel, { passive: true })
+  // the browser's own anchoring would move the page a second time
+  document.documentElement.style.overflowAnchor = 'none'
+  pinnedWatch = new ResizeObserver(() =>
+    document.documentElement.style.setProperty('--list-top', `${pinnedHeight()}px`),
+  )
+  if (pinned.value) pinnedWatch.observe(pinned.value)
+  expiredWatch = new ResizeObserver((entries) => followExpired(entries.at(-1)!.target.getBoundingClientRect().height))
+  if (expiredSection.value) expiredWatch.observe(expiredSection.value)
 })
 onUnmounted(() => {
-  window.removeEventListener('touchstart', onTouchStart)
-  window.removeEventListener('touchmove', onTouchMove)
-  window.removeEventListener('wheel', onWheel)
+  document.documentElement.style.overflowAnchor = ''
+  pinnedWatch?.disconnect()
+  expiredWatch?.disconnect()
 })
 
 const GROUPS: DashboardGroup[] = ['today', 'thisWeek', 'later']
 /** A section's header bar: it stays at the top while its rows scroll under it. */
-const GROUP_BAR = 'sticky top-0 z-[1] flex items-center justify-between bg-bg px-4 pt-5 pb-2'
+const GROUP_BAR = 'sticky top-[var(--list-top,0px)] z-[1] flex items-center justify-between bg-bg px-4 pt-5 pb-2'
 const GROUP_TITLE = 'text-[13px] leading-5 font-semibold tracking-wide text-muted uppercase'
 /**
  * "↑ Expired" and "↓ Hide" read like the header's title, on the same line; the negative margin gives
@@ -160,47 +157,42 @@ const groups = computed(() =>
 </script>
 
 <template>
-  <TopBar>
-    <template #actions>
-      <button
-        type="button"
-        class="mr-2 hidden rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-on-accent md:block"
-        @click="addOn()"
-      >
-        <Plus :size="16" :stroke-width="2.5" class="-mt-0.5 mr-0.5 inline" aria-hidden="true" />{{ $t('items.add') }}
-      </button>
-    </template>
-  </TopBar>
-  <div
-    class="mx-4 mb-2 grid grid-cols-2 rounded-xl border border-line bg-bg p-1 text-sm"
-    role="tablist"
-    @keydown.left.prevent="switchMode"
-    @keydown.right.prevent="switchMode"
-  >
-    <button
-      v-for="m in ['list', 'calendar'] as const"
-      :id="`tab-${m}`"
-      :ref="(el) => (tabs[m] = el as HTMLElement)"
-      :key="m"
-      type="button"
-      role="tab"
-      :aria-selected="mode === m"
-      :aria-controls="`panel-${m}`"
-      :tabindex="mode === m ? 0 : -1"
-      :class="['rounded-lg py-1.5 text-center', mode === m ? 'bg-surface font-semibold shadow-sm' : 'text-muted']"
-      @click="mode = m"
+  <!-- pinned: the Events scroll under it, Expired included -->
+  <div ref="pinned" class="sticky top-0 z-[2] bg-bg">
+    <TopBar>
+      <template #actions>
+        <button
+          type="button"
+          class="mr-2 hidden rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-on-accent md:block"
+          @click="addOn()"
+        >
+          <Plus :size="16" :stroke-width="2.5" class="-mt-0.5 mr-0.5 inline" aria-hidden="true" />{{ $t('items.add') }}
+        </button>
+      </template>
+    </TopBar>
+    <div
+      class="mx-4 mb-2 grid grid-cols-2 rounded-xl border border-line bg-bg p-1 text-sm"
+      role="tablist"
+      @keydown.left.prevent="switchMode"
+      @keydown.right.prevent="switchMode"
     >
-      {{ $t(`items.${m}`) }}
-    </button>
+      <button
+        v-for="m in ['list', 'calendar'] as const"
+        :id="`tab-${m}`"
+        :ref="(el) => (tabs[m] = el as HTMLElement)"
+        :key="m"
+        type="button"
+        role="tab"
+        :aria-selected="mode === m"
+        :aria-controls="`panel-${m}`"
+        :tabindex="mode === m ? 0 : -1"
+        :class="['rounded-lg py-1.5 text-center', mode === m ? 'bg-surface font-semibold shadow-sm' : 'text-muted']"
+        @click="mode = m"
+      >
+        {{ $t(`items.${m}`) }}
+      </button>
+    </div>
   </div>
-
-  <p v-if="!online" role="status" class="mx-4 mb-2 rounded-xl bg-line px-3 py-2 text-sm">
-    {{ items.dataUpdatedAt.value ? $t('offline.banner', { when: lastUpdated }) : $t('offline.bannerNever') }}
-  </p>
-  <p v-if="pushOff && online" class="mx-4 mb-2 rounded-xl bg-urgent-yellow/15 px-3 py-2 text-sm">
-    {{ $t('push.offBanner') }}
-    <RouterLink to="/settings" class="font-semibold text-accent underline">{{ $t('push.offBannerLink') }}</RouterLink>
-  </p>
 
   <p v-if="items.isError.value" role="alert" class="px-6 py-10 text-center text-urgent-red">
     {{ $t('items.loadError') }}
@@ -212,18 +204,19 @@ const groups = computed(() =>
       </p>
       <p class="text-muted">{{ $t('items.empty') }}</p>
     </div>
+    <ListBanners v-if="mode === 'calendar'" :updated-at="items.dataUpdatedAt.value" />
     <CalendarView v-if="mode === 'calendar'" :items="all" @open="(id) => (openId = id)" @add="addOn" />
     <template v-else>
       <section
-        v-if="showExpired"
+        v-if="expired.length"
         id="expired"
         ref="expiredSection"
         aria-labelledby="group-expired"
-        class="scroll-mb-[var(--tab-bar)] md:scroll-mb-0"
+        class="scroll-mt-[var(--list-top,0px)] scroll-mb-[var(--tab-bar)] md:scroll-mb-0"
       >
         <div :class="GROUP_BAR">
           <h2 id="group-expired" :class="GROUP_TITLE">{{ $t('items.groups.expired') }}</h2>
-          <button type="button" :class="HEADER_BUTTON" aria-controls="expired" @click="hideExpired">
+          <button type="button" :class="HEADER_BUTTON" @click="backToToday">
             <ArrowDown :size="14" aria-hidden="true" />{{ $t('items.hideExpired') }}
           </button>
         </div>
@@ -242,40 +235,48 @@ const groups = computed(() =>
           />
         </ul>
       </section>
-      <!-- with nothing but Expired Events, the button still needs a place -->
-      <div v-if="expired.length && !groups.length && !showExpired" :class="[GROUP_BAR, '!justify-end']">
-        <button type="button" :class="HEADER_BUTTON" aria-expanded="false" @click="openExpired">
-          <ArrowUp :size="14" aria-hidden="true" />{{ $t('items.expiredButton') }}
-        </button>
-      </div>
-      <section v-for="(g, i) in groups" :key="g.key" :aria-labelledby="`group-${g.key}`">
-        <div :class="GROUP_BAR">
-          <h2 :id="`group-${g.key}`" :class="GROUP_TITLE">{{ $t(`items.groups.${g.key}`) }}</h2>
-          <!-- next to the first header (Today, when there is something today) -->
-          <button
-            v-if="i === 0 && expired.length && !showExpired"
-            type="button"
-            :class="HEADER_BUTTON"
-            aria-expanded="false"
-            @click="openExpired"
-          >
+      <!-- where the list opens: Today (and the notes above it) at the top, under the pinned bar;
+           tall enough to get there even with few Events -->
+      <div
+        ref="listStart"
+        class="min-h-[calc(100dvh-var(--list-top,0px)-var(--tab-bar))] md:min-h-[calc(100dvh-var(--list-top,0px))]"
+      >
+        <ListBanners :updated-at="items.dataUpdatedAt.value" />
+        <!-- with nothing but Expired Events, the button still needs a place -->
+        <div v-if="expired.length && !groups.length" :class="[GROUP_BAR, '!justify-end']">
+          <button type="button" :class="HEADER_BUTTON" aria-controls="expired" @click="showNewestExpired">
             <ArrowUp :size="14" aria-hidden="true" />{{ $t('items.expiredButton') }}
           </button>
         </div>
-        <ul>
-          <ItemRow
-            v-for="r in g.rows"
-            :key="r.item.id"
-            :item="r.item"
-            :due="r.due"
-            :handled="r.handled"
-            :question="r.question"
-            :remove="() => actions.delete(r.item)"
-            @open="openId = r.item.id"
-            @toggle-handled="actions.toggleHandled(r.item, r.due)"
-          />
-        </ul>
-      </section>
+        <section v-for="(g, i) in groups" :key="g.key" :aria-labelledby="`group-${g.key}`">
+          <div :class="GROUP_BAR">
+            <h2 :id="`group-${g.key}`" :class="GROUP_TITLE">{{ $t(`items.groups.${g.key}`) }}</h2>
+            <!-- next to the first header (Today, when there is something today) -->
+            <button
+              v-if="i === 0 && expired.length"
+              type="button"
+              :class="HEADER_BUTTON"
+              aria-controls="expired"
+              @click="showNewestExpired"
+            >
+              <ArrowUp :size="14" aria-hidden="true" />{{ $t('items.expiredButton') }}
+            </button>
+          </div>
+          <ul>
+            <ItemRow
+              v-for="r in g.rows"
+              :key="r.item.id"
+              :item="r.item"
+              :due="r.due"
+              :handled="r.handled"
+              :question="r.question"
+              :remove="() => actions.delete(r.item)"
+              @open="openId = r.item.id"
+              @toggle-handled="actions.toggleHandled(r.item, r.due)"
+            />
+          </ul>
+        </section>
+      </div>
     </template>
   </div>
 
