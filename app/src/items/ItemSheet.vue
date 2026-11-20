@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  CATEGORY_ICONS,
   type Category,
   countdown,
   looksLikeFullNumber,
@@ -9,7 +8,9 @@ import {
   type ReminderOffset,
   REMINDER_OFFSETS,
 } from '@oopsforgot/shared'
+import { Pencil, X } from '@lucide/vue'
 import { gsap } from 'gsap'
+import CategoryIcon from '../components/CategoryIcon.vue'
 import {
   AlertDialogAction,
   AlertDialogCancel,
@@ -290,7 +291,7 @@ const lineText = {
         ? t(`items.repeats.${draft.recurrence.unit}`, { n: draft.recurrence.every }, draft.recurrence.every)
         : t('itemForm.repeatOptions.none'),
   price: () => (priceCents.value != null ? formatMoney(priceCents.value, currency.value) : t('itemSheet.none')),
-  category: () => (draft.category ? `${CATEGORY_ICONS[draft.category]} ${t(`categories.${draft.category}`)}` : ''),
+  category: () => (draft.category ? t(`categories.${draft.category}`) : ''),
   notes: () => draft.notes.trim() || t('itemSheet.addNotes'),
   reminders: () => {
     // what will really be kept: greyed-out choices are left out, as the chips show
@@ -334,7 +335,7 @@ const lineText = {
               :aria-label="$t('itemSheet.close')"
               @click="requestClose"
             >
-              ✕
+              <X :size="20" aria-hidden="true" />
             </button>
             <p class="flex-1 text-center text-sm text-muted" role="status">
               {{ dirty ? $t('itemSheet.unsaved') : justSaved ? $t('itemSheet.saved') : $t('itemSheet.allSaved') }}
@@ -367,7 +368,7 @@ const lineText = {
             @archive="archive"
           />
           <div class="flex items-center gap-3 px-3 pt-1 pb-3">
-            <span class="text-3xl" aria-hidden="true">{{ draft.category ? CATEGORY_ICONS[draft.category] : '' }}</span>
+            <CategoryIcon v-if="draft.category" :category="draft.category" :size="30" class="text-muted" />
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <DialogTitle class="min-w-0 truncate text-xl font-bold">{{ draft.name || item?.name }}</DialogTitle>
@@ -378,7 +379,7 @@ const lineText = {
                   :aria-expanded="openLine === 'name'"
                   @click="toggle('name')"
                 >
-                  ✎
+                  <Pencil :size="18" aria-hidden="true" />
                 </button>
               </div>
               <p v-if="left" class="text-sm text-muted"><CountdownText :countdown="left" /></p>
@@ -466,6 +467,12 @@ const lineText = {
             :open="openLine === 'category'"
             @toggle="toggle('category')"
           >
+            <template #value>
+              <span class="flex items-center justify-end gap-2">
+                <CategoryIcon v-if="draft.category" :category="draft.category" class="text-muted" />
+                {{ lineText.category() }}
+              </span>
+            </template>
             <CategoryChips
               v-model="draft.category"
               :legend="$t('itemForm.category')"

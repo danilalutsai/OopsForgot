@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { DEFAULT_DAY_REMINDER_TIME, roundToQuarterHour } from '@oopsforgot/shared'
+import { ChevronRight } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatTime } from '../format'
@@ -189,8 +190,8 @@ const lines = {
       </SheetLine>
 
       <h2 :class="SECTION_TITLE">{{ $t('settings.sections.privacy') }}</h2>
-      <RouterLink to="/privacy" class="flex justify-between rounded-xl px-3 py-3 hover:bg-bg">
-        <span>{{ $t('settings.privacyNotice') }}</span><span class="text-muted" aria-hidden="true">›</span>
+      <RouterLink to="/privacy" class="flex items-center justify-between rounded-xl px-3 py-3 hover:bg-bg">
+        <span>{{ $t('settings.privacyNotice') }}</span><ChevronRight :size="20" class="text-muted" aria-hidden="true" />
       </RouterLink>
       <section class="px-3 py-3" :aria-label="$t('login.copyTitle')">
         <h3 class="font-medium">{{ $t('login.copyTitle') }}</h3>

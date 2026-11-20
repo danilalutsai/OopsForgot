@@ -11,6 +11,7 @@ import { dueDateOf, type Item, questionOf, recurrenceOf } from './api'
 import ItemRow from './ItemRow.vue'
 import { usePeriodSwipe } from './periodSwipe'
 import { URGENCY_BG } from './urgencyClasses'
+import { ChevronLeft, ChevronRight } from '@lucide/vue'
 
 const props = defineProps<{ items: Item[] }>()
 defineEmits<{ open: [id: string] }>()
@@ -161,11 +162,11 @@ const selectedLabel = computed(() => fmt(formats.long, selected.value))
         :aria-label="$t('calendar.previous')"
         @click="swipe.go(-1)"
       >
-        ‹
+        <ChevronLeft :size="22" aria-hidden="true" />
       </button>
       <h2 class="flex-1 text-center font-semibold" aria-live="polite">{{ title }}</h2>
       <button type="button" class="rounded-full px-2 text-xl" :aria-label="$t('calendar.next')" @click="swipe.go(1)">
-        ›
+        <ChevronRight :size="22" aria-hidden="true" />
       </button>
     </div>
     <div class="mb-2 flex items-center justify-between text-sm">

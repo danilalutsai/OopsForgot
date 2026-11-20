@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { List, Wallet } from '@lucide/vue'
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import AppLogo from './components/AppLogo.vue'
@@ -8,13 +9,9 @@ const route = useRoute()
 const inApp = computed(() => !route.meta.public)
 
 const tabs = [
-  // a checklist and a wallet, drawn so they read the same in every font
-  { to: '/', label: 'nav.items', icon: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01' },
-  {
-    to: '/money',
-    label: 'nav.money',
-    icon: 'M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5M16 14h.01',
-  },
+  // a checklist and a wallet
+  { to: '/', label: 'nav.items', icon: List },
+  { to: '/money', label: 'nav.money', icon: Wallet },
 ]
 // the current tab: accent colour, bold, and a bar along its top edge
 const TAB = 'relative flex flex-col items-center justify-center gap-0.5 font-medium text-text'
@@ -48,18 +45,7 @@ const TAB_ON =
       class="fixed inset-x-0 bottom-0 grid h-[var(--tab-bar)] grid-cols-2 border-t border-line bg-surface pb-[calc(var(--tab-bar-lift)+env(safe-area-inset-bottom,0px))] text-[13px] md:hidden"
     >
       <RouterLink v-for="tab in tabs" :key="tab.to" :to="tab.to" :class="TAB" :exact-active-class="TAB_ON">
-        <svg
-          viewBox="0 0 24 24"
-          class="h-5 w-5"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path :d="tab.icon" />
-        </svg>
+        <component :is="tab.icon" :size="20" aria-hidden="true" />
         {{ $t(tab.label) }}
       </RouterLink>
     </nav>

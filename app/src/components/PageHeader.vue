@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronLeft } from '@lucide/vue'
 import AvatarMenu from './AvatarMenu.vue'
 
 /** Header of a settings-style page: Back on phones, the title, and the avatar menu to switch pages. */
@@ -10,7 +11,7 @@ defineProps<{ title: string }>()
     <span class="w-20 md:hidden">
       <!-- a 44px tap area on phones -->
       <RouterLink to="/" class="-ml-2 inline-flex min-h-11 min-w-11 items-center px-2 text-[17px] text-accent">
-        ‹ {{ $t('settings.back') }}
+        <ChevronLeft :size="22" class="-ml-1.5" aria-hidden="true" />{{ $t('settings.back') }}
       </RouterLink>
     </span>
     <h1 class="flex-1 text-center text-[19px] font-bold md:text-left">{{ title }}</h1>
