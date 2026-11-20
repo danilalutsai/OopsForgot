@@ -54,9 +54,17 @@ function roughRepeatsSince(first: string, { unit, every }: Recurrence, today: st
   }
 }
 
-/** A one-time Item is Expired from the day after its Due date. Repeating Items never expire; they move on. */
-export function isExpired(item: DatedItem, today: string): boolean {
-  return item.recurrence === null && item.dueDate < today
+/**
+ * A one-time Item is Expired right after its Finish time on the Due date, or (all day, or with only a
+ * Start time) from 00:00 the next day. Repeating Items never expire; they move on.
+ * `now` is the person's local "YYYY-MM-DDTHH:MM", or just "YYYY-MM-DD" when the time doesn't matter.
+ */
+export function isExpired(item: DatedItem & { finishTime?: string | null }, now: string): boolean {
+  if (item.recurrence !== null) return false
+  const today = now.slice(0, 10)
+  if (item.dueDate < today) return true
+  const time = now.slice(11, 16)
+  return item.dueDate === today && !!item.finishTime && !!time && time > item.finishTime.slice(0, 5)
 }
 
 /** Every Due date of the Item from `from` to `to` (YYYY-MM-DD, both included), never before its first one. */

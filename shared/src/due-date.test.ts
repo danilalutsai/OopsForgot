@@ -68,6 +68,19 @@ describe('isExpired', () => {
     expect(isExpired({ dueDate: '2026-11-16', recurrence: null }, '2026-11-16')).toBe(false)
   })
 
+  it('with a Finish time, is Expired right after it on the Due date, not before', () => {
+    const dentist = { dueDate: '2026-11-16', recurrence: null, finishTime: '10:30' }
+    expect(isExpired(dentist, '2026-11-16T10:30')).toBe(false)
+    expect(isExpired(dentist, '2026-11-16T10:31')).toBe(true)
+    // with only the date known, it waits for the next day
+    expect(isExpired(dentist, '2026-11-16')).toBe(false)
+  })
+
+  it('all day or with only a Start time, is Expired at 00:00 the next day', () => {
+    expect(isExpired({ dueDate: '2026-11-16', recurrence: null }, '2026-11-16T23:59')).toBe(false)
+    expect(isExpired({ dueDate: '2026-11-16', recurrence: null, finishTime: null }, '2026-11-17T00:00')).toBe(true)
+  })
+
   it('never makes a repeating Item Expired', () => {
     expect(isExpired({ dueDate: '2026-10-05', recurrence: { unit: 'month', every: 1 } }, '2026-11-16')).toBe(false)
   })

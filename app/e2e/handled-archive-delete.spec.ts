@@ -52,18 +52,39 @@ test('mark an Item Handled in place, then undo it', async ({ page }) => {
   await expect(row(page, 'Netflix')).toContainText('Due in 2 days')
 })
 
-test('swipe an Item to Handled, then to Archive; restore it from Archived', async ({ page }) => {
+test('swipe right for Handled; swipe left deletes, in red, with Undo', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Gym', 3)
   await swipe(page, 'Gym', 150)
   await expect(page.getByRole('button', { name: 'Undo Handled for Gym' })).toBeVisible()
-  await swipe(page, 'Gym', -150)
-  await expect(page.getByRole('status')).toContainText('Gym archived')
-  await expect(page.getByRole('region', { name: 'This week' })).toBeHidden()
 
-  await page.getByRole('button', { name: 'Archived (1)' }).click()
-  await page.getByRole('button', { name: 'Restore' }).click()
+  // what letting go will do shows under the row while swiping: Delete, on red
+  const box = (await row(page, 'Gym').boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2, { steps: 6 })
+  const under = row(page, 'Gym').getByText('Delete', { exact: true })
+  await expect(under).toBeVisible()
+  // the strip under the row is the app's red
+  expect(await under.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
+    await page.evaluate(() => {
+      const probe = document.createElement('span')
+      probe.className = 'bg-urgent-red'
+      document.body.append(probe)
+      const c = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      return c
+    }),
+  )
+  await page.mouse.move(box.x + box.width / 2 - 150, box.y + box.height / 2, { steps: 6 })
+  await page.mouse.up()
+
+  await expect(page.getByRole('status')).toContainText('Gym deleted')
+  await expect(row(page, 'Gym')).toHaveCount(0)
+  await page.getByRole('status').getByRole('button', { name: 'Undo' }).click()
   await expect(page.getByRole('region', { name: 'This week' }).getByText('Gym')).toBeVisible()
+  // there is no Archived any more
+  await expect(page.getByText(/Archived/)).toHaveCount(0)
 })
 
 test('delete an Item from its sheet after confirming, and undo it', async ({ page }) => {
@@ -98,16 +119,16 @@ test('a Handled repeating Item reminds again for its next Due date', async ({ pa
   await expect(row(page, 'Cleaning')).toContainText('Handled')
 })
 
-test('Archive and Delete wait until sheet changes are saved or discarded', async ({ page }) => {
+test('Delete waits until sheet changes are saved or discarded; there is no Archive', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Passport', 90)
   await row(page, 'Passport').getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Passport' })
   await sheet.getByRole('button', { name: 'Change Name' }).click()
   await sheet.getByLabel('Name', { exact: true }).fill('Passport (renew)')
-  await expect(sheet.getByRole('button', { name: 'Archive' })).toBeDisabled()
+  await expect(sheet.getByRole('button', { name: 'Archive' })).toHaveCount(0)
   await expect(sheet.getByRole('button', { name: 'Delete' })).toBeDisabled()
-  await expect(sheet.getByText('Save or discard your changes')).toBeVisible()
+  await expect(sheet.getByText('Save or discard your changes before deleting.')).toBeVisible()
 })
 
 test('tapping ✓ twice quickly ends up not Handled', async ({ page }) => {

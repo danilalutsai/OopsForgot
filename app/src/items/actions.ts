@@ -14,7 +14,7 @@ const handledQueue = new Map<string, Promise<unknown>>()
  */
 const intendedHandled = new Map<string, string | null>()
 
-/** Handled, Archive, Restore and Delete, each with its message and (where it helps) Undo. */
+/** Handled, Keep in Expired and Delete, each with its message and (where it helps) Undo. */
 export function useItemActions() {
   const update = useUpdateItem()
   const remove = useDeleteItem()
@@ -80,13 +80,9 @@ export function useItemActions() {
         toasts.show(next ? 'toasts.handled' : 'toasts.unhandled', {}, () => queueHandled(item, before)),
       )
     },
-    /** Returns false when archiving failed, so a swiped row can slide back. */
-    async archive(item: Item): Promise<boolean> {
-      if (!(await run(() => update.mutateAsync({ id: item.id, archived_at: new Date().toISOString() })))) return false
-      toasts.show('toasts.archived', { name: item.name }, () =>
-        run(() => update.mutateAsync({ id: item.id, archived_at: null })),
-      )
-      return true
+    /** Answers "What now?" (or "Kept it?" with No): no more question; the Item stays in Expired. */
+    async keepInExpired(item: Item) {
+      await run(() => update.mutateAsync({ id: item.id, kept_expired_due_date: item.due_date }))
     },
     /** Answers "What now?" with a new Due date. */
     async setNewDueDate(item: Item, dueDate: string) {
@@ -134,17 +130,19 @@ export function useItemActions() {
       void queryClient.invalidateQueries({ queryKey: ['expenses'] })
       if (kept) toasts.show('questions.kept', { name })
     },
-    async restore(item: Item) {
-      if (await run(() => update.mutateAsync({ id: item.id, archived_at: null }))) toasts.show('items.restored')
-    },
-    async delete(item: Item) {
-      if (blockedOffline()) return
+    /** Deletes at once, with Undo. Returns false when that failed, so a swiped row can slide back. */
+    async delete(item: Item): Promise<boolean> {
+      if (blockedOffline()) return false
       // The full row (Reminders included, as they live on it) and when it was added, so Undo brings it back exactly.
-      // Rows in other tables that belong to the Item (Expenses) must be copied here too once they exist.
+      // Its Expenses stay either way (they only lose the link to it).
       const { data: copy, error } = await supabase.from('items').select('*').eq('id', item.id).single()
-      if (error || !copy) return toasts.show('toasts.failed')
-      if (!(await run(() => remove.mutateAsync(item.id)))) return
+      if (error || !copy) {
+        toasts.show('toasts.failed')
+        return false
+      }
+      if (!(await run(() => remove.mutateAsync(item.id)))) return false
       toasts.show('toasts.deleted', { name: item.name }, () => run(() => putBack.mutateAsync(copy)))
+      return true
     },
   }
 }

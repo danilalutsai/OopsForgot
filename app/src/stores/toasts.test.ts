@@ -21,7 +21,7 @@ const text = (key: string) => key.split('.').reduce<unknown>((o, k) => (o as Rec
 
 describe('toast messages', () => {
   it('are found in the source', () => {
-    expect(toastKeys()).toEqual(expect.arrayContaining(['toasts.handled', 'toasts.unhandled', 'items.restored']))
+    expect(toastKeys()).toEqual(expect.arrayContaining(['toasts.handled', 'toasts.unhandled', 'toasts.deleted']))
   })
 
   it('all have English text without emoji', () => {

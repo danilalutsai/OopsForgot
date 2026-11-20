@@ -25,7 +25,11 @@ test('repeating Items move on to their next Due date; one-time Items become Expi
   const today = page.getByRole('region', { name: 'Today' })
   await expect(today.getByRole('listitem').filter({ hasText: 'Cleaning' })).toContainText('Due today')
   await expect(today.getByRole('listitem').filter({ hasText: 'Cleaning' })).toContainText('Every week')
-  await expect(today.getByRole('listitem').filter({ hasText: 'Old ID card' })).toContainText('Expired 3 days ago')
+  // one-time and past: in Expired, above Today, not in Today
+  await expect(today.getByText('Old ID card')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Expired', exact: true }).click()
+  const expired = page.getByRole('region', { name: 'Expired' })
+  await expect(expired.getByRole('listitem').filter({ hasText: 'Old ID card' })).toContainText('Expired 3 days ago')
   const thisWeek = page.getByRole('region', { name: 'This week' })
   await expect(thisWeek.getByRole('listitem').filter({ hasText: 'Water filter' })).toContainText('Due in 5 days')
   await expect(thisWeek.getByRole('listitem').filter({ hasText: 'Water filter' })).toContainText('Every 10 days')

@@ -22,14 +22,18 @@ const props = withDefaults(
     question: OpenQuestion | null
     /** false for a Due date other than the one the Item is on now: Handled applies only to that one */
     canHandle?: boolean
-    /** Archives the Item; resolves false when that failed, so the row slides back. */
-    archive: () => Promise<boolean>
+    /** Expired (one-time, past its Due date or Finish time): the row turns grey */
+    expired?: boolean
+    /** Deletes the Item; resolves false when that failed, so the row slides back. */
+    remove: () => Promise<boolean>
   }>(),
-  { canHandle: true },
+  { canHandle: true, expired: false },
 )
 
 const repeats = computed(() => recurrenceOf(props.item))
-const level = computed(() => urgency({ dueDate: props.due, handled: props.handled }, today.value))
+const level = computed(() =>
+  props.expired ? 'grey' : urgency({ dueDate: props.due, handled: props.handled }, today.value),
+)
 const left = computed(() => countdown(props.due, today.value))
 const textColor = {
   red: 'text-urgent-red',
@@ -38,13 +42,13 @@ const textColor = {
   grey: 'text-muted',
 }
 
-// Swipe right = Handled (or Undo), swipe left = Archive; a short swipe springs back.
+// Swipe right = Handled (or Undo), swipe left = Delete (with Undo); a short swipe springs back.
 const SWIPE = 80
 const slider = ref<HTMLElement>()
 let start: { x: number; y: number } | null = null
 let swiping = false
 /** Which way the row is being swiped, so what the swipe does shows underneath it. */
-const showing = ref<'handled' | 'archive' | null>(null)
+const showing = ref<'handled' | 'delete' | null>(null)
 const canSwipeHandled = computed(() => !props.question && props.canHandle)
 /** Back in place: nothing underneath shows any more. */
 const springBack = (el: HTMLElement) =>
@@ -63,7 +67,7 @@ function move(e: PointerEvent) {
   if (!swiping) return
   // right only does something when Handled can be marked here
   const x = dx > 0 && !canSwipeHandled.value ? 0 : dx
-  showing.value = x > 0 ? 'handled' : x < 0 ? 'archive' : null
+  showing.value = x > 0 ? 'handled' : x < 0 ? 'delete' : null
   gsap.set(slider.value, { x })
 }
 function up(e: PointerEvent) {
@@ -78,7 +82,7 @@ function up(e: PointerEvent) {
       duration: duration(0.2),
       ease: 'power2.out',
       onComplete: async () => {
-        if (!(await props.archive())) springBack(el)
+        if (!(await props.remove())) springBack(el)
       },
     })
     return
@@ -86,7 +90,7 @@ function up(e: PointerEvent) {
   springBack(slider.value)
   if (dx > SWIPE && canSwipeHandled.value) emit('toggleHandled')
 }
-/** A gesture the browser cancelled never archives or marks Handled: it just springs back. */
+/** A gesture the browser cancelled never deletes or marks Handled: it just springs back. */
 function cancel() {
   start = null
   if (slider.value) springBack(slider.value)
@@ -109,7 +113,7 @@ function click(e: MouseEvent) {
       v-if="showing"
       :class="[
         'absolute inset-0 flex items-center px-5 text-sm font-semibold text-white',
-        showing === 'handled' ? 'justify-start bg-emerald-700' : 'justify-end bg-slate-600',
+        showing === 'handled' ? 'justify-start bg-emerald-700' : 'justify-end bg-urgent-red',
       ]"
       aria-hidden="true"
     >
@@ -118,7 +122,7 @@ function click(e: MouseEvent) {
           handled ? $t('swipe.undo') : $t('swipe.handled')
         }}</template
       >
-      <template v-else>{{ $t('swipe.archive') }}</template>
+      <template v-else>{{ $t('swipe.delete') }}</template>
     </div>
     <div
       ref="slider"
@@ -134,13 +138,19 @@ function click(e: MouseEvent) {
         class="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 text-left hover:bg-bg"
         @click="$emit('open')"
       >
-        <span :class="['h-10 w-1 shrink-0 rounded-full', URGENCY_BG[level]]" aria-hidden="true" />
+        <span
+          data-testid="urgency-bar"
+          :class="['h-10 w-1 shrink-0 rounded-full', URGENCY_BG[level]]"
+          aria-hidden="true"
+        />
         <CategoryIcon :category="item.category" :size="22" class="text-muted" />
         <div class="min-w-0 flex-1">
           <p :class="['truncate font-semibold', handled && 'text-muted line-through']">{{ item.name }}</p>
           <p class="flex flex-wrap gap-x-2 text-[13px]">
             <span :class="['font-semibold', textColor[level]]">
               <template v-if="handled">{{ $t('items.handled') }}</template>
+              <!-- Expired today, after its Finish time -->
+              <template v-else-if="expired && left.kind === 'dueToday'">{{ $t('items.expiredToday') }}</template>
               <CountdownText v-else :countdown="left" />
             </span>
             <span class="text-muted">
@@ -157,7 +167,11 @@ function click(e: MouseEvent) {
       <button
         v-if="question"
         type="button"
-        class="mx-3 shrink-0 rounded-full bg-urgent-red px-3 py-1.5 text-xs font-bold text-on-accent"
+        :class="[
+          'mx-3 shrink-0 rounded-full px-3 py-1.5 text-xs font-bold',
+          // in grey Expired rows the question stays neutral too
+          expired ? 'border border-line text-text' : 'bg-urgent-red text-on-accent',
+        ]"
         @click="$emit('open')"
       >
         {{ question === 'expired' ? $t('questions.whatNow') : $t('questions.keptIt') }}

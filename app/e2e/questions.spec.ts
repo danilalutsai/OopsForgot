@@ -11,10 +11,13 @@ async function addItem(page: Page, name: string, category: string, days: number)
   await expect(page.getByRole('dialog')).toBeHidden()
 }
 const row = (page: Page, name: string) => page.getByRole('listitem').filter({ hasText: name })
+/** Expired Items wait above Today, hidden until asked for. */
+const showExpired = (page: Page) => page.getByRole('button', { name: 'Expired', exact: true }).click()
 
 test('an Expired Item asks "What now?"; a new Due date answers it', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'ID card', 'Documents', -3)
+  await showExpired(page)
   await expect(row(page, 'ID card').getByRole('button', { name: 'What now?' })).toBeVisible()
   await row(page, 'ID card').getByRole('button', { name: 'What now?' }).click()
 
@@ -32,6 +35,7 @@ test('an Expired Item asks "What now?"; a new Due date answers it', async ({ pag
 test('"Make it repeat" counts the next Due date forward from the old one', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Window cleaning', 'Home', -7)
+  await showExpired(page)
   await row(page, 'Window cleaning').getByRole('button', { name: 'What now?' }).click()
   const sheet = page.getByRole('dialog', { name: 'Window cleaning' })
   await sheet.getByLabel('Repeat').selectOption({ label: 'Every week' })
@@ -54,18 +58,41 @@ test('a free trial asks "Kept it?"; Yes makes it a monthly Subscription', async 
   await expect(sheet.getByRole('button', { name: /^Repeats/ })).toContainText('Every month')
 })
 
-test('a free trial not kept is archived', async ({ page }) => {
+test('a free trial not kept stays, with no more question; Expired from the next day', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Duolingo free trial', 'Free trials', 0)
   await row(page, 'Duolingo').getByRole('button', { name: 'Kept it?' }).click()
-  await page.getByRole('button', { name: 'No, I cancelled' }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'archived' })).toContainText('Duolingo free trial archived')
-  await expect(page.getByRole('button', { name: 'Archived (1)' })).toBeVisible()
+  const sheet = page.getByRole('dialog')
+  await sheet.getByRole('button', { name: 'No, I cancelled' }).click()
+  await expect(sheet.getByRole('heading', { name: /Did you keep/ })).toBeHidden()
+  await sheet.getByRole('button', { name: 'Close' }).filter({ visible: true }).click()
+  await expect(row(page, 'Duolingo')).toBeVisible()
+  await expect(row(page, 'Duolingo').getByRole('button', { name: 'Kept it?' })).toHaveCount(0)
+})
+
+test('"Keep in Expired" closes the question; the Item stays in Expired', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await addItem(page, 'Old passport', 'Documents', -4)
+  await showExpired(page)
+  await row(page, 'Old passport').getByRole('button', { name: 'What now?' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Old passport' })
+  await expect(sheet.getByRole('button', { name: 'Archive' })).toHaveCount(0)
+  await sheet.getByRole('button', { name: 'Keep in Expired' }).click()
+  await expect(sheet.getByRole('heading', { name: /What now/ })).toBeHidden()
+  await sheet.getByRole('button', { name: 'Close' }).filter({ visible: true }).click()
+
+  const expired = page.getByRole('region', { name: 'Expired' })
+  await expect(expired.getByText('Old passport')).toBeVisible()
+  await expect(row(page, 'Old passport').getByRole('button', { name: 'What now?' })).toHaveCount(0)
+  await page.reload()
+  await showExpired(page)
+  await expect(row(page, 'Old passport').getByRole('button', { name: 'What now?' })).toHaveCount(0)
 })
 
 test('a past date cannot answer "What now?"', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Visa', 'Travel', -2)
+  await showExpired(page)
   await row(page, 'Visa').getByRole('button', { name: 'What now?' }).click()
   const sheet = page.getByRole('dialog', { name: 'Visa' })
   await sheet.getByLabel('New Due date').fill(await inDays(page, -1))
@@ -77,6 +104,7 @@ test('rows with a question stay readable in dark mode', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Old ID', 'Documents', -3)
   await addItem(page, 'Trial', 'Free trials', 0)
+  await showExpired(page)
   await expect(row(page, 'Old ID').getByRole('button', { name: 'What now?' })).toBeVisible()
   await expectAccessible(page)
 })

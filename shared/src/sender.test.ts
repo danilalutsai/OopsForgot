@@ -11,6 +11,7 @@ const item = (over: Partial<SenderItem> = {}): SenderItem => ({
   recurrence: null,
   reminderOffsets: ['1d'],
   handledDueDate: null,
+  keptDueDate: null,
   createdAt: new Date('2026-11-01T00:00:00Z'),
   ...over,
 })
@@ -69,6 +70,13 @@ describe('dueReminders', () => {
         ...window('2026-11-21T09:45Z', '2026-11-21T10:00Z'),
       ),
     ).toEqual([])
+  })
+
+  it('sends no "Expired" message or trial question once the person kept the Item in Expired', () => {
+    const passport = item({ id: 'passport', category: 'documents', reminderOffsets: [], keptDueDate: '2026-11-20' })
+    expect(dueReminders(ana, [passport], ...window('2026-11-21T09:45Z', '2026-11-21T10:00Z'))).toEqual([])
+    const trial = item({ id: 'trial', category: 'free_trials', reminderOffsets: [], keptDueDate: '2026-11-20' })
+    expect(dueReminders(ana, [trial], ...window('2026-11-20T09:45Z', '2026-11-20T10:00Z'))).toEqual([])
   })
 
   it('asks "Did you keep it?" on a free trial\'s Due date instead of an Expired message', () => {

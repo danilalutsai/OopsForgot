@@ -48,17 +48,15 @@ const coming = computed(() =>
   month.value !== thisMonth.value
     ? []
     : stillComing(
-        (items.data.value ?? [])
-          .filter((i) => !i.archived_at)
-          .map((i) => ({
-            id: i.id,
-            name: i.name,
-            dueDate: i.due_date,
-            recurrence: recurrenceOf(i),
-            priceCents: i.price_cents,
-            category: i.category,
-            handledDueDate: i.handled_due_date,
-          })),
+        (items.data.value ?? []).map((i) => ({
+          id: i.id,
+          name: i.name,
+          dueDate: i.due_date,
+          recurrence: recurrenceOf(i),
+          priceCents: i.price_cents,
+          category: i.category,
+          handledDueDate: i.handled_due_date,
+        })),
         today.value,
       ),
 )

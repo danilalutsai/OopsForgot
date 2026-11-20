@@ -25,12 +25,8 @@ How often a repeating Item comes due again: every N days, weeks, months or years
 _Avoid_: Frequency, interval, schedule
 
 **Expired**:
-The state of a one-time Item whose Due date has passed and that has not yet been given a new Due date or archived.
-_Avoid_: Overdue, late, past due
-
-**Archived**:
-The state of an Item a person no longer tracks. It leaves the active list but keeps its history.
-_Avoid_: Deleted, inactive, cancelled
+The state of a one-time Item whose time is over: right after its Finish time, or (All day, or only a Start time) from 00:00 the next day, in the person's time zone. Repeating Items never expire; they move on to their next Due date. Expired Items wait in their own part of the list, above Today, until the person gives them a new Due date, deletes them, or the clean-up deletes them after the time the person chose (1 month unless they change it). "Keep in Expired" answers the "What now?" question and leaves the Item there.
+_Avoid_: Overdue, late, past due, archived (there is no Archived state any more)
 
 **Reminder**:
 An alert sent to a person a set time before an Item's Due date. An Item can have several: 30 minutes, 1, 2 or 4 hours before (only for Items with a time), or 1 day, 2 days, 1 week, 2 weeks or 1 month before, sent at the person's chosen time of day (12:00 unless they change it). A Reminder must fit inside the time the Item covers: shorter than one repeat for a repeating Item, still ahead of now for a one-time Item. A repeating Item's Reminders repeat every time it comes due.

@@ -4,10 +4,10 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { gsap } from 'gsap'
 import { duration, fadeTransition } from '../motion'
-import { today } from '../today'
+import { nowLocal, today } from '../today'
 import { firstDayOfWeek } from '../weekStart'
 import { useItemActions } from './actions'
-import { dueDateOf, type Item, questionOf, recurrenceOf } from './api'
+import { dueDateOf, expiredNow, type Item, questionOf, recurrenceOf } from './api'
 import ItemRow from './ItemRow.vue'
 import { usePeriodSwipe } from './periodSwipe'
 import { URGENCY_BG } from './urgencyClasses'
@@ -81,7 +81,13 @@ const cells = computed(() =>
       items,
       dots: items.slice(0, 3).map((item) => ({
         id: item.id,
-        color: URGENCY_BG[urgency({ dueDate: day, handled: item.handled_due_date === day }, today.value)],
+        // Expired Items still show on their day, in grey
+        color:
+          URGENCY_BG[
+            expiredNow(item, nowLocal.value)
+              ? 'grey'
+              : urgency({ dueDate: day, handled: item.handled_due_date === day }, today.value)
+          ],
       })),
       more: Math.max(0, items.length - 3),
       label: items.length
@@ -253,9 +259,10 @@ const selectedLabel = computed(() => fmt(formats.long, selected.value))
         :item="item"
         :due="selected"
         :handled="item.handled_due_date === selected"
-        :question="questionOf(item, today, selected)"
+        :question="questionOf(item, nowLocal, selected)"
         :can-handle="current.get(item.id) === selected"
-        :archive="() => actions.archive(item)"
+        :expired="expiredNow(item, nowLocal)"
+        :remove="() => actions.delete(item)"
         @open="$emit('open', item.id)"
         @toggle-handled="actions.toggleHandled(item, selected)"
       />
