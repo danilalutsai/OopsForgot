@@ -14,6 +14,19 @@ async function addItem(page: Page, name: string, days: number, times?: [string, 
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
 }
+/** Whether any of it can be seen: below the pinned top bar and above the tab bar (not just "in the viewport"). */
+const inSight = (l: import('@playwright/test').Locator) =>
+  l.evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    const bar = document.querySelector('[role="tablist"]')!.parentElement!.getBoundingClientRect().bottom
+    // the phone's tab bar (fixed at the bottom), not the computer's sidebar of the same name
+    const tabs = [...document.querySelectorAll('nav[aria-label="Main"]')].find(
+      (n) => getComputedStyle(n).position === 'fixed' && getComputedStyle(n).display !== 'none',
+    )
+    const bottom = tabs ? tabs.getBoundingClientRect().top : innerHeight
+    return r.bottom > bar + 1 && r.top < bottom - 1
+  })
+const expectInSight = (l: import('@playwright/test').Locator, shown = true) => expect.poll(() => inSight(l)).toBe(shown)
 const expiredButton = (page: Page) => page.getByRole('button', { name: 'Expired', exact: true })
 const expired = (page: Page) => page.getByRole('region', { name: 'Expired' })
 const colour = (page: Page, token: string) =>
@@ -26,20 +39,20 @@ const colour = (page: Page, token: string) =>
     return c
   }, token)
 
-test('Expired Events wait above Today, hidden until "↑ Expired"; oldest first, all in grey', async ({ page }) => {
+test('Expired Events wait just above Today, out of sight at first; oldest first, all in grey', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Visa', -2)
   await addItem(page, 'Old ID', -5)
   await addItem(page, 'Gym card', 0)
   await addItem(page, 'Insurance', 20)
 
-  // the list opens at Today: Expired is hidden, the button sits next to the TODAY header
-  await expect(expired(page)).toBeHidden()
+  // the list opens at Today, under the pinned bar: Expired is right above, out of sight
+  await expect(page.getByRole('tablist')).toBeInViewport()
+  await expectInSight(expired(page), false)
   const today = page.getByRole('region', { name: 'Today' })
   await expect(today.getByRole('listitem')).toHaveCount(1)
   await expect(today.getByText('Gym card')).toBeVisible()
   const button = expiredButton(page)
-  await expect(button).toHaveAttribute('aria-expanded', 'false')
   const header = (await page.getByRole('heading', { name: 'Today' }).boundingBox())!
   const at = (await button.boundingBox())!
   expect(Math.abs(at.y + at.height / 2 - (header.y + header.height / 2))).toBeLessThan(12)
@@ -47,9 +60,7 @@ test('Expired Events wait above Today, hidden until "↑ Expired"; oldest first,
   expect(await button.evaluate((b) => getComputedStyle(b).color)).toBe(await colour(page, '--c-muted'))
 
   await button.click()
-  await expect(expired(page)).toBeVisible()
-  // open: the button moves to the EXPIRED header as "Hide"
-  await expect(button).toHaveCount(0)
+  await expect(expired(page).getByRole('listitem').filter({ hasText: 'Visa' }))
   // oldest at the top, the most recent right above Today
   await expect(expired(page).getByRole('listitem')).toHaveText([/Old ID/, /Visa/])
   const list = (await expired(page).boundingBox())!
@@ -75,9 +86,10 @@ test('Expired Events wait above Today, hidden until "↑ Expired"; oldest first,
   )
   await expectAccessible(page)
 
-  // "Hide" closes it again
+  // "Hide" goes back to Today
   await page.getByRole('button', { name: 'Hide', exact: true }).click()
-  await expect(expired(page)).toBeHidden()
+  await expectInSight(expired(page), false)
+  await expectInSight(page.getByRole('heading', { name: 'Today' }))
 })
 
 test('no Expired Events: no "Expired" button', async ({ page }) => {
@@ -96,41 +108,33 @@ test('an Event with a Finish time is Expired right after it, on the same day', a
   await expect(expired(page).getByText('Early call')).toBeVisible()
 })
 
-test('computer: scrolling up past the top of the list shows Expired', async ({ page }, info) => {
-  test.skip(!info.project.name.startsWith('computer'), 'mouse wheel')
+test('scrolling up from Today goes straight into the newest Expired, like any other scroll', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Visa', -2)
   await addItem(page, 'Gym card', 0)
-  await expect(expired(page)).toBeHidden()
-  await page.getByRole('heading', { name: 'Today' }).hover()
-  await page.mouse.wheel(0, -400)
-  await expect(expired(page)).toBeVisible()
+  await page.reload()
+  const today = page.getByRole('heading', { name: 'Today' })
+  await expect(today).toBeVisible()
+  await expectInSight(expired(page), false)
+  const before = (await today.boundingBox())!.y
+  // the Expired rows are already there: the page just moves, by exactly as much, no jump
+  await page.evaluate(() => window.scrollBy({ top: -60, behavior: 'instant' }))
+  await expectInSight(expired(page).getByRole('listitem').filter({ hasText: 'Visa' }))
+  expect(Math.abs((await today.boundingBox())!.y - (before + 60))).toBeLessThan(2)
 })
 
-test('phone: pulling down at the top of the list shows Expired', async ({ page }, info) => {
-  // WebKit here has no Touch constructor to fake a finger with; check it on a real iPhone
-  test.skip(info.project.name !== 'phone-chromium', 'synthetic touch only in Chromium')
+test('Expired appearing while you are on Today never moves what is on screen', async ({ page }) => {
   await logInAsNewPerson(page)
-  await addItem(page, 'Visa', -2)
   await addItem(page, 'Gym card', 0)
-  await expect(expired(page)).toBeHidden()
-  // a finger dragging the page down while it is already at the top
-  await page.getByRole('heading', { name: 'Today' }).evaluate((el) => {
-    const touch = (y: number) => new Touch({ identifier: 1, target: el, clientX: 150, clientY: y })
-    const send = (type: string, y: number) =>
-      el.dispatchEvent(
-        new TouchEvent(type, {
-          bubbles: true,
-          cancelable: true,
-          touches: type === 'touchend' ? [] : [touch(y)],
-          changedTouches: [touch(y)],
-        }),
-      )
-    send('touchstart', 200)
-    for (let y = 210; y <= 330; y += 10) send('touchmove', y)
-    send('touchend', 330)
-  })
-  await expect(expired(page)).toBeVisible()
+  const today = page.getByRole('heading', { name: 'Today' })
+  await expect(today).toBeVisible()
+  const before = (await today.boundingBox())!.y
+  // an Event that is already past: it lands in Expired, just out of sight above Today
+  await addItem(page, 'Old ID', -3)
+  await expect(expiredButton(page)).toBeVisible()
+  // (the page is put back before the next frame is drawn, so the person never sees it move)
+  await expect.poll(async () => Math.abs((await today.boundingBox())!.y - before)).toBeLessThan(2)
+  await expectInSight(expired(page), false)
 })
 
 test('calendar: Expired Events still show on their day, in grey', async ({ page }) => {
@@ -227,13 +231,12 @@ test.describe('Expired: open at the newest, HIDE back to the top', () => {
 
   test('opening shows the newest Expired right above TODAY; HIDE brings TODAY back to the top', async ({ page }) => {
     await longList(page)
-    expect(await page.evaluate(() => window.scrollY)).toBe(0)
     const listTop = (await page.getByRole('heading', { name: 'Today' }).boundingBox())!.y
 
     await page.getByRole('button', { name: 'Expired', exact: true }).click()
     const expiredList = page.getByRole('region', { name: 'Expired' })
-    await expect(expiredList.getByRole('listitem').filter({ hasText: 'E20' })).toBeInViewport()
-    await expect(expiredList.getByRole('listitem').filter({ hasText: 'E01' })).not.toBeInViewport()
+    await expectInSight(expiredList.getByRole('listitem').filter({ hasText: 'E20' }))
+    await expectInSight(expiredList.getByRole('listitem').filter({ hasText: 'E01' }), false)
     // order stays: oldest at the top, newest right above TODAY
     await expect(expiredList.getByRole('listitem').first()).toContainText('E01')
     await expect(expiredList.getByRole('listitem').last()).toContainText('E20')
@@ -248,14 +251,12 @@ test.describe('Expired: open at the newest, HIDE back to the top', () => {
     const [t, h] = [await style(page.getByRole('heading', { name: 'Expired' })), await style(hide)]
     expect(h.font).toBe(t.font)
     expect(Math.abs(h.middle - t.middle)).toBeLessThan(2)
-    await expect(page.getByRole('button', { name: 'Expired', exact: true })).toHaveCount(0)
 
     await page.getByRole('listitem').filter({ hasText: 'E10' }).scrollIntoViewIfNeeded()
     await page.getByRole('heading', { name: 'Expired' }).scrollIntoViewIfNeeded()
     await hide.click()
-    await expect(expiredList).toBeHidden()
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
     await settled(page)
+    await expectInSight(expiredList.getByRole('listitem').last(), false)
     expect((await page.getByRole('heading', { name: 'Today' }).boundingBox())!.y).toBeCloseTo(listTop, 0)
     await expect(page.getByRole('button', { name: 'Expired', exact: true })).toBeVisible()
   })
