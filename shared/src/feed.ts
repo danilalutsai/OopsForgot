@@ -8,7 +8,9 @@ export interface FeedItem {
   name: string
   category: Category
   dueDate: string
+  /** Start time; none means all day */
   dueTime: string | null
+  finishTime: string | null
   recurrence: Recurrence | null
   handledDueDate: string | null
 }
@@ -55,7 +57,7 @@ function fold(line: string): string {
 
 /**
  * The person's Calendar feed: each Due date as an event, 3 months back to 12 months ahead.
- * All-day, or one hour at the Item's time. Handled ones get ✓. Never notes, price or alarms
+ * All-day, or from the Start time to the Finish time (one hour when there is no Finish time). Handled ones get ✓. Never notes, price or alarms
  * (Reminders come from the app, not twice from the calendar).
  */
 export function calendarFeed(items: FeedItem[], { today, timeZone, appUrl, now }: FeedOptions): string {
@@ -77,7 +79,10 @@ export function calendarFeed(items: FeedItem[], { today, timeZone, appUrl, now }
       lines.push('BEGIN:VEVENT', `UID:${item.id}-${date}@oopsforgot`, `DTSTAMP:${stamp}`)
       if (item.dueTime) {
         const start = localToInstant(`${date}T${item.dueTime.slice(0, 5)}`, timeZone)
-        lines.push(`DTSTART:${utcStamp(start)}`, `DTEND:${utcStamp(new Date(start.getTime() + 3_600_000))}`)
+        const end = item.finishTime
+          ? localToInstant(`${date}T${item.finishTime.slice(0, 5)}`, timeZone)
+          : new Date(start.getTime() + 3_600_000)
+        lines.push(`DTSTART:${utcStamp(start)}`, `DTEND:${utcStamp(end)}`)
       } else {
         lines.push(
           `DTSTART;VALUE=DATE:${date.replace(/-/g, '')}`,

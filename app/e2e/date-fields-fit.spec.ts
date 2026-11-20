@@ -30,32 +30,38 @@ test('Item sheet: the open Due date and Time rows fit the sheet', async ({ page 
   await page.getByLabel('Name').fill('Passport')
   await page.getByText('Other').click()
   await page.getByLabel('Due date').fill(await inDays(page, 30))
-  await page.getByLabel('Time', { exact: true }).fill('09:30')
+  await page.getByLabel('Start time').fill('09:30')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
 
   await page.getByRole('listitem').filter({ hasText: 'Passport' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Passport' })
-  for (const name of ['Due date', 'Time']) {
+  for (const [name, fields] of [
+    ['Due date', ['Due date']],
+    ['Time', ['Start time', 'Finish time']],
+  ] as const) {
     const line = sheet.getByRole('button', { name: new RegExp(`^${name}`) })
     await line.click()
-    const field = sheet.getByLabel(name, { exact: true })
-    await expect(field).toBeVisible()
-    await expectFits(page, sheet, field, line.locator('..'))
+    for (const label of fields) {
+      const field = sheet.getByLabel(label, { exact: true })
+      await expect(field).toBeVisible()
+      await expectFits(page, sheet, field, line.locator('..'))
+    }
   }
 })
 
-test('New Item sheet: the Due date and Time fields fit', async ({ page }) => {
+test('New Item sheet: the Due date, Start and Finish time fields fit', async ({ page }) => {
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   const sheet = page.getByRole('dialog')
   for (const value of ['', 'filled']) {
     if (value) {
       await page.getByLabel('Due date').fill(await inDays(page, 30))
-      await page.getByLabel('Time', { exact: true }).fill('09:30')
+      await page.getByLabel('Start time').fill('09:30')
     }
     await expectFits(page, sheet, page.getByLabel('Due date'))
-    await expectFits(page, sheet, page.getByLabel('Time', { exact: true }))
+    await expectFits(page, sheet, page.getByLabel('Start time'))
+    await expectFits(page, sheet, page.getByLabel('Finish time'))
   }
 })
 

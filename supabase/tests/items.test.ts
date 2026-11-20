@@ -40,6 +40,26 @@ describe('Items', () => {
   })
 })
 
+describe('Start and Finish time', () => {
+  it('an Item can have a Start time and a later Finish time on the same day', async () => {
+    const ana = await signUpPerson('Ana')
+    const dentist = { ...passport, name: 'Dentist', due_time: '09:00', finish_time: '10:30' }
+    const { data, error } = await ana.client.from('items').insert(dentist).select('due_time, finish_time').single()
+    expect(error).toBeNull()
+    expect(data).toEqual({ due_time: '09:00:00', finish_time: '10:30:00' })
+  })
+
+  it('refuses a Finish time without a Start time, or not after it', async () => {
+    const ana = await signUpPerson('Ana')
+    const at = (due_time: string | null, finish_time: string) =>
+      ana.client.from('items').insert({ ...passport, due_time, finish_time })
+    expect((await at(null, '10:00')).error).not.toBeNull()
+    expect((await at('10:00', '10:00')).error).not.toBeNull()
+    expect((await at('10:00', '09:00')).error).not.toBeNull()
+    expect((await ana.client.from('items').select('id')).data).toEqual([])
+  })
+})
+
 describe('repeating Items', () => {
   it('stores how often an Item repeats', async () => {
     const ana = await signUpPerson('Ana')

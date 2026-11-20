@@ -18,6 +18,8 @@ import ReminderChips from './ReminderChips.vue'
 import RepeatPicker from './RepeatPicker.vue'
 import { INPUT as input } from './ui'
 import DateTimeInput from '../components/DateTimeInput.vue'
+import { finishAfterStart } from './times'
+import TimeRange from './TimeRange.vue'
 
 const open = defineModel<boolean>('open', { required: true })
 /** A Due date to start with, as when adding from a calendar day. */
@@ -28,6 +30,7 @@ const name = ref('')
 const category = ref<Category | null>(null)
 const dueDate = ref('')
 const dueTime = ref('')
+const finishTime = ref('')
 const recurrence = ref<Recurrence | null | undefined>(null)
 const price = ref('')
 const notes = ref('')
@@ -45,7 +48,7 @@ function setOpen(next: boolean) {
 
 watch(open, (isOpen) => {
   if (!isOpen) return
-  name.value = dueTime.value = price.value = notes.value = ''
+  name.value = dueTime.value = finishTime.value = price.value = notes.value = ''
   dueDate.value = props.date ?? ''
   category.value = null
   recurrence.value = null
@@ -61,6 +64,7 @@ async function save() {
     !name.value.trim() && 'name',
     !category.value && 'category',
     !dueDate.value && 'dueDate',
+    !finishAfterStart(dueTime.value, finishTime.value) && 'finish',
     price.value.trim() && priceCents === null && 'price',
     recurrence.value === undefined && 'every',
   ].filter((e): e is string => !!e)
@@ -71,6 +75,7 @@ async function save() {
       category: category.value!,
       due_date: dueDate.value,
       due_time: dueTime.value || null,
+      finish_time: finishTime.value || null,
       price_cents: priceCents,
       notes: notes.value.trim(),
       recurrence_unit: recurrence.value?.unit ?? null,
@@ -140,16 +145,7 @@ async function save() {
               />
             </label>
             <div class="flex min-w-0 flex-col gap-1 text-sm">
-              <label class="flex flex-col gap-1">
-                <span class="font-medium">{{ $t('itemForm.time') }}</span>
-                <DateTimeInput
-                  v-model="dueTime"
-                  type="time"
-                  :aria-label="$t('itemForm.time')"
-                  aria-describedby="add-time-hint"
-                  :placeholder="$t('itemForm.noTimeAllDay')"
-                />
-              </label>
+              <TimeRange v-model:start="dueTime" v-model:finish="finishTime" hint-id="add-time-hint" />
               <p id="add-time-hint" class="text-muted">{{ $t('itemForm.timeHint') }}</p>
             </div>
           </div>

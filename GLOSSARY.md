@@ -12,6 +12,10 @@ _Avoid_: Deadline, entry, record, thing
 The date an Item expires, renews or must be paid.
 _Avoid_: Deadline, expiry, end date
 
+**Start time** and **Finish time**:
+The time of day an Item begins on its Due date, and optionally when it ends (later the same day). An Item with no Start time is **All day**. Reminders count from the Start time, or from the start of the day for an All-day Item.
+_Avoid_: Due time, end time, duration
+
 **Category**:
 One of a fixed set of kinds an Item belongs to (Documents, Cards, Subscriptions, Free trials, Vehicle, Home, Health, Purchases, Travel, Other).
 _Avoid_: Type, tag, group

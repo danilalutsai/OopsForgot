@@ -78,7 +78,7 @@ test('on a phone, empty date and time fields look empty, not filled with an exam
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   const date = page.getByLabel('Due date')
-  const time = page.getByLabel('Time', { exact: true })
+  const time = page.getByLabel('Start time')
   const textColor = (field: typeof date) => field.evaluate((el) => getComputedStyle(el).color)
 
   await date.fill('')
@@ -94,27 +94,61 @@ test('on a phone, empty date and time fields look empty, not filled with an exam
   expect(await textColor(time)).not.toBe('rgba(0, 0, 0, 0)')
 })
 
-test('New Item sheet: Due date, then Time, stacked; no time reads "No time (all day)"', async ({ page }) => {
+test('New Item sheet: Due date, Start time and Finish time, stacked; empty Start reads "All day"', async ({ page }) => {
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   const sheet = page.getByRole('dialog')
   const date = (await sheet.getByLabel('Due date').boundingBox())!
-  const time = (await sheet.getByLabel('Time', { exact: true }).boundingBox())!
-  // stacked, same width, Time below Due date
-  expect(time.y).toBeGreaterThanOrEqual(date.y + date.height)
-  expect(Math.abs(time.x - date.x)).toBeLessThan(1)
-  expect(Math.abs(time.width - date.width)).toBeLessThan(1)
-  // the hint sits under Time
+  const start = (await sheet.getByLabel('Start time').boundingBox())!
+  const finish = (await sheet.getByLabel('Finish time').boundingBox())!
+  // stacked, same width: Due date, then Start, then Finish
+  expect(start.y).toBeGreaterThanOrEqual(date.y + date.height)
+  expect(finish.y).toBeGreaterThanOrEqual(start.y + start.height)
+  for (const box of [start, finish]) {
+    expect(Math.abs(box.x - date.x)).toBeLessThan(1)
+    expect(Math.abs(box.width - date.width)).toBeLessThan(1)
+  }
+  // the hint sits under the times
   const hint = (await sheet.getByText('Optional. Needed for Reminders hours before.').boundingBox())!
-  expect(hint.y).toBeGreaterThanOrEqual(time.y + time.height)
+  expect(hint.y).toBeGreaterThanOrEqual(finish.y + finish.height)
 
-  await expect(sheet.getByText('No time (all day)')).toBeVisible()
   await expect(sheet.getByText('Choose a date')).toBeVisible()
+  await expect(sheet.getByText('All day', { exact: true })).toBeVisible()
+  // no Finish without a Start
+  await expect(sheet.getByLabel('Finish time')).toBeDisabled()
+  await expect(sheet.getByText('Set a Start time first')).toBeVisible()
+  await expect(sheet.getByRole('button', { name: 'All day' })).toBeHidden()
+
   await sheet.getByLabel('Due date').fill(await inDays(page, 3))
-  await sheet.getByLabel('Time', { exact: true }).fill('09:30')
+  await sheet.getByLabel('Start time').fill('09:30')
+  await expect(sheet.getByLabel('Finish time')).toBeEnabled()
+  await sheet.getByLabel('Finish time').fill('10:45')
   await sheet.getByLabel('Name').click()
-  await expect(sheet.getByText('No time (all day)')).toBeHidden()
   await expect(sheet.getByText('Choose a date')).toBeHidden()
+
+  // "All day" takes both times away again
+  await sheet.getByRole('button', { name: 'All day' }).click()
+  await expect(sheet.getByLabel('Start time')).toHaveValue('')
+  await expect(sheet.getByLabel('Finish time')).toHaveValue('')
+  await expect(sheet.getByLabel('Finish time')).toBeDisabled()
+})
+
+test('a Finish time must be later than the Start time', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await openAddSheet(page)
+  const sheet = page.getByRole('dialog', { name: 'New Item' })
+  await sheet.getByLabel('Name').fill('Dentist')
+  await sheet.getByText('Health').click()
+  await sheet.getByLabel('Due date').fill(await inDays(page, 3))
+  await sheet.getByLabel('Start time').fill('10:00')
+  await sheet.getByLabel('Finish time').fill('09:00')
+  await sheet.getByRole('button', { name: 'Save' }).click()
+  await expect(sheet.getByRole('alert')).toHaveText('Finish time must be later than Start time.')
+
+  await sheet.getByLabel('Finish time').fill('11:30')
+  await sheet.getByRole('button', { name: 'Save' }).click()
+  await expect(sheet).toBeHidden()
+  await expect(page.getByRole('listitem').filter({ hasText: 'Dentist' })).toContainText('10:00 AM – 11:30 AM')
 })
 
 test('Category chips show line icons, muted until picked, then in the chip’s own colour', async ({ page }) => {

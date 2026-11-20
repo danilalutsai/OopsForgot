@@ -4,7 +4,7 @@ import { Check } from '@lucide/vue'
 import { gsap } from 'gsap'
 import CategoryIcon from '../components/CategoryIcon.vue'
 import { computed, ref } from 'vue'
-import { formatDate, formatMoney, formatTime } from '../format'
+import { formatDate, formatMoney, formatTimes } from '../format'
 import { duration } from '../motion'
 import { currency, today } from '../today'
 import { type Item, recurrenceOf } from './api'
@@ -144,7 +144,8 @@ function click(e: MouseEvent) {
               <CountdownText v-else :countdown="left" />
             </span>
             <span class="text-muted">
-              {{ formatDate(due, today) }}<template v-if="item.due_time"> · {{ formatTime(item.due_time) }}</template
+              {{ formatDate(due, today)
+              }}<template v-if="item.due_time"> · {{ formatTimes(item.due_time, item.finish_time) }}</template
               ><template v-if="item.price_cents"> · {{ formatMoney(item.price_cents, currency) }}</template
               ><template v-if="repeats">
                 · {{ $t(`items.repeats.${repeats.unit}`, { n: repeats.every }, repeats.every) }}</template
