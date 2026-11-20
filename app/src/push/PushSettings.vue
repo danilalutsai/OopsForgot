@@ -2,34 +2,64 @@
 import { onMounted, ref } from 'vue'
 import { formatDate } from '../format'
 import { blockedOffline } from '../online'
-import { useToasts } from '../stores/toasts'
 import { todayIn } from '@oopsforgot/shared'
 import { timeZone, today } from '../today'
-import { pushSupport, thisDeviceEndpoint, useRemoveDevice, usePushDevices, useTurnOnPush } from './devices'
+import {
+  pushSupport,
+  sendTestNotification,
+  thisDeviceEndpoint,
+  useRemoveDevice,
+  usePushDevices,
+  useTurnOnPush,
+} from './devices'
 
 const devices = usePushDevices()
 const turnOn = useTurnOnPush()
 const remove = useRemoveDevice()
-const toasts = useToasts()
 const support = ref(pushSupport())
 const here = ref<string | null>(null)
 const problem = ref<string | null>(null)
+/** Said only once the device is saved on the server, or after a test notification. */
+const news = ref<string | null>(null)
+const testing = ref(false)
+/** A test notification rests for a minute (the server holds the same limit). */
+const testResting = ref(false)
+const PROBLEMS: Record<string, string> = {
+  denied: 'push.denied',
+  serviceBlocked: 'push.serviceBlocked',
+  save: 'push.saveFailed',
+}
 const setUp = !!import.meta.env.VITE_VAPID_PUBLIC_KEY
 
 onMounted(async () => (here.value = await thisDeviceEndpoint()))
 
 async function enable() {
   if (blockedOffline()) return
-  problem.value = null
+  problem.value = news.value = null
   try {
     await turnOn.mutateAsync()
     here.value = await thisDeviceEndpoint()
-    toasts.show('settings.saved')
+    news.value = 'push.on'
   } catch (e) {
     support.value = pushSupport()
-    problem.value = (e as Error).message === 'denied' ? 'push.denied' : 'push.failed'
+    problem.value = PROBLEMS[(e as Error).message] ?? 'push.failed'
   }
 }
+
+async function test() {
+  if (blockedOffline()) return
+  problem.value = news.value = null
+  testing.value = true
+  const why = await sendTestNotification()
+  testing.value = false
+  if (why === null || why === 'tooSoon') {
+    testResting.value = true
+    setTimeout(() => (testResting.value = false), 60_000)
+  }
+  if (why === null) news.value = 'push.testSent'
+  else problem.value = `push.test.${why}`
+}
+const thisDeviceOn = () => !!here.value && !!devices.data.value?.some((d) => d.endpoint === here.value)
 </script>
 
 <template>
@@ -66,9 +96,17 @@ async function enable() {
       </li>
     </ul>
 
-    <template
-      v-if="support !== 'iphoneNotInstalled' && !(here && devices.data.value?.some((d) => d.endpoint === here))"
+    <button
+      v-if="thisDeviceOn()"
+      type="button"
+      class="self-start rounded-full border border-line px-4 py-1.5 font-semibold disabled:opacity-50"
+      :disabled="testing || testResting"
+      @click="test"
     >
+      {{ $t('push.sendTest') }}
+    </button>
+
+    <template v-if="support !== 'iphoneNotInstalled' && !thisDeviceOn()">
       <p v-if="!setUp" class="text-muted">{{ $t('push.notSetUp') }}</p>
       <p v-else-if="support === 'unsupported'" class="text-muted">{{ $t('push.unsupported') }}</p>
       <p v-else-if="support === 'blocked'" class="font-medium text-urgent-yellow-text">{{ $t('push.denied') }}</p>
@@ -84,6 +122,7 @@ async function enable() {
         <span class="text-muted">{{ $t('push.turnOnHint') }}</span>
       </div>
     </template>
+    <p v-if="news" role="status" class="font-medium text-urgent-green-text">{{ $t(news) }}</p>
     <p v-if="problem" role="alert" class="font-medium text-urgent-red">{{ $t(problem) }}</p>
   </div>
 </template>

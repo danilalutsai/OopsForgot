@@ -379,6 +379,17 @@
     "offBanner": "Notifications are off, so Reminders can’t reach you yet.",
     "offBannerLink": "Turn it on",
     "failed": "Could not turn on notifications. Check your connection and try again.",
+    "on": "This device will get Reminders.",
+    "serviceBlocked": "This browser didn’t let OopsForgot sign up for notifications. In Brave, turn on “Use Google services for push messaging” (Settings → Privacy and security), then try again. In other browsers, check that notifications are allowed for this site.",
+    "saveFailed": "This device said yes, but saving it didn’t work. Check your connection and try again.",
+    "sendTest": "Send a test notification",
+    "testSent": "Sent. It should appear on this device in a few seconds.",
+    "test": {
+      "tooSoon": "You just sent one. Try again in a minute.",
+      "gone": "This device no longer takes notifications. Turn them on again.",
+      "device": "This device isn’t set up for notifications. Turn them on first.",
+      "failed": "Couldn’t send the test. Check your connection and try again."
+    },
     "unnamed": "Unnamed device",
     "loadError": "Could not load your devices. Check your connection and try again."
   },
