@@ -20,6 +20,8 @@ import { INPUT as input } from './ui'
 import DateTimeInput from '../components/DateTimeInput.vue'
 
 const open = defineModel<boolean>('open', { required: true })
+/** A Due date to start with, as when adding from a calendar day. */
+const props = defineProps<{ date?: string }>()
 const emit = defineEmits<{ saved: [] }>()
 
 const name = ref('')
@@ -43,7 +45,8 @@ function setOpen(next: boolean) {
 
 watch(open, (isOpen) => {
   if (!isOpen) return
-  name.value = dueDate.value = dueTime.value = price.value = notes.value = ''
+  name.value = dueTime.value = price.value = notes.value = ''
+  dueDate.value = props.date ?? ''
   category.value = null
   recurrence.value = null
   reminders.value = [...DEFAULT_REMINDERS]

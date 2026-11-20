@@ -60,11 +60,10 @@ for (const scheme of ['light', 'dark'] as const)
       const days = page.getByTestId('calendar-days').getByRole('button')
       // the last day in view sits on the bottom row and at the right edge, where clipping shows first
       const cell = days.last()
-      await cell.click()
-      await expect(cell).toHaveAttribute('aria-pressed', 'true')
-      // the first day sits at the left edge
+      // the first day sits at the left edge (one tap each: two quick taps on a day add an Item)
       for (const target of [cell, days.first()]) {
         await target.click()
+        await expect(target).toHaveAttribute('aria-pressed', 'true')
         await page.waitForTimeout(100)
         const c = await edgeColours(page, target)
         // the ring stands out from the page around it…

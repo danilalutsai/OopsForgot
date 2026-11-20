@@ -25,6 +25,12 @@ const toasts = useToasts()
 const pushOff = usePushOff()
 const lastUpdated = computed(() => formatDateTime(items.dataUpdatedAt.value))
 const adding = ref(false)
+/** The day a new Item starts on when added from the calendar. */
+const addingOn = ref<string>()
+function addOn(day?: string) {
+  addingOn.value = day
+  adding.value = true
+}
 const showArchived = ref(false)
 const mode = ref<'list' | 'calendar'>('list')
 const tabs: Partial<Record<'list' | 'calendar', HTMLElement>> = {}
@@ -81,7 +87,7 @@ const groups = computed(() =>
       <button
         type="button"
         class="mr-2 hidden rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-on-accent md:block"
-        @click="adding = true"
+        @click="addOn()"
       >
         <Plus :size="16" :stroke-width="2.5" class="-mt-0.5 mr-0.5 inline" aria-hidden="true" />{{ $t('items.add') }}
       </button>
@@ -128,7 +134,7 @@ const groups = computed(() =>
       </p>
       <p class="text-muted">{{ $t('items.empty') }}</p>
     </div>
-    <CalendarView v-if="mode === 'calendar'" :items="active" @open="(id) => (openId = id)" />
+    <CalendarView v-if="mode === 'calendar'" :items="active" @open="(id) => (openId = id)" @add="addOn" />
     <template v-else>
       <section v-for="g in groups" :key="g.key" :aria-labelledby="`group-${g.key}`">
         <h2 :id="`group-${g.key}`" class="px-4 pt-4 pb-1 text-[13px] font-semibold tracking-wide text-muted uppercase">
@@ -182,10 +188,10 @@ const groups = computed(() =>
     type="button"
     class="fixed right-5 bottom-[calc(var(--tab-bar)+1.25rem)] flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl text-on-accent shadow-lg md:hidden"
     :aria-label="$t('items.add')"
-    @click="adding = true"
+    @click="addOn()"
   >
     <Plus :size="28" :stroke-width="2.25" aria-hidden="true" />
   </button>
-  <AddItemSheet v-model:open="adding" @saved="toasts.show('itemForm.saved')" />
+  <AddItemSheet v-model:open="adding" :date="addingOn" @saved="toasts.show('itemForm.saved')" />
   <ItemSheet :item="openItem" @close="openId = null" />
 </template>
