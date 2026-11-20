@@ -24,7 +24,7 @@ async function fakePush(page: import('@playwright/test').Page) {
 
 test('with no device getting push, the app says so and the avatar shows a dot', async ({ page }) => {
   await logInAsNewPerson(page)
-  await expect(page.getByText('Push is off, so Reminders can’t reach you yet.')).toBeVisible()
+  await expect(page.getByText('Notifications are off, so Reminders can’t reach you yet.')).toBeVisible()
   await expect(page.getByRole('button', { name: /Account menu/ }).getByTitle('Needs your attention')).toBeVisible()
 })
 
@@ -33,17 +33,17 @@ test('turn on push on this device, then remove it', async ({ page }, info) => {
   await fakePush(page)
   await logInAsNewPerson(page)
   await page.getByRole('link', { name: 'Turn it on' }).click()
-  await page.getByRole('button', { name: /^Push/ }).click()
+  await page.getByRole('button', { name: /^Notifications/ }).click()
   await expectAccessible(page)
   await page.getByRole('button', { name: 'Turn on here' }).click()
 
-  const devices = page.getByRole('list', { name: 'Devices with push' })
+  const devices = page.getByRole('list', { name: 'Devices with notifications' })
   await expect(devices.getByRole('listitem')).toHaveCount(1)
   await expect(devices).toContainText('This device')
-  await expect(page.getByRole('button', { name: /^Push/ })).toContainText('On, 1 device')
+  await expect(page.getByRole('button', { name: /^Notifications/ })).toContainText('On, 1 device')
 
   await devices.getByRole('button', { name: 'Remove' }).click()
-  await expect(page.getByText('No devices get push yet.')).toBeVisible()
+  await expect(page.getByText('No devices get notifications yet.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Turn on here' })).toBeVisible()
 })
 
@@ -51,7 +51,7 @@ test('an iPhone not added to the Home Screen gets the steps instead', async ({ p
   test.skip(info.project.name !== 'phone-webkit', 'iPhone only')
   await logInAsNewPerson(page)
   await openFromAvatar(page, 'Settings')
-  await page.getByRole('button', { name: /^Push/ }).click()
+  await page.getByRole('button', { name: /^Notifications/ }).click()
   await expect(page.getByRole('heading', { name: 'On iPhone, add OopsForgot to your Home Screen first' })).toBeVisible()
   await expect(page.getByText('Choose “Add to Home Screen”.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Turn on here' })).toHaveCount(0)
@@ -62,9 +62,9 @@ test("logging out removes this device from the person's push list", async ({ pag
   await fakePush(page)
   const person = await logInAsNewPerson(page)
   await page.getByRole('link', { name: 'Turn it on' }).click()
-  await page.getByRole('button', { name: /^Push/ }).click()
+  await page.getByRole('button', { name: /^Notifications/ }).click()
   await page.getByRole('button', { name: 'Turn on here' }).click()
-  await expect(page.getByRole('button', { name: /^Push/ })).toContainText('On, 1 device')
+  await expect(page.getByRole('button', { name: /^Notifications/ })).toContainText('On, 1 device')
   await page.goto('/')
   await page.getByRole('button', { name: /Account/ }).click()
   await page.getByRole('menuitem', { name: 'Log out' }).click()
@@ -74,5 +74,5 @@ test("logging out removes this device from the person's push list", async ({ pag
   await page.getByLabel('Email').fill(person.email)
   await page.getByLabel('Password').fill(person.password)
   await page.getByRole('button', { name: 'Log in' }).click()
-  await expect(page.getByText('Push is off, so Reminders can’t reach you yet.')).toBeVisible()
+  await expect(page.getByText('Notifications are off, so Reminders can’t reach you yet.')).toBeVisible()
 })

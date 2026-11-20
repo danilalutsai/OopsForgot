@@ -26,9 +26,9 @@ The CI checks and the deploy's live check cover these; nothing to do by hand whi
 ## Real devices: only the owner
 
 - [ ] **iPhone:** open the app in Safari → Share → Add to Home Screen → open it from the Home
-      Screen → Settings → Push → turn on → allow. Add an Item for 2 hours from now with a Reminder
-      "1 hour before"; the push arrives on time and opens the Item.
-- [ ] **Android:** the same in Chrome (Install app), push arrives.
+      Screen → Settings → Notifications → turn on → allow. Add an Item for 2 hours from now with a Reminder
+      "1 hour before"; the notification arrives on time and opens the Item.
+- [ ] **Android:** the same in Chrome (Install app), the notification arrives.
 - [ ] **Login emails:** sign up and reset the password with a Gmail, an Outlook and a Yahoo
       address; each email lands in the inbox, not in spam, and its link works.
 - [ ] **Calendar feed:** Settings → Calendar feed → turn on → copy the link. Google Calendar
