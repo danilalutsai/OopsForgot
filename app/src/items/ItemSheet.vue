@@ -28,7 +28,7 @@ import {
 } from 'reka-ui'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { formatDate, formatMoney, formatTime } from '../format'
+import { formatDate, formatMoney, formatTimes } from '../format'
 import { duration } from '../motion'
 import { currency, today } from '../today'
 import { useItemActions } from './actions'
@@ -43,6 +43,8 @@ import { blockedOffline } from '../online'
 import SheetLine from './SheetLine.vue'
 import { INPUT as input } from './ui'
 import DateTimeInput from '../components/DateTimeInput.vue'
+import { finishAfterStart } from './times'
+import TimeRange from './TimeRange.vue'
 import CountdownText from './CountdownText.vue'
 
 const props = defineProps<{ item: Item | null }>()
@@ -60,6 +62,7 @@ interface Draft {
   category: Category | null
   due_date: string
   due_time: string
+  finish_time: string
   recurrence: Recurrence | null | undefined
   price: string
   notes: string
@@ -71,6 +74,7 @@ const toDraft = (item: Item): Draft => ({
   category: item.category,
   due_date: item.due_date,
   due_time: item.due_time?.slice(0, 5) ?? '',
+  finish_time: item.finish_time?.slice(0, 5) ?? '',
   recurrence: recurrenceOf(item),
   price: item.price_cents != null ? (item.price_cents / 100).toFixed(2) : '',
   notes: item.notes,
@@ -82,6 +86,7 @@ const draft = reactive<Draft>({
   category: null,
   due_date: '',
   due_time: '',
+  finish_time: '',
   recurrence: null,
   price: '',
   notes: '',
@@ -129,6 +134,7 @@ function sameDraft(a: Draft, b: Draft): boolean {
     a.category === b.category &&
     a.due_date === b.due_date &&
     a.due_time === b.due_time &&
+    a.finish_time === b.finish_time &&
     a.recurrence?.unit === b.recurrence?.unit &&
     a.recurrence?.every === b.recurrence?.every &&
     (a.recurrence === undefined) === (b.recurrence === undefined) &&
@@ -162,6 +168,7 @@ async function save(): Promise<boolean> {
   errors.value = [
     !draft.name.trim() && 'name',
     !draft.due_date && 'dueDate',
+    !finishAfterStart(draft.due_time, draft.finish_time) && 'finish',
     draft.price.trim() && priceCents.value === null && 'price',
     draft.recurrence === undefined && 'every',
   ].filter((e): e is string => !!e)
@@ -185,6 +192,7 @@ async function save(): Promise<boolean> {
       category: draft.category!,
       due_date: draft.due_date,
       due_time: draft.due_time || null,
+      finish_time: draft.finish_time || null,
       recurrence_unit: draft.recurrence?.unit ?? null,
       recurrence_every: draft.recurrence?.every ?? null,
       price_cents: priceCents.value,
@@ -283,7 +291,7 @@ function dragEnd(e: PointerEvent) {
 
 const lineText = {
   dueDate: () => (draft.due_date ? formatDate(draft.due_date, today.value) : t('itemSheet.none')),
-  time: () => (draft.due_time ? formatTime(draft.due_time) : t('itemSheet.noTime')),
+  time: () => (draft.due_time ? formatTimes(draft.due_time, draft.finish_time) : t('itemForm.allDay')),
   repeats: () =>
     draft.recurrence === undefined
       ? t('itemSheet.fixRepeat')
@@ -408,23 +416,7 @@ const lineText = {
             :open="openLine === 'time'"
             @toggle="toggle('time')"
           >
-            <div class="flex gap-2">
-              <DateTimeInput
-                v-model="draft.due_time"
-                class="flex-1"
-                type="time"
-                :aria-label="$t('itemForm.time')"
-                :placeholder="$t('itemForm.noTimeAllDay')"
-              />
-              <button
-                v-if="draft.due_time"
-                type="button"
-                class="shrink-0 rounded-xl border border-line px-3"
-                @click="draft.due_time = ''"
-              >
-                {{ $t('itemSheet.noTime') }}
-              </button>
-            </div>
+            <TimeRange v-model:start="draft.due_time" v-model:finish="draft.finish_time" />
           </SheetLine>
           <SheetLine
             :label="$t('itemForm.repeats')"

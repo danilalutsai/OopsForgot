@@ -22,6 +22,11 @@ export function formatTime(time: string): string {
   })
 }
 
+/** "9:00 AM", or "9:00 AM – 10:30 AM" with a Finish time. */
+export function formatTimes(start: string, finish?: string | null): string {
+  return finish ? `${formatTime(start)} – ${formatTime(finish)}` : formatTime(start)
+}
+
 export function formatMoney(cents: number, currency: string): string {
   return (cents / 100).toLocaleString(locale(), { style: 'currency', currency })
 }

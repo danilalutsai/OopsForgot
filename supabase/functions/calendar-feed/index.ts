@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
 
   const { data: items, error } = await db
     .from('items')
-    .select('id, name, category, due_date, due_time, recurrence_unit, recurrence_every, handled_due_date')
+    .select('id, name, category, due_date, due_time, finish_time, recurrence_unit, recurrence_every, handled_due_date')
     .eq('user_id', person.id)
     .is('archived_at', null)
   if (error) return new Response('Try again later', { status: 503 })
@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
     category: i.category,
     dueDate: i.due_date,
     dueTime: i.due_time?.slice(0, 5) ?? null,
+    finishTime: i.finish_time?.slice(0, 5) ?? null,
     recurrence: i.recurrence_unit ? { unit: i.recurrence_unit, every: i.recurrence_every } : null,
     handledDueDate: i.handled_due_date,
   }))

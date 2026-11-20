@@ -195,13 +195,32 @@ test('an opened line and its editor share one darker block', async ({ page }) =>
     .toBe('rgba(0, 0, 0, 0)')
 })
 
-test('the Time row of an Item with no time says so, also when opened', async ({ page }) => {
+test('the Time row of an all-day Item says so, also when opened; Start and Finish show as a range', async ({
+  page,
+}) => {
   await logInAsNewPerson(page)
   await addGym(page)
   await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
   const line = sheet.getByRole('button', { name: /^Time/ })
-  await expect(line).toContainText('No time')
+  await expect(line).toContainText('All day')
   await line.click()
-  await expect(sheet.getByText('No time (all day)')).toBeVisible()
+  await expect(sheet.getByLabel('Start time')).toHaveValue('')
+  await expect(sheet.getByLabel('Start time').locator('..')).toContainText('All day')
+
+  await sheet.getByLabel('Start time').fill('18:00')
+  await sheet.getByLabel('Finish time').fill('19:30')
+  await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
+  await expect(sheet.locator('header').getByRole('status')).toHaveText('Changes saved ✅')
+  await expect(line).toContainText('6:00 PM – 7:30 PM')
+
+  // a Finish that is not after Start is refused, and nothing is saved
+  await sheet.getByLabel('Finish time').fill('17:00')
+  await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
+  await expect(sheet.getByRole('alert')).toContainText('Finish time must be later than Start time.')
+
+  await sheet.getByRole('button', { name: 'All day' }).click()
+  await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
+  await expect(sheet.locator('header').getByRole('status')).toHaveText('Changes saved ✅')
+  await expect(line).toContainText('All day')
 })

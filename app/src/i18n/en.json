@@ -181,6 +181,11 @@
     "category": "Category",
     "dueDate": "Due date",
     "time": "Time",
+    "startTime": "Start time",
+    "finishTime": "Finish time",
+    "allDay": "All day",
+    "finishOptional": "Optional",
+    "finishNeedsStart": "Set a Start time first",
     "timeHint": "Optional. Needed for Reminders hours before.",
     "price": "Price",
     "priceHint": "Optional. Adds it to your monthly spending.",
@@ -195,7 +200,8 @@
       "dueDate": "Pick a Due date.",
       "price": "Type a price like 12.50, or leave it empty.",
       "save": "Could not save. Check your connection and try again.",
-      "every": "Repeat every 1 to 365."
+      "every": "Repeat every 1 to 365.",
+      "finish": "Finish time must be later than Start time."
     },
     "repeats": "Repeats",
     "repeatOptions": {
@@ -214,15 +220,13 @@
     },
     "repeatHint": "Each next Due date is counted from this one.",
     "repeatUnit": "Repeat unit",
-    "chooseDate": "Choose a date",
-    "noTimeAllDay": "No time (all day)"
+    "chooseDate": "Choose a date"
   },
   "itemSheet": {
     "unsaved": "Unsaved changes",
     "allSaved": "All changes saved",
     "saved": "Changes saved ✅",
     "close": "Close",
-    "noTime": "No time",
     "none": "None",
     "addNotes": "Add notes",
     "leaveTitle": "Save your changes?",

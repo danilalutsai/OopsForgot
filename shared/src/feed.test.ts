@@ -8,6 +8,7 @@ const item = (over: Partial<FeedItem> = {}): FeedItem => ({
   category: 'documents',
   dueDate: '2026-12-02',
   dueTime: null,
+  finishTime: null,
   recurrence: null,
   handledDueDate: null,
   ...over,
@@ -33,7 +34,13 @@ describe('calendarFeed', () => {
     expect(e).not.toContain('VALARM')
   })
 
-  it("makes a one-hour event at the Item's time, in exact time", () => {
+  it('runs from the Start time to the Finish time when there is one', () => {
+    const [e] = events(feed([item({ dueTime: '09:30', finishTime: '11:15' })]))
+    expect(e).toContain('DTSTART:20261202T073000Z\r\n')
+    expect(e).toContain('DTEND:20261202T091500Z\r\n')
+  })
+
+  it("makes a one-hour event at the Item's Start time when it has no Finish time, in exact time", () => {
     const [e] = events(feed([item({ dueTime: '09:30' })]))
     expect(e).toContain('DTSTART:20261202T073000Z\r\n')
     expect(e).toContain('DTEND:20261202T083000Z\r\n')

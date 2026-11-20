@@ -100,6 +100,8 @@ body {
    example value (iOS: today's date, the time now) or "--:--"; while edited, the browser's shows. */
 input:is([type='date'], [type='time'])[data-empty]:not(:focus) {
   color: transparent;
+  /* Safari paints a disabled field's text with this instead of color */
+  -webkit-text-fill-color: transparent;
 }
 
 /* iOS Safari gives date and time fields a look and a minimum width of their own: they stuck out of

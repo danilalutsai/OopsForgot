@@ -15,7 +15,10 @@ export interface Item {
   name: string
   category: Category
   due_date: string
+  /** Start time; none means all day */
   due_time: string | null
+  /** when it ends, later than the Start time on the same day */
+  finish_time: string | null
   price_cents: number | null
   notes: string
   recurrence_unit: Recurrence['unit'] | null
@@ -49,7 +52,7 @@ export function dueDateOf(item: Item, today: string): string {
 }
 
 const COLUMNS =
-  'id, name, category, due_date, due_time, price_cents, notes, recurrence_unit, recurrence_every, handled_due_date, archived_at, reminder_offsets'
+  'id, name, category, due_date, due_time, finish_time, price_cents, notes, recurrence_unit, recurrence_every, handled_due_date, archived_at, reminder_offsets'
 
 /** Unordered: the dashboard sorts by each Item's current Due date. */
 export function useItems() {
