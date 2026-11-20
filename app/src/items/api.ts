@@ -1,6 +1,7 @@
 import {
   type Category,
   currentDueDate,
+  isExpired,
   isHandled,
   type OpenQuestion,
   openQuestion,
@@ -25,11 +26,12 @@ export interface Item {
   recurrence_every: number | null
   /** the Due date marked Handled, if any */
   handled_due_date: string | null
-  archived_at: string | null
+  /** the Due date the person chose "Keep in Expired" for: no question about it any more */
+  kept_expired_due_date: string | null
   reminder_offsets: ReminderOffset[]
 }
 
-export type NewItem = Omit<Item, 'id' | 'handled_due_date' | 'archived_at'>
+export type NewItem = Omit<Item, 'id' | 'handled_due_date' | 'kept_expired_due_date'>
 
 export function recurrenceOf(item: Pick<Item, 'recurrence_unit' | 'recurrence_every'>): Recurrence | null {
   return item.recurrence_unit && item.recurrence_every
@@ -52,7 +54,7 @@ export function dueDateOf(item: Item, today: string): string {
 }
 
 const COLUMNS =
-  'id, name, category, due_date, due_time, finish_time, price_cents, notes, recurrence_unit, recurrence_every, handled_due_date, archived_at, reminder_offsets'
+  'id, name, category, due_date, due_time, finish_time, price_cents, notes, recurrence_unit, recurrence_every, handled_due_date, kept_expired_due_date, reminder_offsets'
 
 /** Unordered: the dashboard sorts by each Item's current Due date. */
 export function useItems() {
@@ -113,8 +115,11 @@ export function useRestoreDeletedItem() {
   })
 }
 
-/** The question the Item is waiting on, if any ("What now?" / "Kept it?"). */
-export function questionOf(item: Item, today: string, due?: string): OpenQuestion | null {
+/**
+ * The question the Item is waiting on, if any ("What now?" / "Kept it?").
+ * `now` is the person's local "YYYY-MM-DDTHH:MM" (a Finish time can make it Expired today).
+ */
+export function questionOf(item: Item, now: string, due?: string): OpenQuestion | null {
   // with `due` already worked out, Handled is a plain comparison
   if (due !== undefined && item.handled_due_date === due) return null
   return openQuestion(
@@ -123,7 +128,14 @@ export function questionOf(item: Item, today: string, due?: string): OpenQuestio
       recurrence: recurrenceOf(item),
       handledDueDate: item.handled_due_date,
       category: item.category,
+      finishTime: item.finish_time,
+      keptDueDate: item.kept_expired_due_date,
     },
-    today,
+    now,
   )
+}
+
+/** Expired now: one-time, and past its Finish time, or past its Due date for all-day Items. */
+export function expiredNow(item: Item, now: string): boolean {
+  return isExpired({ dueDate: item.due_date, recurrence: recurrenceOf(item), finishTime: item.finish_time }, now)
 }

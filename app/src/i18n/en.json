@@ -17,6 +17,7 @@
     "empty": "Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before it is due.",
     "welcome": "Welcome, {name} 👋",
     "groups": {
+      "expired": "Expired",
       "today": "Today",
       "thisWeek": "This week",
       "later": "Later"
@@ -38,10 +39,8 @@
     "handled": "Handled",
     "markHandled": "Mark {name} Handled",
     "undoHandled": "Undo Handled for {name}",
-    "archivedCount": "Archived ({n})",
-    "hideArchived": "Hide archived",
-    "restore": "Restore",
-    "restored": "Restored"
+    "expiredButton": "Expired",
+    "expiredToday": "Expired today"
   },
   "money": {
     "title": "Money",
@@ -238,13 +237,12 @@
     "fixRepeat": "Custom: type how often",
     "handled": "Handled",
     "undoHandled": "Undo Handled",
-    "archive": "Archive",
     "delete": "Delete",
     "deleteTitle": "Delete {name}?",
     "deleteBody": "Gone for good. Past Expenses stay in history.",
     "deleteConfirm": "Delete",
     "cancel": "Cancel",
-    "saveFirst": "Save or discard your changes before archiving or deleting."
+    "saveFirst": "Save or discard your changes before deleting."
   },
   "settings": {
     "title": "Settings",
@@ -257,6 +255,7 @@
     "keepOld": "Keep old",
     "sections": {
       "reminders": "Reminders",
+      "items": "Items",
       "money": "Money",
       "appearance": "Appearance",
       "account": "Account",
@@ -285,12 +284,19 @@
       "light": "Light",
       "dark": "Dark"
     },
-    "themeHint": "System follows this device. The choice is kept on this device only."
+    "themeHint": "System follows this device. The choice is kept on this device only.",
+    "cleanup": {
+      "label": "Delete Expired Items after",
+      "d7": "1 week",
+      "d30": "1 month",
+      "d90": "3 months",
+      "never": "Never",
+      "hint": "One-time Items that have been Expired this long are deleted by themselves. Their Expenses stay."
+    }
   },
   "toasts": {
     "handled": "Marked as Handled",
     "unhandled": "No longer Handled",
-    "archived": "{name} archived",
     "deleted": "{name} deleted",
     "undo": "Undo",
     "failed": "Could not do that. Check your connection and try again."
@@ -308,7 +314,7 @@
       "month": "Every month",
       "year": "Every year"
     },
-    "archive": "Archive",
+    "keep": "Keep in Expired",
     "trialTitle": "Did you keep {name}?",
     "yes": "Yes, I kept it",
     "no": "No, I cancelled",
@@ -467,6 +473,6 @@
   "swipe": {
     "handled": "Handled",
     "undo": "Undo",
-    "archive": "Archive"
+    "delete": "Delete"
   }
 }

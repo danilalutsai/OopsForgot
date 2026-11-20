@@ -8,7 +8,6 @@ import { INPUT } from './ui'
 import DateTimeInput from '../components/DateTimeInput.vue'
 
 const props = defineProps<{ item: Item; question: OpenQuestion; disabled: boolean }>()
-defineEmits<{ archive: [] }>()
 const actions = useItemActions()
 const newDate = ref('')
 const unit = ref<'week' | 'month' | 'year'>('year')
@@ -60,9 +59,9 @@ const daysAgo = computed(() => {
           type="button"
           class="rounded-xl border border-line bg-surface py-2 font-semibold disabled:opacity-40"
           :disabled="disabled"
-          @click="$emit('archive')"
+          @click="actions.keepInExpired(item)"
         >
-          {{ $t('questions.archive') }}
+          {{ $t('questions.keep') }}
         </button>
       </div>
     </template>
@@ -81,7 +80,7 @@ const daysAgo = computed(() => {
           type="button"
           class="rounded-xl border border-line bg-surface py-2 font-semibold disabled:opacity-40"
           :disabled="disabled"
-          @click="$emit('archive')"
+          @click="actions.keepInExpired(item)"
         >
           {{ $t('questions.no') }}
         </button>

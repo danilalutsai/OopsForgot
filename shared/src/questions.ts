@@ -7,12 +7,17 @@ export type OpenQuestion = 'expired' | 'keptTrial'
 
 export interface QuestionItem extends HandledItem {
   category: Category
+  finishTime?: string | null
+  /** the Due date the person chose "Keep in Expired" (or "No, I cancelled") for: no more question about it */
+  keptDueDate?: string | null
 }
 
-export function openQuestion(item: QuestionItem, today: string): OpenQuestion | null {
-  if (item.recurrence || isHandled(item, today)) return null
+/** `now` is the person's local "YYYY-MM-DDTHH:MM" (or just the date). */
+export function openQuestion(item: QuestionItem, now: string): OpenQuestion | null {
+  const today = now.slice(0, 10)
+  if (item.recurrence || isHandled(item, today) || item.keptDueDate === item.dueDate) return null
   if (item.category === 'free_trials' && item.dueDate <= today) return 'keptTrial'
-  return isExpired(item, today) ? 'expired' : null
+  return isExpired(item, now) ? 'expired' : null
 }
 
 /** A kept trial becomes a Subscription named without "free trial" ("Disney+ free trial" → "Disney+"). */

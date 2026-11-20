@@ -30,7 +30,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatDate, formatMoney, formatTimes } from '../format'
 import { duration } from '../motion'
-import { currency, today } from '../today'
+import { currency, nowLocal, today } from '../today'
 import { useItemActions } from './actions'
 import { dueDateOf, handledNow, type Item, questionOf, recurrenceOf, useUpdateItem } from './api'
 import QuestionBox from './QuestionBox.vue'
@@ -53,7 +53,7 @@ const { t } = useI18n()
 const update = useUpdateItem()
 const actions = useItemActions()
 const confirmingDelete = ref(false)
-const question = computed(() => (props.item ? questionOf(props.item, today.value) : null))
+const question = computed(() => (props.item ? questionOf(props.item, nowLocal.value) : null))
 /** Captured when the question opens, so the title stays right while the sheet closes. */
 const deletingName = ref('')
 
@@ -210,19 +210,13 @@ async function save(): Promise<boolean> {
   }
 }
 
-/** Handled / Archive / Delete act on the saved Item straight away; Archive and Delete close the sheet. */
+/** Handled and Delete act on the saved Item straight away; Delete closes the sheet. */
 function toggleHandled() {
   if (props.item) void actions.toggleHandled(props.item, dueDateOf(props.item, today.value))
 }
 function askDelete() {
   deletingName.value = props.item?.name ?? ''
   confirmingDelete.value = true
-}
-async function archive() {
-  if (!props.item) return
-  const item = props.item
-  emit('close')
-  await actions.archive(item)
 }
 async function remove() {
   if (!props.item) return
@@ -367,14 +361,7 @@ const lineText = {
           >
             <span v-for="e in errors" :key="e" class="block">{{ $t(`itemForm.errors.${e}`) }}</span>
           </p>
-          <QuestionBox
-            v-if="question"
-            :key="item.id"
-            :item="item"
-            :question="question"
-            :disabled="dirty"
-            @archive="archive"
-          />
+          <QuestionBox v-if="question" :key="item.id" :item="item" :question="question" :disabled="dirty" />
           <div class="flex items-center gap-3 px-3 pt-1 pb-3">
             <CategoryIcon v-if="draft.category" :category="draft.category" :size="30" class="text-muted" />
             <div class="min-w-0 flex-1">
@@ -485,7 +472,7 @@ const lineText = {
           </SheetLine>
 
           <p v-if="dirty" class="mt-4 px-3 text-sm text-muted">{{ $t('itemSheet.saveFirst') }}</p>
-          <div :class="['mt-4 grid gap-2 px-3 pb-4', question ? 'grid-cols-2' : 'grid-cols-3']">
+          <div :class="['mt-4 grid gap-2 px-3 pb-4', question ? 'grid-cols-1' : 'grid-cols-2']">
             <!-- no Handled while a question is open: answer it instead -->
             <button
               v-if="!question"
@@ -495,14 +482,6 @@ const lineText = {
               @click="toggleHandled"
             >
               {{ handledNow(item, today) ? $t('itemSheet.undoHandled') : $t('itemSheet.handled') }}
-            </button>
-            <button
-              type="button"
-              class="rounded-xl border border-line py-2.5 text-sm font-semibold disabled:opacity-40"
-              :disabled="dirty"
-              @click="archive"
-            >
-              {{ $t('itemSheet.archive') }}
             </button>
             <button
               type="button"

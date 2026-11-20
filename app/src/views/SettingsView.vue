@@ -38,6 +38,14 @@ function setDayTime(value: string) {
   if (value) void save({ day_reminder_time: roundToQuarterHour(value) })
 }
 
+/** How long Expired Items stay: 1 week, 1 month (the default), 3 months, or never deleted. */
+const CLEANUP = [7, 30, 90, null] as const
+const cleanupKey = (days: number | null) => (days === null ? 'never' : `d${days}`)
+// a profile saved on the device before this setting existed: the default
+const cleanupDays = computed(() =>
+  profile.value?.expired_cleanup_days === undefined ? 30 : profile.value.expired_cleanup_days,
+)
+
 const devices = usePushDevices()
 const lines = {
   push: () => {
@@ -47,6 +55,7 @@ const lines = {
   dayTime: () => formatTime(`${dayTime.value}:00`),
   timeZone: () => profile.value?.time_zone ?? '',
   currency: () => profile.value?.currency ?? '',
+  cleanup: () => t(`settings.cleanup.${cleanupKey(cleanupDays.value)}`),
 }
 </script>
 
@@ -140,6 +149,33 @@ const lines = {
         @toggle="toggle('calendar')"
       >
         <CalendarFeed />
+      </SheetLine>
+
+      <h2 :class="SECTION_TITLE">{{ $t('settings.sections.items') }}</h2>
+      <SheetLine
+        :label="$t('settings.cleanup.label')"
+        :value="lines.cleanup()"
+        :open="openLine === 'cleanup'"
+        @toggle="toggle('cleanup')"
+      >
+        <fieldset class="grid grid-cols-2 gap-2">
+          <legend class="sr-only">{{ $t('settings.cleanup.label') }}</legend>
+          <label
+            v-for="days in CLEANUP"
+            :key="String(days)"
+            class="flex cursor-pointer items-center justify-center rounded-xl border border-line bg-surface py-2 font-medium has-[:checked]:border-accent has-[:checked]:text-accent has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent"
+          >
+            <input
+              type="radio"
+              name="cleanup"
+              class="sr-only"
+              :checked="cleanupDays === days"
+              @change="save({ expired_cleanup_days: days })"
+            />
+            {{ $t(`settings.cleanup.${cleanupKey(days)}`) }}
+          </label>
+        </fieldset>
+        <p class="mt-2 text-sm text-muted">{{ $t('settings.cleanup.hint') }}</p>
       </SheetLine>
 
       <h2 :class="SECTION_TITLE">{{ $t('settings.sections.money') }}</h2>

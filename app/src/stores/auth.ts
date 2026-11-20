@@ -23,10 +23,12 @@ export interface Profile {
   calendar_token: string | null
   /** null for a Google signup that has not yet said they are 16 or older */
   confirmed_16_plus_at: string | null
+  /** days an Expired Item stays before it is deleted: 7, 30 or 90; null = never */
+  expired_cleanup_days: number | null
 }
 
 const PROFILE_COLUMNS =
-  'name, surname, time_zone, currency, day_reminder_time, photo_path, calendar_token, confirmed_16_plus_at'
+  'name, surname, time_zone, currency, day_reminder_time, photo_path, calendar_token, confirmed_16_plus_at, expired_cleanup_days'
 
 /** The profile is saved on the device next to the offline copy, so dates and money stay right offline. */
 const PROFILE_KEY = 'oopsforgot-profile'

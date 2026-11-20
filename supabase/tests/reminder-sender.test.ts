@@ -71,17 +71,23 @@ describe('Reminder sender', () => {
     expect(sent[0]!.message.title).toBe('Ana, 2 Items need you soon 🔔')
   })
 
-  it('stops for Handled and Archived Items, and starts again on the next Due date', async () => {
+  it('stops for Handled Items, and starts again on the next Due date', async () => {
     const { ana, items } = await personWith([
       { ...base, name: 'Rent', due_date: '2030-04-10', recurrence_unit: 'month', recurrence_every: 1 },
-      { ...base, name: 'Old gym', due_date: '2030-04-10' },
     ])
     await ana.client.from('items').update({ handled_due_date: '2030-04-10' }).eq('id', items[0]!.id)
-    await ana.client.from('items').update({ archived_at: new Date().toISOString() }).eq('id', items[1]!.id)
     expect(forAna(await runSender('2030-04-09T09:45:00Z', '2030-04-09T10:00:00Z'), ana.id)).toHaveLength(0)
     // May is summer time in Tallinn (UTC+3): 12:00 there is 09:00 UTC
     const next = forAna(await runSender('2030-05-09T08:45:00Z', '2030-05-09T09:00:00Z'), ana.id)
     expect(next.map((s) => s.message.title)).toEqual(['Ana, Rent is due tomorrow 🔔'])
+  })
+
+  it('sends no "What now?" for an Item kept in Expired', async () => {
+    const { ana, items } = await personWith([
+      { ...base, name: 'Old gym', due_date: '2030-04-10', reminder_offsets: [] },
+    ])
+    await ana.client.from('items').update({ kept_expired_due_date: '2030-04-10' }).eq('id', items[0]!.id)
+    expect(forAna(await runSender('2030-04-11T08:45:00Z', '2030-04-11T09:00:00Z'), ana.id)).toHaveLength(0)
   })
 
   it("still sends a late Reminder after skipped runs, while the Due date hasn't passed", async () => {
@@ -125,25 +131,5 @@ describe('automatic Expenses never fill in the past', () => {
     await runSender('2030-12-01T09:45:00Z', '2030-12-01T10:00:00Z')
     const { data } = await ana.client.from('expenses').select('date')
     expect(data).toEqual([{ date: '2030-12-01' }])
-  })
-
-  it('restoring an archived Item does not fill in the months it was archived', async () => {
-    const { ana, items } = await personWith([
-      {
-        ...base,
-        name: 'Netflix',
-        due_date: '2031-01-10',
-        recurrence_unit: 'month',
-        recurrence_every: 1,
-        price_cents: 1399,
-      },
-    ])
-    await runSender('2031-01-10T09:45:00Z', '2031-01-10T10:00:00Z')
-    await ana.client.from('items').update({ archived_at: new Date().toISOString() }).eq('id', items[0]!.id)
-    await runSender('2031-04-20T09:45:00Z', '2031-04-20T10:00:00Z')
-    await ana.client.from('items').update({ archived_at: null }).eq('id', items[0]!.id)
-    await runSender('2031-05-10T09:45:00Z', '2031-05-10T10:00:00Z')
-    const { data } = await ana.client.from('expenses').select('date').order('date')
-    expect(data).toEqual([{ date: '2031-01-10' }, { date: '2031-05-10' }])
   })
 })

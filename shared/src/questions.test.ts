@@ -28,6 +28,22 @@ describe('openQuestion', () => {
   })
 })
 
+describe('openQuestion after Keep in Expired', () => {
+  it('asks nothing once kept in Expired for that Due date, and asks again for a new one', () => {
+    const passport = { ...oneTime, dueDate: '2026-11-13', category: 'documents' } as const
+    expect(openQuestion({ ...passport, keptDueDate: '2026-11-13' }, today)).toBeNull()
+    expect(openQuestion({ ...passport, dueDate: '2026-11-14', keptDueDate: '2026-11-13' }, today)).toBe('expired')
+    const trial = { ...oneTime, dueDate: '2026-11-10', category: 'free_trials' } as const
+    expect(openQuestion({ ...trial, keptDueDate: '2026-11-10' }, today)).toBeNull()
+  })
+
+  it('asks "What now?" right after the Finish time on the Due date', () => {
+    const dentist = { ...oneTime, dueDate: today, category: 'health', finishTime: '10:30' } as const
+    expect(openQuestion(dentist, `${today}T10:00`)).toBeNull()
+    expect(openQuestion(dentist, `${today}T11:00`)).toBe('expired')
+  })
+})
+
 describe('keptTrialName', () => {
   it('drops "free trial" from the name of a kept trial', () => {
     expect(keptTrialName('Disney+ free trial')).toBe('Disney+')

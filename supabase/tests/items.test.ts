@@ -82,14 +82,18 @@ describe('repeating Items', () => {
   })
 })
 
-describe('Handled and Archived', () => {
-  it('a person marks an Item Handled for a Due date, archives and restores it', async () => {
+describe('Handled, Keep in Expired and Delete', () => {
+  it('a person marks an Item Handled, or keeps it in Expired, for a Due date', async () => {
     const ana = await signUpPerson('Ana')
     const { data: item } = await ana.client.from('items').insert(passport).select('id').single()
     const set = (changes: object) => ana.client.from('items').update(changes).eq('id', item!.id).select('id')
     expect((await set({ handled_due_date: '2027-03-02' })).data).toHaveLength(1)
-    expect((await set({ archived_at: new Date().toISOString() })).data).toHaveLength(1)
-    expect((await set({ archived_at: null })).data).toHaveLength(1)
+    expect((await set({ kept_expired_due_date: '2027-03-02' })).data).toHaveLength(1)
+  })
+
+  it('Items are no longer archived: the column is gone', async () => {
+    const ana = await signUpPerson('Ana')
+    expect((await ana.client.from('items').select('archived_at')).error).not.toBeNull()
   })
 
   it('a deleted Item can be put back with the same id (Undo)', async () => {

@@ -30,7 +30,6 @@ Deno.serve(async (req) => {
     .from('items')
     .select('id, name, category, due_date, due_time, finish_time, recurrence_unit, recurrence_every, handled_due_date')
     .eq('user_id', person.id)
-    .is('archived_at', null)
   if (error) return new Response('Try again later', { status: 503 })
 
   const timeZone = usableTimeZone(person.time_zone)

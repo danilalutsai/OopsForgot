@@ -97,9 +97,8 @@ async function send(device: Device, payload: string): Promise<Outcome> {
 
 /**
  * Priced Items create an Expense on each Due date (up to today, never before they were added).
- * Every Item's expenses_through moves on to today, priced or not, archived or not, so a deleted
- * automatic Expense never comes back, and adding a price later or restoring an archived Item never
- * fills in past Due dates.
+ * Every Item's expenses_through moves on to today, priced or not, so a deleted automatic Expense
+ * never comes back, and adding a price later never fills in past Due dates.
  */
 async function createAutomaticExpenses(
   person: SenderPerson,
@@ -114,7 +113,7 @@ async function createAutomaticExpenses(
     if (i.expenses_through === today) continue
     moved.push(i.id)
     const s = senderItems.get(i.id)
-    if (!s || i.archived_at) continue
+    if (!s) continue
     for (const date of automaticExpenseDates(
       {
         dueDate: s.dueDate,
@@ -207,7 +206,7 @@ async function serveRun(req: Request): Promise<Response> {
     all<Row>('profiles', 'id, name, time_zone, day_reminder_time'),
     all<Row>(
       'items',
-      'id, user_id, name, category, due_date, due_time, recurrence_unit, recurrence_every, reminder_offsets, handled_due_date, created_at, price_cents, expenses_through, archived_at',
+      'id, user_id, name, category, due_date, due_time, recurrence_unit, recurrence_every, reminder_offsets, handled_due_date, kept_expired_due_date, created_at, price_cents, expenses_through',
     ),
     all<Device & Row>('push_devices', 'id, user_id, endpoint, p256dh, auth'),
   ])
@@ -238,15 +237,14 @@ async function serveRun(req: Request): Promise<Response> {
           recurrence: i.recurrence_unit ? { unit: i.recurrence_unit, every: i.recurrence_every } : null,
           reminderOffsets: i.reminder_offsets,
           handledDueDate: i.handled_due_date,
+          keptDueDate: i.kept_expired_due_date,
           createdAt: new Date(i.created_at),
         },
       ]),
     )
-    const active = owned.filter((i) => !i.archived_at).map((i) => senderItems.get(i.id)!)
-
     // Reminders first; one person's problem never stops everyone else's
     try {
-      const sent = await remind(person, active, devicesOf.get(p.id) ?? [], from, to)
+      const sent = await remind(person, [...senderItems.values()], devicesOf.get(p.id) ?? [], from, to)
       if (sent) {
         report.push(sent)
         if (sent.failed) anyFailed = true
