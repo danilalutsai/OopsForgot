@@ -10,7 +10,7 @@ const local = JSON.parse(
 
 interface Sent {
   userId: string
-  message: { title: string; body: string; url: string }
+  message: { title: string; body: string; url: string; tag: string }
   entries: { item_id: string; due_date: string; kind: string }[]
   delivered: string[]
 }
@@ -194,7 +194,7 @@ describe('Reminders are re-armed when an Event moves', () => {
     const [first] = forAna(await runSender('2030-03-20T12:15:00Z', '2030-03-20T12:30:00Z'), ana.id)
     await ana.client.from('items').update({ due_time: '17:35' }).eq('id', items[0]!.id)
     const [second] = forAna(await runSender('2030-03-20T15:00:00Z', '2030-03-20T15:15:00Z'), ana.id)
-    const tag = (s: Sent) => (s.message as { tag: string }).tag
+    const tag = (s: Sent) => s.message.tag
     expect(tag(first!)).toContain(items[0]!.id)
     expect(tag(first!)).toContain('2030-03-20')
     expect(tag(first!)).toContain('30m')
