@@ -18,7 +18,7 @@ export async function logInAsNewPerson(
 ) {
   const email = `${name.toLowerCase()}.${crypto.randomUUID()}@example.test`
   const password = 'correct-horse-battery'
-  const { error } = await admin.auth.admin.createUser({
+  const { data: created, error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -31,7 +31,15 @@ export async function logInAsNewPerson(
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Log in' }).click()
   await expect(page.getByText(`Welcome, ${name}`)).toBeVisible()
-  return { email, password }
+  return { email, password, id: created.user.id }
+}
+
+/** Adds Events for a person straight in the database (quicker than the form for long lists). */
+export async function addEvents(userId: string, events: { name: string; due_date: string; due_time?: string }[]) {
+  const { error } = await admin
+    .from('items')
+    .insert(events.map((e) => ({ category: 'documents', ...e, user_id: userId })))
+  if (error) throw error
 }
 
 /** A date `days` from today as YYYY-MM-DD, worked out in the browser so it matches the app's idea of today. */

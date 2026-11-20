@@ -2,7 +2,7 @@
 import { dashboardGroup, type DashboardGroup } from '@oopsforgot/shared'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowUp, Plus } from '@lucide/vue'
+import { ArrowDown, ArrowUp, Plus } from '@lucide/vue'
 import TopBar from '../components/TopBar.vue'
 import { useItemActions } from '../items/actions'
 import AddItemSheet from '../items/AddItemSheet.vue'
@@ -15,7 +15,7 @@ import { online } from '../online'
 import { usePushOff } from '../push/pushOff'
 import { useAuth } from '../stores/auth'
 import { useToasts } from '../stores/toasts'
-import { heightTransition, reducedMotion } from '../motion'
+import { reducedMotion } from '../motion'
 import { nowLocal, today } from '../today'
 
 const auth = useAuth()
@@ -85,17 +85,27 @@ const rows = computed(() =>
 const expired = computed(() => rows.value.filter((r) => r.expired))
 
 // Expired waits above Today, hidden: the list opens at Today. "↑ Expired" or pulling the list down
-// past its top shows it.
+// past its top shows it, at the newest (right above Today); "↓ Hide" puts the list back at its start.
 const showExpired = ref(false)
 const expiredSection = ref<HTMLElement>()
+const smooth = (): ScrollBehavior => (reducedMotion() ? 'auto' : 'smooth')
 async function openExpired() {
   showExpired.value = true
   await nextTick()
-  expiredSection.value?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'nearest' })
+  const section = expiredSection.value
+  if (!section) return
+  // the rows go in above what is on screen, out of sight, so nothing jumps and no old rows flash…
+  window.scrollBy({ top: section.offsetHeight, behavior: 'instant' })
+  // …then the newest slides into view; older ones are further up
+  section.scrollIntoView({ block: 'end', behavior: smooth() })
 }
-function toggleExpired() {
-  if (showExpired.value) showExpired.value = false
-  else void openExpired()
+async function hideExpired() {
+  const height = expiredSection.value?.offsetHeight ?? 0
+  showExpired.value = false
+  await nextTick()
+  // keep what is on screen still as the rows go, then glide back to the start of the list
+  window.scrollBy({ top: -height, behavior: 'instant' })
+  window.scrollTo({ top: 0, behavior: smooth() })
 }
 /** Only on the list, at the very top of the page, with something Expired to show. */
 const canPull = () => mode.value === 'list' && !showExpired.value && expired.value.length > 0 && window.scrollY <= 0
@@ -133,15 +143,14 @@ onUnmounted(() => {
 })
 
 const GROUPS: DashboardGroup[] = ['today', 'thisWeek', 'later']
-const GROUP_TITLE = 'px-4 pt-4 pb-1 text-[13px] font-semibold tracking-wide text-muted uppercase'
-/** The "↑ Expired" button: neutral grey, never red. */
-const expiredButton = computed(() => ({
-  type: 'button' as const,
-  'aria-controls': showExpired.value ? 'expired' : undefined,
-  'aria-expanded': showExpired.value,
-  class:
-    'flex items-center gap-1 rounded-full border border-line px-2.5 py-0.5 text-[13px] font-semibold text-muted hover:bg-bg',
-}))
+/** A section's header bar: it stays at the top while its rows scroll under it. */
+const GROUP_BAR = 'sticky top-0 z-[1] flex items-center justify-between bg-bg px-4 pt-5 pb-2'
+const GROUP_TITLE = 'text-[13px] leading-5 font-semibold tracking-wide text-muted uppercase'
+/**
+ * "↑ Expired" and "↓ Hide" read like the header's title, on the same line; the negative margin gives
+ * them a 44px tap area without making the bar taller.
+ */
+const HEADER_BUTTON = `${GROUP_TITLE} -my-3 -mr-2 flex min-h-11 items-center gap-1 rounded-lg px-2 outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-accent`
 const groups = computed(() =>
   GROUPS.map((g) => ({
     key: g,
@@ -205,41 +214,52 @@ const groups = computed(() =>
     </div>
     <CalendarView v-if="mode === 'calendar'" :items="all" @open="(id) => (openId = id)" @add="addOn" />
     <template v-else>
-      <Transition :css="false" @enter="heightTransition.onEnter" @leave="heightTransition.onLeave">
-        <div v-if="showExpired" class="overflow-hidden">
-          <section id="expired" ref="expiredSection" aria-labelledby="group-expired">
-            <h2 id="group-expired" :class="GROUP_TITLE">{{ $t('items.groups.expired') }}</h2>
-            <ul>
-              <ItemRow
-                v-for="r in expired"
-                :key="r.item.id"
-                :item="r.item"
-                :due="r.due"
-                :handled="r.handled"
-                :question="r.question"
-                expired
-                :remove="() => actions.delete(r.item)"
-                @open="openId = r.item.id"
-                @toggle-handled="actions.toggleHandled(r.item, r.due)"
-              />
-            </ul>
-          </section>
+      <section
+        v-if="showExpired"
+        id="expired"
+        ref="expiredSection"
+        aria-labelledby="group-expired"
+        class="scroll-mb-[var(--tab-bar)] md:scroll-mb-0"
+      >
+        <div :class="GROUP_BAR">
+          <h2 id="group-expired" :class="GROUP_TITLE">{{ $t('items.groups.expired') }}</h2>
+          <button type="button" :class="HEADER_BUTTON" aria-controls="expired" @click="hideExpired">
+            <ArrowDown :size="14" aria-hidden="true" />{{ $t('items.hideExpired') }}
+          </button>
         </div>
-      </Transition>
-      <!-- with nothing but Expired Items, the button still needs a place -->
-      <div v-if="expired.length && !groups.length" class="flex justify-end px-4 pt-4">
-        <button v-bind="expiredButton" @click="toggleExpired">
-          <ArrowUp :size="14" :class="['transition-transform', showExpired && 'rotate-180']" aria-hidden="true" />
-          {{ $t('items.expiredButton') }}
+        <ul>
+          <ItemRow
+            v-for="r in expired"
+            :key="r.item.id"
+            :item="r.item"
+            :due="r.due"
+            :handled="r.handled"
+            :question="r.question"
+            expired
+            :remove="() => actions.delete(r.item)"
+            @open="openId = r.item.id"
+            @toggle-handled="actions.toggleHandled(r.item, r.due)"
+          />
+        </ul>
+      </section>
+      <!-- with nothing but Expired Events, the button still needs a place -->
+      <div v-if="expired.length && !groups.length && !showExpired" :class="[GROUP_BAR, '!justify-end']">
+        <button type="button" :class="HEADER_BUTTON" aria-expanded="false" @click="openExpired">
+          <ArrowUp :size="14" aria-hidden="true" />{{ $t('items.expiredButton') }}
         </button>
       </div>
       <section v-for="(g, i) in groups" :key="g.key" :aria-labelledby="`group-${g.key}`">
-        <div class="flex items-center justify-between pr-4">
+        <div :class="GROUP_BAR">
           <h2 :id="`group-${g.key}`" :class="GROUP_TITLE">{{ $t(`items.groups.${g.key}`) }}</h2>
           <!-- next to the first header (Today, when there is something today) -->
-          <button v-if="i === 0 && expired.length" v-bind="expiredButton" class="mt-3" @click="toggleExpired">
-            <ArrowUp :size="14" :class="['transition-transform', showExpired && 'rotate-180']" aria-hidden="true" />
-            {{ $t('items.expiredButton') }}
+          <button
+            v-if="i === 0 && expired.length && !showExpired"
+            type="button"
+            :class="HEADER_BUTTON"
+            aria-expanded="false"
+            @click="openExpired"
+          >
+            <ArrowUp :size="14" aria-hidden="true" />{{ $t('items.expiredButton') }}
           </button>
         </div>
         <ul>
@@ -264,7 +284,7 @@ const groups = computed(() =>
 
   <button
     type="button"
-    class="fixed right-5 bottom-[calc(var(--tab-bar)+1.25rem)] flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl text-on-accent shadow-lg md:hidden"
+    class="fixed right-5 bottom-[calc(var(--tab-bar)+1.25rem)] z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl text-on-accent shadow-lg md:hidden"
     :aria-label="$t('items.add')"
     @click="addOn()"
   >

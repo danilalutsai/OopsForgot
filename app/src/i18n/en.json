@@ -41,6 +41,7 @@
     "markHandled": "Mark {name} Handled",
     "undoHandled": "Undo Handled for {name}",
     "expiredButton": "Expired",
+    "hideExpired": "Hide",
     "expiredToday": "Expired today"
   },
   "money": {

@@ -42,7 +42,7 @@ const TAB_ON =
     <nav
       v-if="inApp"
       :aria-label="$t('nav.main')"
-      class="fixed inset-x-0 bottom-0 grid h-[var(--tab-bar)] grid-cols-2 border-t border-line bg-surface pb-[calc(var(--tab-bar-lift)+env(safe-area-inset-bottom,0px))] text-[13px] md:hidden"
+      class="fixed inset-x-0 bottom-0 z-20 grid h-[var(--tab-bar)] grid-cols-2 border-t border-line bg-surface pb-[calc(var(--tab-bar-lift)+env(safe-area-inset-bottom,0px))] text-[13px] md:hidden"
     >
       <RouterLink v-for="tab in tabs" :key="tab.to" :to="tab.to" :class="TAB" :exact-active-class="TAB_ON">
         <component :is="tab.icon" :size="20" aria-hidden="true" />
