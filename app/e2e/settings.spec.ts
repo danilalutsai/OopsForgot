@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { logInAsNewPerson, openFromAvatar } from './people'
+import { inDays, logInAsNewPerson, openFromAvatar } from './people'
 
 test('change the day Reminder time in Settings', async ({ page }) => {
   await logInAsNewPerson(page)
@@ -120,3 +120,28 @@ for (const scheme of ['light', 'dark'] as const)
       expect(await row.evaluate((b) => getComputedStyle(b.parentElement!).backgroundColor), name).toBe(dark)
     }
   })
+
+test('no emojis anywhere in the app: list, sheets, Money, Settings, Account', async ({ page }) => {
+  const emoji = /\p{Extended_Pictographic}/u
+  await logInAsNewPerson(page)
+  await expect(page.locator('body')).not.toContainText(emoji)
+  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  const form = page.getByRole('dialog', { name: 'New Item' })
+  await expect(form).not.toContainText(emoji)
+  await form.getByLabel('Name').fill('Gym')
+  await form.getByText('Health').click()
+  await form.getByLabel('Event date').fill(await inDays(page, 3))
+  await form.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
+  const sheet = page.getByRole('dialog', { name: 'Gym' })
+  await sheet.getByRole('button', { name: /^Price/ }).click()
+  await sheet.getByLabel('Price').fill('10')
+  await expect(sheet).not.toContainText(emoji)
+  await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
+  await expect(page.locator('body')).not.toContainText(emoji)
+  for (const path of ['/money', '/settings', '/account']) {
+    await page.goto(path)
+    await expect(page.locator('main')).toBeVisible()
+    await expect(page.locator('body')).not.toContainText(emoji)
+  }
+})

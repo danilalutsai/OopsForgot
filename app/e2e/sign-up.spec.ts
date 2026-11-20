@@ -14,10 +14,10 @@ test('sign up, confirm the email, log in, then log out', async ({ page }) => {
   await page.getByLabel('Password').fill(password)
   await page.getByLabel('I am 16 or older').check()
   await page.getByRole('button', { name: 'Sign up' }).click()
-  await expect(page.getByRole('heading', { name: 'Almost there, Ana 👋' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Almost there, Ana' })).toBeVisible()
 
   await page.goto(await linkFromEmail(email))
-  await expect(page.getByText('Welcome, Ana 👋')).toBeVisible()
+  await expect(page.getByText('Welcome, Ana')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Account' })).toHaveText('AG')
   await expectAccessible(page)
 
@@ -28,7 +28,7 @@ test('sign up, confirm the email, log in, then log out', async ({ page }) => {
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Log in' }).click()
-  await expect(page.getByText('Welcome, Ana 👋')).toBeVisible()
+  await expect(page.getByText('Welcome, Ana')).toBeVisible()
 })
 
 test('signup is refused without the 16+ confirmation', async ({ page }) => {

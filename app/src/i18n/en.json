@@ -15,7 +15,7 @@
     "list": "List",
     "calendar": "Calendar",
     "empty": "Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before its date.",
-    "welcome": "Welcome, {name} 👋",
+    "welcome": "Welcome, {name}",
     "groups": {
       "expired": "Expired",
       "today": "Today",
@@ -105,7 +105,7 @@
     "haveAccount": "Already have an account?",
     "noAccount": "New here?",
     "forgot": "Forgot your password?",
-    "checkEmailTitle": "Almost there, {name} 👋",
+    "checkEmailTitle": "Almost there, {name}",
     "checkEmail": "We sent a link to {email}. Open it to confirm your email, then log in.",
     "resetTitle": "Reset your password",
     "resetIntro": "Type your email and we will send you a link to set a new password.",
@@ -113,7 +113,7 @@
     "resetSent": "If an account uses {email}, a link to set a new password is on its way.",
     "newPasswordTitle": "Set a new password",
     "savePassword": "Save password",
-    "passwordSaved": "Password saved ✅",
+    "passwordSaved": "Password saved.",
     "backToLogIn": "Back to log in",
     "errors": {
       "generic": "Something went wrong. Please try again.",
@@ -139,8 +139,8 @@
     "newLink": "Send a new link",
     "google": "Continue with Google",
     "or": "or",
-    "welcomeTitle": "Nice to meet you, {name} 👋",
-    "welcomeNoName": "Nice to meet you 👋",
+    "welcomeTitle": "Nice to meet you, {name}",
+    "welcomeNoName": "Nice to meet you",
     "welcomeIntro": "Check your name is right, then one last thing.",
     "continue": "Continue",
     "notSixteen": "I’m not 16 yet: remove my signup"
@@ -225,7 +225,7 @@
   "itemSheet": {
     "unsaved": "Unsaved changes",
     "allSaved": "All changes saved",
-    "saved": "Changes saved ✅",
+    "saved": "Changes saved",
     "close": "Close",
     "none": "None",
     "addNotes": "Add notes",
