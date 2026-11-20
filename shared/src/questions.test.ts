@@ -5,7 +5,7 @@ const today = '2026-11-16'
 const oneTime = { recurrence: null, handledDueDate: null }
 
 describe('openQuestion', () => {
-  it('asks "What now?" about a one-time Item past its Event date', () => {
+  it('asks "What now?" about a one-time Event past its Event date', () => {
     expect(openQuestion({ ...oneTime, dueDate: '2026-11-13', category: 'documents' }, today)).toBe('expired')
   })
 
@@ -14,7 +14,7 @@ describe('openQuestion', () => {
     expect(openQuestion({ ...oneTime, dueDate: '2026-11-10', category: 'free_trials' }, today)).toBe('keptTrial')
   })
 
-  it('asks nothing before the Event date, about repeating Items, or once Handled', () => {
+  it('asks nothing before the Event date, about repeating Events, or once Handled', () => {
     expect(openQuestion({ ...oneTime, dueDate: '2026-11-20', category: 'free_trials' }, today)).toBeNull()
     expect(openQuestion({ ...oneTime, dueDate: '2026-11-16', category: 'documents' }, today)).toBeNull()
     const monthly = { recurrence: { unit: 'month', every: 1 }, handledDueDate: null } as const

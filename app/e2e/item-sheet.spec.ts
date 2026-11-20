@@ -3,7 +3,7 @@ import { expectAccessible } from './axe'
 import { inDays, logInAsNewPerson } from './people'
 
 async function addGym(page: Page) {
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Gym')
   await page.getByText('Health').click()
   await page.getByLabel('Event date').fill(await inDays(page, 10))
@@ -12,7 +12,7 @@ async function addGym(page: Page) {
   await expect(page.getByRole('dialog')).toBeHidden()
 }
 
-test('change an Item line by line; Save saves and closes the sheet', async ({ page }) => {
+test('change an Event line by line; Save saves and closes the sheet', async ({ page }) => {
   await logInAsNewPerson(page)
   await addGym(page)
   await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
@@ -119,7 +119,7 @@ test('an unfinished custom repeat is never saved as "doesn\'t repeat"', async ({
   await expect(sheet.getByRole('alert')).toContainText('Repeat every 1 to 365.')
 })
 
-test('a push Reminder link (/?item=<id>) opens that Item', async ({ page }) => {
+test('a push Reminder link (/?item=<id>) opens that Event', async ({ page }) => {
   await logInAsNewPerson(page)
   await addGym(page)
   // the Item's id, read with the person's own session the way the app reads it
@@ -136,7 +136,7 @@ test('a push Reminder link (/?item=<id>) opens that Item', async ({ page }) => {
   await expect(page).toHaveURL(/\/$/)
 })
 
-test('a Reminder link opened while logged out opens its Item after logging in', async ({ page }) => {
+test('a Reminder link opened while logged out opens its Event after logging in', async ({ page }) => {
   const person = await logInAsNewPerson(page)
   await addGym(page)
   const id = await page.evaluate(async () => {
@@ -192,7 +192,7 @@ test('an opened line and its editor share one darker block', async ({ page }) =>
     .toBe('rgba(0, 0, 0, 0)')
 })
 
-test('the Time row of an all-day Item says so, also when opened; Start and Finish show as a range', async ({
+test('the Time row of an all-day Event says so, also when opened; Start and Finish show as a range', async ({
   page,
 }) => {
   await logInAsNewPerson(page)

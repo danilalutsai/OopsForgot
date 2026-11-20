@@ -53,20 +53,20 @@ describe('automaticExpenseDates', () => {
     expect(automaticExpenseDates(rent, null, '2026-11-16')).toEqual(['2026-10-01', '2026-11-01'])
   })
 
-  it('never back-fills Event dates from before the Item was added', () => {
+  it('never back-fills Event dates from before the Event was added', () => {
     expect(automaticExpenseDates(rent, null, '2026-09-30')).toEqual([])
   })
 
-  it('includes a Event date that is today', () => {
+  it('includes an Event date that is today', () => {
     expect(automaticExpenseDates(rent, '2026-10-01', '2026-11-01')).toEqual(['2026-11-01'])
   })
 
-  it('creates nothing for Items without a price, and never for free trials', () => {
+  it('creates nothing for Events without a price, and never for free trials', () => {
     expect(automaticExpenseDates({ ...rent, priceCents: null }, null, '2026-11-16')).toEqual([])
     expect(automaticExpenseDates({ ...rent, category: 'free_trials' }, null, '2026-11-16')).toEqual([])
   })
 
-  it('a one-time priced Item creates one Expense on its Event date', () => {
+  it('a one-time priced Event creates one Expense on its Event date', () => {
     const repair = { ...rent, recurrence: null, dueDate: '2026-11-10', addedOn: '2026-11-01' }
     expect(automaticExpenseDates(repair, null, '2026-11-16')).toEqual(['2026-11-10'])
     expect(automaticExpenseDates(repair, '2026-11-10', '2026-11-16')).toEqual([])
@@ -74,7 +74,7 @@ describe('automaticExpenseDates', () => {
 })
 
 describe('stillComing', () => {
-  it('lists priced Items due later this month, soonest first', () => {
+  it('lists priced Events due later this month, soonest first', () => {
     const items = [
       {
         id: 'gym',

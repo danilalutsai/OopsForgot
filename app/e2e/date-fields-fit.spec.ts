@@ -24,9 +24,9 @@ async function expectFits(page: Page, sheet: Locator, field: Locator, block?: Lo
   expect(await sheet.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0)
 }
 
-test('Item sheet: the open Event date and Time rows fit the sheet', async ({ page }) => {
+test('Event sheet: the open Event date and Time rows fit the sheet', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Passport')
   await page.getByText('Other').click()
   await page.getByLabel('Event date').fill(await inDays(page, 30))
@@ -50,9 +50,9 @@ test('Item sheet: the open Event date and Time rows fit the sheet', async ({ pag
   }
 })
 
-test('New Item sheet: the Event date, Start and Finish time fields fit', async ({ page }) => {
+test('New Event sheet: the Event date, Start and Finish time fields fit', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   const sheet = page.getByRole('dialog')
   for (const value of ['', 'filled']) {
     if (value) {

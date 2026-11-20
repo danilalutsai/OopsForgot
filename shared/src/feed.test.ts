@@ -23,7 +23,7 @@ const feed = (items: FeedItem[]) =>
 const events = (text: string) => text.split('BEGIN:VEVENT').slice(1)
 
 describe('calendarFeed', () => {
-  it('makes an all-day event on the Event date, with a link to the Item and no alarm', () => {
+  it('makes an all-day event on the Event date, with a link to the Event and no alarm', () => {
     const text = feed([item()])
     expect(text.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true)
     const [e] = events(text)
@@ -40,7 +40,7 @@ describe('calendarFeed', () => {
     expect(e).toContain('DTEND:20261202T091500Z\r\n')
   })
 
-  it("makes a one-hour event at the Item's Start time when it has no Finish time, in exact time", () => {
+  it("makes a one-hour event at the Event's Start time when it has no Finish time, in exact time", () => {
     const [e] = events(feed([item({ dueTime: '09:30' })]))
     expect(e).toContain('DTSTART:20261202T073000Z\r\n')
     expect(e).toContain('DTEND:20261202T083000Z\r\n')

@@ -4,7 +4,7 @@
   },
   "nav": {
     "main": "Main",
-    "items": "Items",
+    "items": "Events",
     "money": "Money",
     "settings": "Settings",
     "account": "Account",
@@ -14,7 +14,7 @@
   "items": {
     "list": "List",
     "calendar": "Calendar",
-    "empty": "Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before its date.",
+    "empty": "Nothing to track yet. Add your first Event, like a passport or a subscription, and we will remind you before its date.",
     "welcome": "Welcome, {name}",
     "groups": {
       "expired": "Expired",
@@ -28,9 +28,9 @@
       "dueIn": "In {days} day | In {days} days",
       "expired": "Expired {days} day ago | Expired {days} days ago"
     },
-    "add": "Add Item",
+    "add": "Add Event",
     "addShort": "Add",
-    "loadError": "Could not load your Items. Check your connection and try again.",
+    "loadError": "Could not load your Events. Check your connection and try again.",
     "repeats": {
       "day": "Every day | Every {n} days",
       "week": "Every week | Every {n} weeks",
@@ -52,7 +52,7 @@
     "spent": "spent",
     "total": "{amount} spent in {month}",
     "empty": "No Expenses this month",
-    "emptyHint": "Add what you spend by hand, or give Items a price and they’ll appear here on their Event date.",
+    "emptyHint": "Add what you spend by hand, or give Events a price and they’ll appear here on their Event date.",
     "showing": "Showing {category} only",
     "showAll": "Show all",
     "loadError": "Could not load your Expenses. Check your connection and try again.",
@@ -85,8 +85,8 @@
     "comingTitle": "Still coming this month",
     "comingArc": "{amount} still coming",
     "fromItem": "Created automatically from {name}",
-    "openItem": "Open Item ›",
-    "lockedCategory": "Same as its Item"
+    "openItem": "Open Event ›",
+    "lockedCategory": "Same as its Event"
   },
   "auth": {
     "email": "Email",
@@ -151,9 +151,9 @@
     "whoTitle": "Who runs OopsForgot",
     "who": "OopsForgot is a free personal project run by {owner}. Questions or requests: {contact}.",
     "whatTitle": "What we store",
-    "what": "Your email, Name, Surname, profile photo if you add one, time zone, currency, your Items, Reminders, Expenses and the devices you allow to get notifications. We never ask for full card or document numbers.",
+    "what": "Your email, Name, Surname, profile photo if you add one, time zone, currency, your Events, Reminders, Expenses and the devices you allow to get notifications. We never ask for full card or document numbers.",
     "whyTitle": "Why",
-    "why": "Only to remind you before your Items’ dates and to show your spending. Nothing else.",
+    "why": "Only to remind you before your Events and to show your spending. Nothing else.",
     "whereTitle": "Where",
     "where": "Your data is kept by Supabase in Frankfurt (EU). The app is served by Cloudflare. Login emails are sent through Gmail. Notifications pass through your browser's notification service (Google, Apple or Mozilla). Encrypted backups may be stored outside the EU.",
     "howLongTitle": "How long",
@@ -175,7 +175,7 @@
     "other": "Other"
   },
   "itemForm": {
-    "title": "New Item",
+    "title": "New Event",
     "name": "Name",
     "namePlaceholder": "Passport, Netflix, car insurance…",
     "category": "Category",
@@ -193,9 +193,9 @@
     "numberWarning": "Don't store full card or document numbers here.",
     "save": "Save",
     "cancel": "Cancel",
-    "saved": "Item added",
+    "saved": "Event added",
     "errors": {
-      "name": "Give the Item a name.",
+      "name": "Give the Event a name.",
       "category": "Pick a Category.",
       "dueDate": "Pick an Event date.",
       "price": "Type a price like 12.50, or leave it empty.",
@@ -230,7 +230,7 @@
     "none": "None",
     "addNotes": "Add notes",
     "leaveTitle": "Save your changes?",
-    "leaveBody": "You changed this Item but haven’t saved yet.",
+    "leaveBody": "You changed this Event but haven’t saved yet.",
     "save": "Save",
     "discard": "Discard",
     "keepEditing": "Keep editing",
@@ -256,14 +256,14 @@
     "keepOld": "Keep old",
     "sections": {
       "reminders": "Reminders",
-      "items": "Items",
+      "items": "Events",
       "money": "Money",
       "appearance": "Appearance",
       "account": "Account",
       "privacy": "Privacy"
     },
     "dayTime": "Day Reminders at",
-    "dayTimeHint": "For Items without a Start time, Reminders set in days arrive at this time, in 15-minute steps. Items with a Start time get them at that time.",
+    "dayTimeHint": "For Events without a Start time, Reminders set in days arrive at this time, in 15-minute steps. Events with a Start time get them at that time.",
     "backTo12": "Back to 12:00",
     "timeZone": "Time zone",
     "timeZoneHint": "Your browser says {here}.",
@@ -287,12 +287,12 @@
     },
     "themeHint": "System follows this device. The choice is kept on this device only.",
     "cleanup": {
-      "label": "Delete Expired Items after",
+      "label": "Delete Expired Events after",
       "d7": "1 week",
       "d30": "1 month",
       "d90": "3 months",
       "never": "Never",
-      "hint": "One-time Items that have been Expired this long are deleted by themselves. Their Expenses stay."
+      "hint": "One-time Events that have been Expired this long are deleted by themselves. Their Expenses stay."
     }
   },
   "toasts": {
@@ -328,8 +328,8 @@
     "today": "Today",
     "previous": "Previous",
     "next": "Next",
-    "day": "{date}, {n} Item | {date}, {n} Items",
-    "dayEmpty": "{date}, no Items",
+    "day": "{date}, {n} Event | {date}, {n} Events",
+    "dayEmpty": "{date}, no Events",
     "nothingDue": "Nothing on {date}.",
     "more": "+{n}"
   },
@@ -355,7 +355,7 @@
     },
     "dayTime": "Day Reminders arrive at {time}.",
     "dayTimeStart": "Day Reminders arrive at the Start time, {time}.",
-    "noneFit": "No Reminders will be sent for this Item."
+    "noneFit": "No Reminders will be sent for this Event."
   },
   "push": {
     "section": "Notifications",
@@ -400,7 +400,7 @@
     "link": "Your Calendar feed link",
     "copy": "Copy link",
     "copied": "Link copied",
-    "warning": "Anyone with this link can see your Item names and Event dates. Don’t share it.",
+    "warning": "Anyone with this link can see your Event names and dates. Don’t share it.",
     "guidesTitle": "Add it to your calendar",
     "google": "Google Calendar (on a computer): Other calendars → + → From URL → paste the link.",
     "apple": "Apple Calendar: on iPhone, Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar; on Mac, File → New Calendar Subscription.",
@@ -417,7 +417,7 @@
   "deleteAccount": {
     "line": "Delete account",
     "title": "Delete your account?",
-    "body": "Everything goes, at once and for good: your Items, Reminders, Expenses, Calendar feed and photo. This cannot be undone.",
+    "body": "Everything goes, at once and for good: your Events, Reminders, Expenses, Calendar feed and photo. This cannot be undone.",
     "password": "Your password",
     "type": "Type DELETE to confirm",
     "confirm": "Delete my account",

@@ -3,7 +3,7 @@ import { inDays, logInAsNewPerson } from './people'
 
 test('offline, the saved copy shows read-only and changes wait for the internet', async ({ page, context }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Passport')
   await page.getByText('Documents').click()
   await page.getByLabel('Event date').fill(await inDays(page, 30))

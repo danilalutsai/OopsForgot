@@ -3,7 +3,7 @@ import { expectAccessible } from './axe'
 import { inDays, logInAsNewPerson } from './people'
 
 async function addItem(page: Page, name: string, days: number, times?: [string, string]) {
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText('Documents').click()
   await page.getByLabel('Event date').fill(await inDays(page, days))
@@ -26,7 +26,7 @@ const colour = (page: Page, token: string) =>
     return c
   }, token)
 
-test('Expired Items wait above Today, hidden until "↑ Expired"; oldest first, all in grey', async ({ page }) => {
+test('Expired Events wait above Today, hidden until "↑ Expired"; oldest first, all in grey', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Visa', -2)
   await addItem(page, 'Old ID', -5)
@@ -79,14 +79,14 @@ test('Expired Items wait above Today, hidden until "↑ Expired"; oldest first, 
   await expect(expired(page)).toBeHidden()
 })
 
-test('no Expired Items: no "Expired" button', async ({ page }) => {
+test('no Expired Events: no "Expired" button', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Gym card', 0)
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
   await expect(expiredButton(page)).toHaveCount(0)
 })
 
-test('an Item with a Finish time is Expired right after it, on the same day', async ({ page }) => {
+test('an Event with a Finish time is Expired right after it, on the same day', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Early call', 0, ['00:00', '00:01'])
   await addItem(page, 'Late call', 0, ['23:58', '23:59'])
@@ -132,7 +132,7 @@ test('phone: pulling down at the top of the list shows Expired', async ({ page }
   await expect(expired(page)).toBeVisible()
 })
 
-test('calendar: Expired Items still show on their day, in grey', async ({ page }) => {
+test('calendar: Expired Events still show on their day, in grey', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Visa', -1)
   await page.getByRole('tab', { name: 'Calendar' }).click()
@@ -143,17 +143,17 @@ test('calendar: Expired Items still show on their day, in grey', async ({ page }
     d.setDate(d.getDate() - 1)
     return d.toLocaleDateString(navigator.language, { day: 'numeric', month: 'long' })
   })
-  const day = page.getByRole('button', { name: `${label}, 1 Item` })
+  const day = page.getByRole('button', { name: `${label}, 1 Event` })
   await expect(day.locator('span span').first()).toHaveClass(/bg-urgent-grey/)
   await day.click()
   const visa = page.getByRole('listitem').filter({ hasText: 'Visa' })
   await expect(visa.getByTestId('urgency-bar')).toHaveClass(/bg-urgent-grey/)
 })
 
-test('Settings: choose how long Expired Items stay', async ({ page }) => {
+test('Settings: choose how long Expired Events stay', async ({ page }) => {
   await logInAsNewPerson(page)
   await page.goto('/settings')
-  const line = page.getByRole('button', { name: /^Delete Expired Items after/ })
+  const line = page.getByRole('button', { name: /^Delete Expired Events after/ })
   await expect(line).toContainText('1 month')
   await line.click()
   await page
@@ -163,5 +163,5 @@ test('Settings: choose how long Expired Items stay', async ({ page }) => {
   await expect(page.getByRole('radio', { name: '1 week' })).toBeChecked()
   await expect(line).toContainText('1 week')
   await page.reload()
-  await expect(page.getByRole('button', { name: /^Delete Expired Items after/ })).toContainText('1 week')
+  await expect(page.getByRole('button', { name: /^Delete Expired Events after/ })).toContainText('1 week')
 })

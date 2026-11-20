@@ -26,14 +26,14 @@ The CI checks and the deploy's live check cover these; nothing to do by hand whi
 ## Real devices: only the owner
 
 - [ ] **iPhone:** open the app in Safari → Share → Add to Home Screen → open it from the Home
-      Screen → Settings → Notifications → turn on → allow. Add an Item for 2 hours from now with a Reminder
-      "1 hour before"; the notification arrives on time and opens the Item.
+      Screen → Settings → Notifications → turn on → allow. Add an Event for 2 hours from now with a Reminder
+      "1 hour before"; the notification arrives on time and opens the Event.
 - [ ] **Android:** the same in Chrome (Install app), the notification arrives.
 - [ ] **Login emails:** sign up and reset the password with a Gmail, an Outlook and a Yahoo
       address; each email lands in the inbox, not in spam, and its link works.
 - [ ] **Calendar feed:** Settings → Calendar feed → turn on → copy the link. Google Calendar
       (computer) → Other calendars → From URL; Apple Calendar → File → New Calendar
       Subscription. Event dates show up (Google can take up to a day to refresh).
-- [ ] **Offline:** on the phone, open the app, then turn on airplane mode: Items still show,
+- [ ] **Offline:** on the phone, open the app, then turn on airplane mode: Events still show,
       changes are blocked with a message, and everything works again once back online.
 - [ ] **Restore test** (every 6 months): `RESTORE.md` in `oopsproof-backups`.

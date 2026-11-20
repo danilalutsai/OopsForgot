@@ -3,7 +3,7 @@ import { calendarDays } from './calendar.ts'
 import { dueDatesBetween } from './due-date.ts'
 
 describe('dueDatesBetween', () => {
-  it('lists every Event date of a repeating Item inside the range', () => {
+  it('lists every Event date of a repeating Event inside the range', () => {
     const gym = { dueDate: '2026-10-05', recurrence: { unit: 'week', every: 2 } } as const
     expect(dueDatesBetween(gym, '2026-11-01', '2026-11-30')).toEqual(['2026-11-02', '2026-11-16', '2026-11-30'])
   })
@@ -13,7 +13,7 @@ describe('dueDatesBetween', () => {
     expect(dueDatesBetween(rent, '2026-11-01', '2026-12-31')).toEqual(['2026-11-20', '2026-12-20'])
   })
 
-  it('lists a one-time Item only when its Event date is inside the range', () => {
+  it('lists a one-time Event only when its Event date is inside the range', () => {
     expect(dueDatesBetween({ dueDate: '2026-11-13', recurrence: null }, '2026-11-01', '2026-11-30')).toEqual([
       '2026-11-13',
     ])

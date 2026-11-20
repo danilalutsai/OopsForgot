@@ -31,7 +31,7 @@ async function personWith(name: string) {
 const cleanUp = () => query('select public.delete_old_expired_items()')
 
 describe('Expired clean-up', () => {
-  it('deletes one-time Items Expired longer than the setting (1 month by default); Expenses stay', async () => {
+  it('deletes one-time Events Expired longer than the setting (1 month by default); Expenses stay', async () => {
     const ana = await personWith('Ana')
     const old = await ana.add('Old', await day(-32))
     await ana.add('Recent', await day(-20))

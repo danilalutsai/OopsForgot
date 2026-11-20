@@ -3,7 +3,7 @@ import { expectAccessible } from './axe'
 import { inDays, logInAsNewPerson } from './people'
 
 async function addItem(page: Page, name: string, firstDue: string, repeat?: string, custom?: [string, string]) {
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText('Other').click()
   await page.getByLabel('Event date').fill(firstDue)
@@ -16,7 +16,7 @@ async function addItem(page: Page, name: string, firstDue: string, repeat?: stri
   await expect(page.getByRole('dialog')).toBeHidden()
 }
 
-test('repeating Items move on to their next Event date; one-time Items become Expired', async ({ page }) => {
+test('repeating Events move on to their next Event date; one-time Events become Expired', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Cleaning', await inDays(page, -14), 'Every week')
   await addItem(page, 'Water filter', await inDays(page, -5), 'Custom…', ['10', 'days'])

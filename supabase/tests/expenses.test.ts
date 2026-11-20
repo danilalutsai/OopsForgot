@@ -24,7 +24,7 @@ describe('Expenses', () => {
     expect((await ana.client.from('expenses').select('amount_cents')).data).toEqual([{ amount_cents: 6240 }])
   })
 
-  it('refuses future dates, free trials, zero amounts and links to Items set by hand', async () => {
+  it('refuses future dates, free trials, zero amounts and links to Events set by hand', async () => {
     const ana = await signUpPerson('Ana')
     const add = (changes: object) => ana.client.from('expenses').insert({ ...groceries, ...changes })
     expect((await add({ date: '2099-01-01' })).error).not.toBeNull()
@@ -45,7 +45,7 @@ describe('Expense Categories', () => {
   })
 })
 
-describe('Expenses from Items', () => {
+describe('Expenses from Events', () => {
   it('keeping a trial makes a monthly Subscription and records its first charge on the trial date', async () => {
     const ana = await signUpPerson('Ana')
     const { data: trial } = await ana.client

@@ -59,7 +59,7 @@ test('edit an Expense amount, then delete it after confirming', async ({ page })
   await expect(page.getByText('No Expenses this month')).toBeVisible()
 })
 
-test('priced Items due later this month show as still coming; tapping one opens it', async ({ page }) => {
+test('priced Events due later this month show as still coming; tapping one opens it', async ({ page }) => {
   await logInAsNewPerson(page)
   const tomorrow = await page.evaluate(() => {
     const d = new Date()
@@ -67,7 +67,7 @@ test('priced Items due later this month show as still coming; tapping one opens 
     return t.getMonth() === d.getMonth() ? t.toLocaleDateString('en-CA') : null
   })
   test.skip(!tomorrow, 'last day of the month: nothing can still be coming')
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Gym')
   await page.getByText('Health').click()
   await page.getByLabel('Event date').fill(tomorrow!)
@@ -83,7 +83,7 @@ test('priced Items due later this month show as still coming; tapping one opens 
   await expect(page.getByRole('dialog', { name: 'Gym' })).toBeVisible()
 })
 
-test('a long Item name in still coming stays on screen instead of widening the page', async ({ page }) => {
+test('a long Event name in still coming stays on screen instead of widening the page', async ({ page }) => {
   await logInAsNewPerson(page)
   const tomorrow = await page.evaluate(() => {
     const d = new Date()
@@ -91,7 +91,7 @@ test('a long Item name in still coming stays on screen instead of widening the p
     return t.getMonth() === d.getMonth() ? t.toLocaleDateString('en-CA') : null
   })
   test.skip(!tomorrow, 'last day of the month: nothing can still be coming')
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Gym membership with a very long name that would not fit on a phone screen at all')
   await page.getByText('Health').click()
   await page.getByLabel('Event date').fill(tomorrow!)
