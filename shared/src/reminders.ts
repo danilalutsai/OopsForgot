@@ -35,7 +35,8 @@ function minusMinutes(date: string, time: string, minutes: number): string {
 
 /**
  * When a Reminder goes out, as local "YYYY-MM-DDTHH:MM" in the person's time zone.
- * Day Reminders go out at the day Reminder time; hour Reminders that long before the Item's time.
+ * Day Reminders of an Item with a Start time go out at that time, that many days before; of an all-day
+ * Item, at the person's day Reminder time. Hour Reminders go out that long before the Start time.
  */
 export function reminderSendAt(
   dueDate: string,
@@ -46,7 +47,7 @@ export function reminderSendAt(
   const hours = HOURS[offset]
   if (hours !== undefined) return minusMinutes(dueDate, (dueTime ?? '00:00').slice(0, 5), hours * 60)
   const day = offset === '1M' ? addMonths(dueDate, -1) : addDays(dueDate, -(DAYS[offset] ?? 0))
-  return `${day}T${dayReminderTime.slice(0, 5)}`
+  return `${day}T${(dueTime ?? dayReminderTime).slice(0, 5)}`
 }
 
 export interface ReminderItem {

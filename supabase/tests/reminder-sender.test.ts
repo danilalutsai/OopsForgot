@@ -90,6 +90,14 @@ describe('Reminder sender', () => {
     expect(forAna(await runSender('2030-04-11T08:45:00Z', '2030-04-11T09:00:00Z'), ana.id)).toHaveLength(0)
   })
 
+  it('sends a day Reminder of an Item with a Start time at that time, the day before', async () => {
+    const { ana } = await personWith([{ ...base, name: 'Dentist', due_date: '2030-03-10', due_time: '16:50' }])
+    // March is winter time in Tallinn (UTC+2): 16:50 there is 14:50 UTC, not 12:00 local
+    expect(forAna(await runSender('2030-03-09T09:45:00Z', '2030-03-09T10:00:00Z'), ana.id)).toHaveLength(0)
+    const sent = forAna(await runSender('2030-03-09T14:45:00Z', '2030-03-09T15:00:00Z'), ana.id)
+    expect(sent.map((s) => s.message.title)).toEqual(['Ana, Dentist is tomorrow at 16:50 🔔'])
+  })
+
   it("still sends a late Reminder after skipped runs, while the Event date hasn't passed", async () => {
     const { ana } = await personWith([{ ...base, name: 'Car insurance', due_date: '2030-06-10' }])
     const late = forAna(await runSender('2030-06-09T08:00:00Z', '2030-06-09T15:00:00Z'), ana.id)

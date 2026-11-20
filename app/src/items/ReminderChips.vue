@@ -45,6 +45,9 @@ function toggle(offset: ReminderOffset) {
     </div>
     <p v-for="r in reasons" :key="r" class="text-muted">{{ $t(`reminders.reasons.${r}`) }}</p>
     <p v-if="!picked.length" class="font-medium text-urgent-yellow-text">{{ $t('reminders.noneFit') }}</p>
-    <p class="text-muted">{{ $t('reminders.dayTime', { time: formatTime(`${dayReminderTime}:00`) }) }}</p>
+    <p v-if="dueTime" class="text-muted">
+      {{ $t('reminders.dayTimeStart', { time: formatTime(`${dueTime.slice(0, 5)}:00`) }) }}
+    </p>
+    <p v-else class="text-muted">{{ $t('reminders.dayTime', { time: formatTime(`${dayReminderTime}:00`) }) }}</p>
   </fieldset>
 </template>

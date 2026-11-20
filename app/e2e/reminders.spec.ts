@@ -30,6 +30,20 @@ test('pick Reminders when adding an Item; only fitting ones are offered', async 
   )
 })
 
+test('an Item with a Start time tomorrow can have "1 day": it arrives at the Start time today', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  const form = page.getByRole('dialog', { name: 'New Item' })
+  const chip = (name: string) =>
+    form.getByRole('group', { name: 'Reminders' }).getByRole('button', { name, exact: true })
+  await form.getByLabel('Event date').fill(await inDays(page, 1))
+  // late enough that "today at the Start time" is still ahead, whatever the clock says now
+  await form.getByLabel('Start time').fill('23:59')
+  await expect(chip('1 day')).toBeEnabled()
+  await expect(chip('2 days')).toBeDisabled()
+  await expect(form.getByText('Day Reminders arrive at the Start time, 11:59 PM.')).toBeVisible()
+})
+
 test('a weekly Item cannot have Reminders a week or more before', async ({ page }) => {
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()

@@ -263,7 +263,7 @@
       "privacy": "Privacy"
     },
     "dayTime": "Day Reminders at",
-    "dayTimeHint": "Reminders set in days arrive at this time, in 15-minute steps. Hour Reminders arrive at their exact time.",
+    "dayTimeHint": "For Items without a Start time, Reminders set in days arrive at this time, in 15-minute steps. Items with a Start time get them at that time.",
     "backTo12": "Back to 12:00",
     "timeZone": "Time zone",
     "timeZoneHint": "Your browser says {here}.",
@@ -354,6 +354,7 @@
       "alreadyPast": "Some would already be past."
     },
     "dayTime": "Day Reminders arrive at {time}.",
+    "dayTimeStart": "Day Reminders arrive at the Start time, {time}.",
     "noneFit": "No Reminders will be sent for this Item."
   },
   "push": {

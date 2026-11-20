@@ -8,10 +8,16 @@ const offsetsAllowed = (item: Parameters<typeof reminderChoices>[0], at = now) =
     .map((c) => c.offset)
 
 describe('reminderSendAt', () => {
-  it("sends day Reminders at the person's day Reminder time, that many days before", () => {
+  it("sends day Reminders of an all-day Item at the person's day Reminder time, that many days before", () => {
     expect(reminderSendAt('2026-11-20', null, '1d', '12:00')).toBe('2026-11-19T12:00')
-    expect(reminderSendAt('2026-11-20', '09:30', '1w', '08:15')).toBe('2026-11-13T08:15')
+    expect(reminderSendAt('2026-11-20', null, '1w', '08:15')).toBe('2026-11-13T08:15')
     expect(reminderSendAt('2026-03-31', null, '1M', '12:00')).toBe('2026-02-28T12:00')
+  })
+
+  it('sends day Reminders of an Item with a Start time at that time, that many days before', () => {
+    expect(reminderSendAt('2026-11-21', '16:50', '1d', '12:00')).toBe('2026-11-20T16:50')
+    expect(reminderSendAt('2026-11-20', '09:30', '1w', '08:15')).toBe('2026-11-13T09:30')
+    expect(reminderSendAt('2026-03-31', '14:00', '1M', '12:00')).toBe('2026-02-28T14:00')
   })
 
   it("sends hour Reminders that long before the Item's time", () => {
@@ -37,6 +43,13 @@ describe('reminderChoices', () => {
     expect(offsetsAllowed(yearly)).toEqual(['1d', '2d', '1w', '2w', '1M'])
     const reason = reminderChoices(weekly, now, '12:00').find((c) => c.offset === '1w')?.reason
     expect(reason).toBe('longerThanRepeat')
+  })
+
+  it('offers "1 day" for tomorrow at 16:50 when it is 15:43 today (past the 12:00 day Reminder time)', () => {
+    const tomorrow = { dueDate: '2026-11-21', dueTime: '16:50', recurrence: null }
+    expect(offsetsAllowed(tomorrow, '2026-11-20T15:43')).toEqual(['30m', '1h', '2h', '4h', '1d'])
+    // a minute after the Start time the day before, it is gone
+    expect(offsetsAllowed(tomorrow, '2026-11-20T16:50')).toEqual(['30m', '1h', '2h', '4h'])
   })
 
   it('offers a one-time Item only Reminders still ahead of now', () => {
