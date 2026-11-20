@@ -8,7 +8,7 @@ import {
   type ReminderOffset,
   REMINDER_OFFSETS,
 } from '@oopsforgot/shared'
-import { Pencil, X } from '@lucide/vue'
+import { Check, Pencil, X } from '@lucide/vue'
 import CategoryIcon from '../components/CategoryIcon.vue'
 import {
   AlertDialogAction,
@@ -311,7 +311,8 @@ const lineText = {
             >
               <X :size="20" aria-hidden="true" />
             </button>
-            <p class="flex-1 text-center text-sm text-muted" role="status">
+            <p class="flex flex-1 items-center justify-center gap-1 text-sm text-muted" role="status">
+              <Check v-if="justSaved && !dirty" :size="14" class="text-urgent-green" aria-hidden="true" />
               {{ dirty ? $t('itemSheet.unsaved') : justSaved ? $t('itemSheet.saved') : $t('itemSheet.allSaved') }}
             </p>
             <button

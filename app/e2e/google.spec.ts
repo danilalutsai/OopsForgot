@@ -11,7 +11,7 @@ test('signup and login offer Google', async ({ page }) => {
 
 test('after a Google signup: check the names, confirm 16+, then the app opens', async ({ page }) => {
   await logInAsNewGooglePerson(page, { full_name: 'Cher' })
-  await expect(page.getByRole('heading', { name: 'Nice to meet you, Cher 👋' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Nice to meet you, Cher' })).toBeVisible()
   await expectAccessible(page)
   // the app stays closed until the welcome is done
   await page.goto('/money')
