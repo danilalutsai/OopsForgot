@@ -185,8 +185,10 @@ const selectedLabel = computed(() => fmt(formats.long, selected.value))
       <button type="button" class="font-semibold text-accent" @click="goToday">{{ $t('calendar.today') }}</button>
     </div>
 
-    <!-- swipe sideways for the next or previous period; up and down still scroll the page -->
-    <div class="overflow-hidden">
+    <!-- swipe sideways for the next or previous period; up and down still scroll the page.
+         The clip keeps a sliding period from widening the page; its 4px of room (padding, undone by the
+         negative margin) keeps the selected day's ring, drawn outside the day, from being cut off. -->
+    <div class="-m-1 overflow-hidden p-1">
       <div data-testid="calendar-days" class="touch-pan-y select-none" v-bind="swipe.bind" @wheel="swipe.onWheel">
         <Transition mode="out-in" :css="false" @enter="periodTransition.onEnter" @leave="periodTransition.onLeave">
           <div :key="`${view}-${days[0]}`" class="grid grid-cols-7 gap-1 text-center text-sm">
