@@ -22,6 +22,8 @@ export interface MessageEntry {
   item: { id: string; name: string; category: Category; dueTime: string | null }
   dueDate: string
   kind: ReminderKind
+  /** the moment this Reminder was for, ISO */
+  sendAt: string
 }
 
 export interface PushMessage {
@@ -29,9 +31,16 @@ export interface PushMessage {
   body: string
   /** where tapping opens: the Item, or the dashboard for a bundle */
   url: string
-  /** later messages replace earlier ones instead of piling up */
+  /**
+   * One per Reminder (Event, date, kind and moment), so a new Reminder never silently replaces an
+   * older notification still on the phone.
+   */
   tag: string
 }
+
+/** "<event>-<date>-<kind>-<moment>", the moment to the minute in UTC. */
+const reminderTag = (e: MessageEntry) =>
+  `${e.item.id}-${e.dueDate}-${e.kind}-${e.sendAt.replace(/[-:]/g, '').slice(0, 13)}`
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -73,12 +82,12 @@ export function pushMessage(person: SenderPerson, all: MessageEntry[], today: st
         : `${person.name}, ${entries.length} Events need you soon 🔔`,
       body: entries.map((e) => e.item.name).join(', '),
       url: '/',
-      tag: `bundle-${entries.map((e) => e.item.id).join('-')}`,
+      tag: `bundle-${entries.map(reminderTag).join('_')}`,
     }
   }
   const { item, dueDate, kind } = entries[0]!
   const url = `/?item=${item.id}`
-  const tag = `item-${item.id}`
+  const tag = `item-${reminderTag(entries[0]!)}`
   if (kind === 'expired') {
     const ago = daysBetween(dueDate, today)
     const since = ago <= 1 ? 'yesterday' : `${ago} days ago`

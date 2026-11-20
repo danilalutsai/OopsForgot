@@ -10,7 +10,7 @@ const local = JSON.parse(
 
 interface Sent {
   userId: string
-  message: { title: string; body: string; url: string }
+  message: { title: string; body: string; url: string; tag: string }
   entries: { item_id: string; due_date: string; kind: string }[]
   delivered: string[]
 }
@@ -139,5 +139,65 @@ describe('automatic Expenses never fill in the past', () => {
     await runSender('2030-12-01T09:45:00Z', '2030-12-01T10:00:00Z')
     const { data } = await ana.client.from('expenses').select('date')
     expect(data).toEqual([{ date: '2030-12-01' }])
+  })
+})
+
+// March 2030 is winter time in Tallinn (UTC+2): 14:30 there is 12:30 UTC.
+describe('Reminders are re-armed when an Event moves', () => {
+  const dentist = { ...base, name: 'Dentist', due_date: '2030-03-20', due_time: '15:00', reminder_offsets: ['30m'] }
+  const titles = (sent: Sent[], id: string) => forAna(sent, id).map((s) => s.message.title)
+
+  it('moving the Start time later the same day sends the Reminder again at the new moment', async () => {
+    const { ana, items } = await personWith([dentist])
+    const set = (changes: object) => ana.client.from('items').update(changes).eq('id', items[0]!.id)
+    // 30 min before 15:00
+    expect(titles(await runSender('2030-03-20T12:15:00Z', '2030-03-20T12:30:00Z'), ana.id)).toEqual([
+      'Ana, Dentist is today at 15:00 🔔',
+    ])
+
+    await set({ due_time: '17:35' })
+    // 30 min before 17:35 is 17:05 local, 15:05 UTC
+    expect(titles(await runSender('2030-03-20T15:00:00Z', '2030-03-20T15:15:00Z'), ana.id)).toEqual([
+      'Ana, Dentist is today at 17:35 🔔',
+    ])
+
+    // back to 15:00: that moment already went out, so nothing goes out twice
+    await set({ due_time: '15:00' })
+    expect(titles(await runSender('2030-03-20T12:15:00Z', '2030-03-20T12:30:00Z'), ana.id)).toEqual([])
+  })
+
+  it('editing only the name, notes, price or category never sends a second push', async () => {
+    const { ana, items } = await personWith([dentist])
+    const window = ['2030-03-20T12:15:00Z', '2030-03-20T12:30:00Z'] as const
+    expect(titles(await runSender(...window), ana.id)).toHaveLength(1)
+    await ana.client
+      .from('items')
+      .update({ name: 'Dentist (Dr Tamm)', notes: 'bring card', price_cents: 4000, category: 'health' })
+      .eq('id', items[0]!.id)
+    expect(titles(await runSender(...window), ana.id)).toEqual([])
+  })
+
+  it('moving the Event date sends its Reminders again for the new date', async () => {
+    const { ana, items } = await personWith([{ ...base, name: 'Car service', due_date: '2030-03-20' }])
+    // all day: "1 day" goes out the day before at 12:00 local
+    expect(titles(await runSender('2030-03-19T09:45:00Z', '2030-03-19T10:00:00Z'), ana.id)).toEqual([
+      'Ana, Car service is tomorrow 🔔',
+    ])
+    await ana.client.from('items').update({ due_date: '2030-03-25' }).eq('id', items[0]!.id)
+    expect(titles(await runSender('2030-03-24T09:45:00Z', '2030-03-24T10:00:00Z'), ana.id)).toEqual([
+      'Ana, Car service is tomorrow 🔔',
+    ])
+  })
+
+  it('gives each push its own notification tag: Event, date, kind and moment', async () => {
+    const { ana, items } = await personWith([dentist])
+    const [first] = forAna(await runSender('2030-03-20T12:15:00Z', '2030-03-20T12:30:00Z'), ana.id)
+    await ana.client.from('items').update({ due_time: '17:35' }).eq('id', items[0]!.id)
+    const [second] = forAna(await runSender('2030-03-20T15:00:00Z', '2030-03-20T15:15:00Z'), ana.id)
+    const tag = (s: Sent) => s.message.tag
+    expect(tag(first!)).toContain(items[0]!.id)
+    expect(tag(first!)).toContain('2030-03-20')
+    expect(tag(first!)).toContain('30m')
+    expect(tag(second!)).not.toBe(tag(first!))
   })
 })

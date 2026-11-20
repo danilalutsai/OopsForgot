@@ -81,7 +81,11 @@ function keyBytes(base64url: string): Uint8Array {
 export function useTurnOnPush() {
   const queryClient = useQueryClient()
   return useMutation({
-    /** Asks the browser, subscribes this device and saves it. Throws 'denied' when the person says no. */
+    /**
+     * Asks the browser, subscribes this device and saves it on the server. Throws, with the reason:
+     * 'denied' (the person or the browser said no), 'serviceBlocked' (the browser's push service
+     * refused, like Brave with Google's push service off), 'noWorker' or 'save'.
+     */
     mutationFn: async () => {
       const key = import.meta.env.VITE_VAPID_PUBLIC_KEY
       if (!key) throw new Error('Push is not set up')
@@ -89,14 +93,19 @@ export function useTurnOnPush() {
       // without a working service worker, `ready` never settles: give up after a while
       const reg = await Promise.race([
         navigator.serviceWorker.ready,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('No service worker')), 10_000)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('noWorker')), 10_000)),
       ])
-      const sub =
-        (await reg.pushManager.getSubscription()) ??
-        (await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: keyBytes(key).buffer as ArrayBuffer,
-        }))
+      let sub: PushSubscription
+      try {
+        sub =
+          (await reg.pushManager.getSubscription()) ??
+          (await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: keyBytes(key).buffer as ArrayBuffer,
+          }))
+      } catch (e) {
+        throw new Error((e as DOMException).name === 'NotAllowedError' ? 'denied' : 'serviceBlocked')
+      }
       const json = sub.toJSON()
       // takes the browser over from anyone who had it before (see claim_push_device)
       const { error } = await supabase.rpc('claim_push_device', {
@@ -105,7 +114,7 @@ export function useTurnOnPush() {
         p_auth: json.keys?.auth ?? '',
         p_label: deviceLabel(),
       })
-      if (error) throw error
+      if (error) throw new Error('save')
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['push_devices'] }),
   })
@@ -125,4 +134,14 @@ export function useRemoveDevice() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['push_devices'] }),
   })
+}
+
+/** Why a test notification didn't go: 'tooSoon', 'gone', 'device' or 'failed'. Null when it was sent. */
+export async function sendTestNotification(): Promise<string | null> {
+  const endpoint = await thisDeviceEndpoint()
+  if (!endpoint) return 'device'
+  const { error } = await supabase.functions.invoke('send-test-notification', { body: { endpoint } })
+  if (!error) return null
+  const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+  return typeof body?.error === 'string' && ['tooSoon', 'gone', 'device'].includes(body.error) ? body.error : 'failed'
 }

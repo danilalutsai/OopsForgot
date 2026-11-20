@@ -2,7 +2,7 @@
 // which Reminders fell due since the last run that worked, claims each one so it goes out only once,
 // bundles them per person and sends one push to each of that person's devices.
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0'
-import * as webpush from 'npm:web-push@4.0.0'
+import { type Device, pushProblem, send, testing } from '../_shared/push.ts'
 import { isServerCaller } from '../_shared/serverCaller.ts'
 import {
   automaticExpenseDates,
@@ -17,36 +17,11 @@ import {
 
 const env = (name: string) => Deno.env.get(name) ?? ''
 const SERVICE_KEY = env('SUPABASE_SERVICE_ROLE_KEY')
-// Local test switches: a fake clock and a fake push service that only reports what it would send.
-const testing = env('REMINDERS_TEST_MODE') === '1'
 /** A run never looks further back than this, even after a long outage. */
 const MAX_CATCH_UP_MS = 24 * 60 * 60 * 1000
 const PAGE = 1000
 
 const db = createClient(env('SUPABASE_URL'), SERVICE_KEY, { auth: { persistSession: false } })
-
-/**
- * Why push can't be used, if it can't (a missing or mistyped key). The function still starts, so it
- * keeps refusing strangers and tells the cron plainly instead of failing on every request.
- */
-let pushProblem: string | null = null
-if (!testing) {
-  try {
-    webpush.setVapidDetails(env('VAPID_SUBJECT'), env('VAPID_PUBLIC_KEY'), env('VAPID_PRIVATE_KEY'))
-  } catch (e) {
-    // web-push says what is wrong (say, a key's length), never the key itself
-    pushProblem = e instanceof Error ? e.message : String(e)
-    console.error('Push is not set up:', pushProblem)
-  }
-}
-
-interface Device {
-  id: string
-  user_id: string
-  endpoint: string
-  p256dh: string
-  auth: string
-}
 
 // deno-lint-ignore no-explicit-any
 type Row = Record<string, any>
@@ -75,24 +50,6 @@ function groupByUser<T extends Row>(rows: T[]): Map<string, T[]> {
     else map.set(r.user_id, [r])
   }
   return map
-}
-
-type Outcome = 'delivered' | 'gone' | 'failed'
-
-async function send(device: Device, payload: string): Promise<Outcome> {
-  if (testing) return 'delivered'
-  try {
-    await webpush.sendNotification(
-      { endpoint: device.endpoint, keys: { p256dh: device.p256dh, auth: device.auth } },
-      payload,
-      { TTL: 60 * 60 * 24, urgency: 'high' },
-    )
-    return 'delivered'
-  } catch (e) {
-    const status = (e as { statusCode?: number }).statusCode
-    // 404/410: the subscription is gone for good; anything else may work next time
-    return status === 404 || status === 410 ? 'gone' : 'failed'
-  }
 }
 
 /**
@@ -150,14 +107,26 @@ async function remind(person: SenderPerson, items: SenderItem[], targets: Device
   const due = dueReminders(person, items, from, to)
   if (!due.length) return null
 
-  // Claim before sending: a Reminder another run already claimed is skipped here.
-  const rows = due.map((d) => ({ item_id: d.itemId, due_date: d.dueDate, kind: d.kind }))
-  const { data: claimed, error } = await db
+  // Claim before sending: a Reminder another run already claimed is skipped here. The claim is for
+  // the exact moment, so an Event moved to a new date or time gets its Reminders again, while a
+  // moment that already went out (or an edit that doesn't move the Event) sends nothing twice.
+  const rows = due.map((d) => ({
+    item_id: d.itemId,
+    due_date: d.dueDate,
+    kind: d.kind,
+    send_at: d.sendAt.toISOString(),
+  }))
+  const { data: claimedRows, error } = await db
     .from('sent_reminders')
-    .upsert(rows, { onConflict: 'item_id,due_date,kind', ignoreDuplicates: true })
-    .select('item_id, due_date, kind')
+    .upsert(rows, { onConflict: 'item_id,due_date,kind,send_at', ignoreDuplicates: true })
+    .select('item_id, due_date, kind, send_at')
   if (error) throw error
-  if (!claimed?.length) return null
+  if (!claimedRows?.length) return null
+  // the claimed ones, with their moments as worked out here (the database writes times its own way)
+  const key = (r: { item_id: string; due_date: string; kind: string; send_at: string }) =>
+    `${r.item_id}|${r.due_date}|${r.kind}|${new Date(r.send_at).getTime()}`
+  const won = new Set(claimedRows.map(key))
+  const claimed = rows.filter((r) => won.has(key(r)))
 
   const byId = new Map(items.map((i) => [i.id, i]))
   const entries: MessageEntry[] = claimed.map((c) => {
@@ -166,6 +135,7 @@ async function remind(person: SenderPerson, items: SenderItem[], targets: Device
       item: { id: i.id, name: i.name, category: i.category, dueTime: i.dueTime },
       dueDate: c.due_date,
       kind: c.kind,
+      sendAt: c.send_at,
     }
   })
   const message = pushMessage(person, entries, todayIn(person.timeZone, to))
@@ -178,7 +148,10 @@ async function remind(person: SenderPerson, items: SenderItem[], targets: Device
   const failed = outcomes.includes('failed') && !outcomes.includes('delivered')
   if (failed) {
     for (const c of claimed) {
-      await db.from('sent_reminders').delete().match({ item_id: c.item_id, due_date: c.due_date, kind: c.kind })
+      await db
+        .from('sent_reminders')
+        .delete()
+        .match({ item_id: c.item_id, due_date: c.due_date, kind: c.kind, send_at: c.send_at })
     }
   }
   return {

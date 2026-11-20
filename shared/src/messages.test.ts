@@ -6,17 +6,27 @@ const netflix = { id: 'n1', name: 'Netflix', category: 'subscriptions' as const,
 
 describe('pushMessage', () => {
   it('names the person and the Event, says when, and never shows price or notes', () => {
-    expect(pushMessage(ana, [{ item: netflix, dueDate: '2026-11-20', kind: '1d' }], '2026-11-19')).toEqual({
+    expect(
+      pushMessage(
+        ana,
+        [{ item: netflix, dueDate: '2026-11-20', kind: '1d', sendAt: '2026-11-19T10:00:00.000Z' }],
+        '2026-11-19',
+      ),
+    ).toEqual({
       title: 'Ana, Netflix is tomorrow 🔔',
       body: 'Fri 20 Nov · Subscriptions. Tap to mark it Handled or change it.',
       url: '/?item=n1',
-      tag: 'item-n1',
+      tag: 'item-n1-2026-11-20-1d-20261119T1000',
     })
   })
 
   it('says "today", "in N days" and the time for hour Reminders', () => {
     const one = (dueDate: string, kind: '1d' | '1w' | '1h', dueTime: string | null = null) =>
-      pushMessage(ana, [{ item: { ...netflix, dueTime }, dueDate, kind }], '2026-11-19').title
+      pushMessage(
+        ana,
+        [{ item: { ...netflix, dueTime }, dueDate, kind, sendAt: '2026-11-19T10:00:00.000Z' }],
+        '2026-11-19',
+      ).title
     expect(one('2026-11-19', '1h', '14:30')).toBe('Ana, Netflix is today at 14:30 🔔')
     expect(one('2026-11-26', '1w')).toBe('Ana, Netflix is in 7 days 🔔')
   })
@@ -25,23 +35,41 @@ describe('pushMessage', () => {
     const msg = pushMessage(
       ana,
       [
-        { item: netflix, dueDate: '2026-11-20', kind: '1d' },
-        { item: { ...netflix, id: 'g', name: 'Gym' }, dueDate: '2026-11-21', kind: '2d' },
+        { item: netflix, dueDate: '2026-11-20', kind: '1d', sendAt: '2026-11-19T10:00:00.000Z' },
+        {
+          item: { ...netflix, id: 'g', name: 'Gym' },
+          dueDate: '2026-11-21',
+          kind: '2d',
+          sendAt: '2026-11-19T10:00:00.000Z',
+        },
       ],
       '2026-11-19',
     )
-    expect(msg).toEqual({ title: 'Ana, 2 Events need you soon 🔔', body: 'Netflix, Gym', url: '/', tag: 'bundle-n1-g' })
+    expect(msg).toEqual({
+      title: 'Ana, 2 Events need you soon 🔔',
+      body: 'Netflix, Gym',
+      url: '/',
+      tag: 'bundle-n1-2026-11-20-1d-20261119T1000_g-2026-11-21-2d-20261119T1000',
+    })
   })
 
   it('asks plainly, with no emoji, about Expired Events and free trials', () => {
     const passport = { id: 'p', name: 'Passport', category: 'documents' as const, dueTime: null }
-    expect(pushMessage(ana, [{ item: passport, dueDate: '2026-11-18', kind: 'expired' }], '2026-11-19').title).toBe(
-      'Passport expired yesterday. What now?',
-    )
+    expect(
+      pushMessage(
+        ana,
+        [{ item: passport, dueDate: '2026-11-18', kind: 'expired', sendAt: '2026-11-19T10:00:00.000Z' }],
+        '2026-11-19',
+      ).title,
+    ).toBe('Passport expired yesterday. What now?')
     const trial = { id: 't', name: 'Disney+ free trial', category: 'free_trials' as const, dueTime: null }
-    expect(pushMessage(ana, [{ item: trial, dueDate: '2026-11-19', kind: 'trial' }], '2026-11-19').title).toBe(
-      'Did you keep Disney+ free trial?',
-    )
+    expect(
+      pushMessage(
+        ana,
+        [{ item: trial, dueDate: '2026-11-19', kind: 'trial', sendAt: '2026-11-19T10:00:00.000Z' }],
+        '2026-11-19',
+      ).title,
+    ).toBe('Did you keep Disney+ free trial?')
   })
 
   it('counts an Event with two Reminders in the same run once', () => {
@@ -49,8 +77,8 @@ describe('pushMessage', () => {
     const msg = pushMessage(
       ana,
       [
-        { item: trial, dueDate: '2026-11-19', kind: '4h' },
-        { item: trial, dueDate: '2026-11-19', kind: 'trial' },
+        { item: trial, dueDate: '2026-11-19', kind: '4h', sendAt: '2026-11-19T10:00:00.000Z' },
+        { item: trial, dueDate: '2026-11-19', kind: 'trial', sendAt: '2026-11-19T10:00:00.000Z' },
       ],
       '2026-11-19',
     )
@@ -63,8 +91,8 @@ describe('pushMessage', () => {
     const msg = pushMessage(
       ana,
       [
-        { item: passport, dueDate: '2026-11-18', kind: 'expired' },
-        { item: netflix, dueDate: '2026-11-20', kind: '1d' },
+        { item: passport, dueDate: '2026-11-18', kind: 'expired', sendAt: '2026-11-19T10:00:00.000Z' },
+        { item: netflix, dueDate: '2026-11-20', kind: '1d', sendAt: '2026-11-19T10:00:00.000Z' },
       ],
       '2026-11-19',
     )
