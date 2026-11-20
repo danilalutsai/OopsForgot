@@ -41,7 +41,7 @@ test('an Item with a Start time tomorrow can have "1 day": it arrives at the Sta
   await form.getByLabel('Start time').fill('23:59')
   await expect(chip('1 day')).toBeEnabled()
   await expect(chip('2 days')).toBeDisabled()
-  await expect(form.getByText('Day Reminders arrive at the Start time, 11:59 PM.')).toBeVisible()
+  await expect(form.getByText('Day Reminders arrive at the Start time, 23:59.')).toBeVisible()
 })
 
 test('a weekly Item cannot have Reminders a week or more before', async ({ page }) => {

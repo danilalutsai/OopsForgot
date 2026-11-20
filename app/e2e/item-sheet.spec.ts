@@ -211,7 +211,7 @@ test('the Time row of an all-day Item says so, also when opened; Start and Finis
   await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
   await reopen()
-  await expect(line).toContainText('6:00 PM – 7:30 PM')
+  await expect(line).toContainText('18:00 – 19:30')
 
   // a Finish that is not after Start is refused: nothing is saved and the sheet stays open
   await line.click()

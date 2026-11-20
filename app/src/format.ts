@@ -13,16 +13,15 @@ export function formatDate(date: string, today: string): string {
   })
 }
 
-/** "14:30" or "2:30 PM", from a database time "14:30:00". */
+/** Times are always on the 24-hour clock ("17:45"), whatever the browser's language. */
+const CLOCK = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } as const
+
+/** "14:30" from a database time "14:30:00". */
 export function formatTime(time: string): string {
-  return new Date(`2000-01-01T${time}Z`).toLocaleTimeString(locale(), {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  })
+  return new Date(`2000-01-01T${time}Z`).toLocaleTimeString(locale(), { ...CLOCK, timeZone: 'UTC' })
 }
 
-/** "9:00 AM", or "9:00 AM – 10:30 AM" with a Finish time. */
+/** "09:00", or "09:00 – 10:30" with a Finish time. */
 export function formatTimes(start: string, finish?: string | null): string {
   return finish ? `${formatTime(start)} – ${formatTime(finish)}` : formatTime(start)
 }
@@ -33,7 +32,7 @@ export function formatMoney(cents: number, currency: string): string {
 
 /** "18 Nov, 09:30" in the browser's own format, from a timestamp. */
 export function formatDateTime(ms: number): string {
-  return new Date(ms).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+  return new Date(ms).toLocaleString(locale(), { day: 'numeric', month: 'short', ...CLOCK })
 }
 
 /** "November 2026" from "YYYY-MM". */
