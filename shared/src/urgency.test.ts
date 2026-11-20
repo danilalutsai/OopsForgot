@@ -20,7 +20,7 @@ describe('urgency', () => {
     expect(urgency({ dueDate: '2026-11-13', handled: false }, today)).toBe('red')
   })
 
-  it('is grey when the Item is Handled, however close its Due date', () => {
+  it('is grey when the Item is Handled, however close its Event date', () => {
     expect(urgency({ dueDate: '2026-11-16', handled: true }, today)).toBe('grey')
   })
 })

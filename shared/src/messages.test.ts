@@ -7,7 +7,7 @@ const netflix = { id: 'n1', name: 'Netflix', category: 'subscriptions' as const,
 describe('pushMessage', () => {
   it('names the person and the Item, says when, and never shows price or notes', () => {
     expect(pushMessage(ana, [{ item: netflix, dueDate: '2026-11-20', kind: '1d' }], '2026-11-19')).toEqual({
-      title: 'Ana, Netflix is due tomorrow 🔔',
+      title: 'Ana, Netflix is tomorrow 🔔',
       body: 'Fri 20 Nov · Subscriptions. Tap to mark it Handled or change it.',
       url: '/?item=n1',
       tag: 'item-n1',
@@ -17,8 +17,8 @@ describe('pushMessage', () => {
   it('says "today", "in N days" and the time for hour Reminders', () => {
     const one = (dueDate: string, kind: '1d' | '1w' | '1h', dueTime: string | null = null) =>
       pushMessage(ana, [{ item: { ...netflix, dueTime }, dueDate, kind }], '2026-11-19').title
-    expect(one('2026-11-19', '1h', '14:30')).toBe('Ana, Netflix is due today at 14:30 🔔')
-    expect(one('2026-11-26', '1w')).toBe('Ana, Netflix is due in 7 days 🔔')
+    expect(one('2026-11-19', '1h', '14:30')).toBe('Ana, Netflix is today at 14:30 🔔')
+    expect(one('2026-11-26', '1w')).toBe('Ana, Netflix is in 7 days 🔔')
   })
 
   it('bundles several Reminders into one message that opens the dashboard', () => {

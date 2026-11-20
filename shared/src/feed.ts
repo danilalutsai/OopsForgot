@@ -90,7 +90,7 @@ export function calendarFeed(items: FeedItem[], { today, timeZone, appUrl, now }
         )
       }
       lines.push(
-        `SUMMARY:${handled}${escape(item.name)} — Due`,
+        `SUMMARY:${handled}${escape(item.name)}`,
         `URL:${appUrl}/?item=${item.id}`,
         'TRANSP:TRANSPARENT',
         'END:VEVENT',

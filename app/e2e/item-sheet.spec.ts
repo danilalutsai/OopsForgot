@@ -6,7 +6,7 @@ async function addGym(page: Page) {
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Gym')
   await page.getByText('Health').click()
-  await page.getByLabel('Due date').fill(await inDays(page, 10))
+  await page.getByLabel('Event date').fill(await inDays(page, 10))
   await page.getByLabel('Price').fill('35')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
@@ -22,17 +22,17 @@ test('change an Item line by line and save', async ({ page }) => {
 
   await sheet.getByRole('button', { name: /^Price/ }).click()
   await sheet.getByLabel('Price').fill('39.90')
-  await sheet.getByRole('button', { name: /^Due date/ }).click()
-  await sheet.getByLabel('Due date').fill(await inDays(page, 2))
+  await sheet.getByRole('button', { name: /^Event date/ }).click()
+  await sheet.getByLabel('Event date').fill(await inDays(page, 2))
   await expect(sheet.locator('header').getByRole('status')).toHaveText('Unsaved changes')
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet.locator('header').getByRole('status')).toHaveText('Changes saved ✅')
-  await expect(sheet.getByText('Due in 2 days')).toBeVisible()
+  await expect(sheet.getByText('In 2 days')).toBeVisible()
 
   await sheet.getByRole('button', { name: 'Close' }).filter({ visible: true }).click()
   const row = page.getByRole('region', { name: 'This week' }).getByRole('listitem').filter({ hasText: 'Gym' })
   await expect(row).toContainText('€39.90')
-  await expect(row).toContainText('Due in 2 days')
+  await expect(row).toContainText('In 2 days')
 })
 
 test('closing with unsaved changes asks first; Discard keeps the old values', async ({ page }) => {

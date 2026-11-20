@@ -24,12 +24,12 @@ async function expectFits(page: Page, sheet: Locator, field: Locator, block?: Lo
   expect(await sheet.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0)
 }
 
-test('Item sheet: the open Due date and Time rows fit the sheet', async ({ page }) => {
+test('Item sheet: the open Event date and Time rows fit the sheet', async ({ page }) => {
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Passport')
   await page.getByText('Other').click()
-  await page.getByLabel('Due date').fill(await inDays(page, 30))
+  await page.getByLabel('Event date').fill(await inDays(page, 30))
   await page.getByLabel('Start time').fill('09:30')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
@@ -37,7 +37,7 @@ test('Item sheet: the open Due date and Time rows fit the sheet', async ({ page 
   await page.getByRole('listitem').filter({ hasText: 'Passport' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Passport' })
   for (const [name, fields] of [
-    ['Due date', ['Due date']],
+    ['Event date', ['Event date']],
     ['Time', ['Start time', 'Finish time']],
   ] as const) {
     const line = sheet.getByRole('button', { name: new RegExp(`^${name}`) })
@@ -50,16 +50,16 @@ test('Item sheet: the open Due date and Time rows fit the sheet', async ({ page 
   }
 })
 
-test('New Item sheet: the Due date, Start and Finish time fields fit', async ({ page }) => {
+test('New Item sheet: the Event date, Start and Finish time fields fit', async ({ page }) => {
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   const sheet = page.getByRole('dialog')
   for (const value of ['', 'filled']) {
     if (value) {
-      await page.getByLabel('Due date').fill(await inDays(page, 30))
+      await page.getByLabel('Event date').fill(await inDays(page, 30))
       await page.getByLabel('Start time').fill('09:30')
     }
-    await expectFits(page, sheet, page.getByLabel('Due date'))
+    await expectFits(page, sheet, page.getByLabel('Event date'))
     await expectFits(page, sheet, page.getByLabel('Start time'))
     await expectFits(page, sheet, page.getByLabel('Finish time'))
   }

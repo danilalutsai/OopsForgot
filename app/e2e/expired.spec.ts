@@ -6,7 +6,7 @@ async function addItem(page: Page, name: string, days: number, times?: [string, 
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText('Documents').click()
-  await page.getByLabel('Due date').fill(await inDays(page, days))
+  await page.getByLabel('Event date').fill(await inDays(page, days))
   if (times) {
     await page.getByLabel('Start time').fill(times[0])
     await page.getByLabel('Finish time').fill(times[1])

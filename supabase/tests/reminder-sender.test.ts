@@ -48,7 +48,7 @@ describe('Reminder sender', () => {
     const { ana } = await personWith([{ ...base, name: 'Netflix', due_date: '2030-01-10', price_cents: 1399 }])
     const sent = forAna(await runSender('2030-01-09T09:45:00Z', '2030-01-09T10:00:00Z'), ana.id)
     expect(sent).toHaveLength(1)
-    expect(sent[0]!.message.title).toBe('Ana, Netflix is due tomorrow 🔔')
+    expect(sent[0]!.message.title).toBe('Ana, Netflix is tomorrow 🔔')
     expect(sent[0]!.message.body).not.toContain('13.99')
     expect(sent[0]!.delivered).toHaveLength(1)
   })
@@ -71,7 +71,7 @@ describe('Reminder sender', () => {
     expect(sent[0]!.message.title).toBe('Ana, 2 Items need you soon 🔔')
   })
 
-  it('stops for Handled Items, and starts again on the next Due date', async () => {
+  it('stops for Handled Items, and starts again on the next Event date', async () => {
     const { ana, items } = await personWith([
       { ...base, name: 'Rent', due_date: '2030-04-10', recurrence_unit: 'month', recurrence_every: 1 },
     ])
@@ -79,7 +79,7 @@ describe('Reminder sender', () => {
     expect(forAna(await runSender('2030-04-09T09:45:00Z', '2030-04-09T10:00:00Z'), ana.id)).toHaveLength(0)
     // May is summer time in Tallinn (UTC+3): 12:00 there is 09:00 UTC
     const next = forAna(await runSender('2030-05-09T08:45:00Z', '2030-05-09T09:00:00Z'), ana.id)
-    expect(next.map((s) => s.message.title)).toEqual(['Ana, Rent is due tomorrow 🔔'])
+    expect(next.map((s) => s.message.title)).toEqual(['Ana, Rent is tomorrow 🔔'])
   })
 
   it('sends no "What now?" for an Item kept in Expired', async () => {
@@ -90,15 +90,15 @@ describe('Reminder sender', () => {
     expect(forAna(await runSender('2030-04-11T08:45:00Z', '2030-04-11T09:00:00Z'), ana.id)).toHaveLength(0)
   })
 
-  it("still sends a late Reminder after skipped runs, while the Due date hasn't passed", async () => {
+  it("still sends a late Reminder after skipped runs, while the Event date hasn't passed", async () => {
     const { ana } = await personWith([{ ...base, name: 'Car insurance', due_date: '2030-06-10' }])
     const late = forAna(await runSender('2030-06-09T08:00:00Z', '2030-06-09T15:00:00Z'), ana.id)
-    expect(late.map((s) => s.message.title)).toEqual(['Ana, Car insurance is due tomorrow 🔔'])
+    expect(late.map((s) => s.message.title)).toEqual(['Ana, Car insurance is tomorrow 🔔'])
   })
 })
 
 describe('automatic Expenses', () => {
-  it('a priced Item creates one Expense on its Due date; a deleted one never comes back', async () => {
+  it('a priced Item creates one Expense on its Event date; a deleted one never comes back', async () => {
     const { ana } = await personWith([{ ...base, name: 'Rent', due_date: '2030-07-10', price_cents: 75000 }])
     await runSender('2030-07-10T09:45:00Z', '2030-07-10T10:00:00Z')
     await runSender('2030-07-10T10:00:00Z', '2030-07-10T10:15:00Z')
@@ -122,7 +122,7 @@ describe('automatic Expenses', () => {
 })
 
 describe('automatic Expenses never fill in the past', () => {
-  it('adding a price later starts from the next Due date', async () => {
+  it('adding a price later starts from the next Event date', async () => {
     const { ana, items } = await personWith([
       { ...base, name: 'Rent', due_date: '2030-09-01', recurrence_unit: 'month', recurrence_every: 1 },
     ])

@@ -5,16 +5,16 @@ const today = '2026-11-16'
 const oneTime = { recurrence: null, handledDueDate: null }
 
 describe('openQuestion', () => {
-  it('asks "What now?" about a one-time Item past its Due date', () => {
+  it('asks "What now?" about a one-time Item past its Event date', () => {
     expect(openQuestion({ ...oneTime, dueDate: '2026-11-13', category: 'documents' }, today)).toBe('expired')
   })
 
-  it('asks "Kept it?" about a free trial on its Due date, and after it', () => {
+  it('asks "Kept it?" about a free trial on its Event date, and after it', () => {
     expect(openQuestion({ ...oneTime, dueDate: '2026-11-16', category: 'free_trials' }, today)).toBe('keptTrial')
     expect(openQuestion({ ...oneTime, dueDate: '2026-11-10', category: 'free_trials' }, today)).toBe('keptTrial')
   })
 
-  it('asks nothing before the Due date, about repeating Items, or once Handled', () => {
+  it('asks nothing before the Event date, about repeating Items, or once Handled', () => {
     expect(openQuestion({ ...oneTime, dueDate: '2026-11-20', category: 'free_trials' }, today)).toBeNull()
     expect(openQuestion({ ...oneTime, dueDate: '2026-11-16', category: 'documents' }, today)).toBeNull()
     const monthly = { recurrence: { unit: 'month', every: 1 }, handledDueDate: null } as const
@@ -29,7 +29,7 @@ describe('openQuestion', () => {
 })
 
 describe('openQuestion after Keep in Expired', () => {
-  it('asks nothing once kept in Expired for that Due date, and asks again for a new one', () => {
+  it('asks nothing once kept in Expired for that Event date, and asks again for a new one', () => {
     const passport = { ...oneTime, dueDate: '2026-11-13', category: 'documents' } as const
     expect(openQuestion({ ...passport, keptDueDate: '2026-11-13' }, today)).toBeNull()
     expect(openQuestion({ ...passport, dueDate: '2026-11-14', keptDueDate: '2026-11-13' }, today)).toBe('expired')
@@ -37,7 +37,7 @@ describe('openQuestion after Keep in Expired', () => {
     expect(openQuestion({ ...trial, keptDueDate: '2026-11-10' }, today)).toBeNull()
   })
 
-  it('asks "What now?" right after the Finish time on the Due date', () => {
+  it('asks "What now?" right after the Finish time on the Event date', () => {
     const dentist = { ...oneTime, dueDate: today, category: 'health', finishTime: '10:30' } as const
     expect(openQuestion(dentist, `${today}T10:00`)).toBeNull()
     expect(openQuestion(dentist, `${today}T11:00`)).toBe('expired')

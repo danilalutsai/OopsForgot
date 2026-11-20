@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { currentDueDate, isExpired } from './due-date.ts'
 
 describe('currentDueDate', () => {
-  it('keeps a one-time Item on its Due date, even after it has passed', () => {
+  it('keeps a one-time Item on its Event date, even after it has passed', () => {
     expect(currentDueDate({ dueDate: '2026-11-13', recurrence: null }, '2026-11-16')).toBe('2026-11-13')
   })
 
-  it('moves a monthly Item to its next Due date once the date has passed', () => {
+  it('moves a monthly Item to its next Event date once the date has passed', () => {
     const rent = { dueDate: '2026-10-05', recurrence: { unit: 'month', every: 1 } } as const
     expect(currentDueDate(rent, '2026-11-16')).toBe('2026-12-05')
   })
 
-  it('keeps a repeating Item on its Due date for the whole of that day', () => {
+  it('keeps a repeating Item on its Event date for the whole of that day', () => {
     const gym = { dueDate: '2026-10-16', recurrence: { unit: 'month', every: 1 } } as const
     expect(currentDueDate(gym, '2026-11-16')).toBe('2026-11-16')
   })
@@ -38,7 +38,7 @@ describe('currentDueDate', () => {
     )
   })
 
-  it('finds the current Due date of Items that started years ago', () => {
+  it('finds the current Event date of Items that started years ago', () => {
     expect(currentDueDate({ dueDate: '2021-11-16', recurrence: { unit: 'day', every: 1 } }, '2026-11-16')).toBe(
       '2026-11-16',
     )
@@ -53,22 +53,22 @@ describe('currentDueDate', () => {
     )
   })
 
-  it('leaves a repeating Item whose first Due date is still ahead where it is', () => {
+  it('leaves a repeating Item whose first Event date is still ahead where it is', () => {
     const insurance = { dueDate: '2026-11-28', recurrence: { unit: 'year', every: 1 } } as const
     expect(currentDueDate(insurance, '2026-11-16')).toBe('2026-11-28')
   })
 })
 
 describe('isExpired', () => {
-  it("is Expired when a one-time Item's Due date has passed", () => {
+  it("is Expired when a one-time Item's Event date has passed", () => {
     expect(isExpired({ dueDate: '2026-11-13', recurrence: null }, '2026-11-16')).toBe(true)
   })
 
-  it('is not Expired yet on the Due date itself', () => {
+  it('is not Expired yet on the Event date itself', () => {
     expect(isExpired({ dueDate: '2026-11-16', recurrence: null }, '2026-11-16')).toBe(false)
   })
 
-  it('with a Finish time, is Expired right after it on the Due date, not before', () => {
+  it('with a Finish time, is Expired right after it on the Event date, not before', () => {
     const dentist = { dueDate: '2026-11-16', recurrence: null, finishTime: '10:30' }
     expect(isExpired(dentist, '2026-11-16T10:30')).toBe(false)
     expect(isExpired(dentist, '2026-11-16T10:31')).toBe(true)
