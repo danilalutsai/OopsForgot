@@ -20,6 +20,7 @@ import { INPUT as input } from './ui'
 import DateTimeInput from '../components/DateTimeInput.vue'
 import { finishAfterStart } from './times'
 import TimeRange from './TimeRange.vue'
+import { useSheetDrag } from './sheetDrag'
 
 const open = defineModel<boolean>('open', { required: true })
 /** A Due date to start with, as when adding from a calendar day. */
@@ -56,6 +57,9 @@ watch(open, (isOpen) => {
   errors.value = []
   session.value++
 })
+
+/** Dragging the sheet down closes it, like Cancel. */
+const drag = useSheetDrag(() => setOpen(false))
 
 async function save() {
   if (blockedOffline()) return
@@ -101,24 +105,31 @@ async function save() {
       <DialogContent
         class="sheet-panel fixed inset-x-0 bottom-0 z-40 flex max-h-[92dvh] flex-col rounded-t-3xl bg-surface text-text shadow-2xl md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[420px] md:rounded-none"
       >
-        <header class="flex items-center gap-2 border-b border-line px-4 py-3">
-          <button
-            type="button"
-            class="text-accent disabled:opacity-50"
-            :disabled="add.isPending.value"
-            @click="setOpen(false)"
-          >
-            {{ $t('itemForm.cancel') }}
-          </button>
-          <DialogTitle class="flex-1 text-center font-semibold">{{ $t('itemForm.title') }}</DialogTitle>
-          <button
-            type="submit"
-            form="add-item"
-            :disabled="add.isPending.value"
-            class="rounded-full bg-accent px-4 py-1.5 font-semibold text-on-accent disabled:opacity-50"
-          >
-            {{ $t('itemForm.save') }}
-          </button>
+        <header class="flex touch-none flex-col border-b border-line px-4 pt-2 pb-3" v-bind="drag">
+          <span
+            data-testid="sheet-handle"
+            class="mx-auto mb-2 h-1.5 w-10 rounded-full bg-line md:hidden"
+            aria-hidden="true"
+          />
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="text-accent disabled:opacity-50"
+              :disabled="add.isPending.value"
+              @click="setOpen(false)"
+            >
+              {{ $t('itemForm.cancel') }}
+            </button>
+            <DialogTitle class="flex-1 text-center font-semibold">{{ $t('itemForm.title') }}</DialogTitle>
+            <button
+              type="submit"
+              form="add-item"
+              :disabled="add.isPending.value"
+              class="rounded-full bg-accent px-4 py-1.5 font-semibold text-on-accent disabled:opacity-50"
+            >
+              {{ $t('itemForm.save') }}
+            </button>
+          </div>
         </header>
         <form id="add-item" class="flex flex-col gap-5 overflow-y-auto p-4" novalidate @submit.prevent="save">
           <p

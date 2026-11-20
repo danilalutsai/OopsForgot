@@ -196,3 +196,39 @@ test('Event wording: rows say Today, Tomorrow, In 5 days; nothing on screen says
   await expect(sheet.getByRole('button', { name: /^Event date/ })).toBeVisible()
   await expect(sheet).not.toContainText(/\bdue\b/i)
 })
+
+test('on a phone, New Item has a grab line; dragging it down closes, a short drag springs back', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name.startsWith('computer'), 'phone only')
+  await logInAsNewPerson(page)
+  // from the + button and from a double tap on a calendar day
+  for (const open of ['button', 'calendar'] as const) {
+    if (open === 'button') await openAddSheet(page)
+    else {
+      await page.getByRole('tab', { name: 'Calendar' }).click()
+      const day = page.getByTestId('calendar-days').getByRole('button').nth(10)
+      await day.tap()
+      await day.tap()
+    }
+    const sheet = page.getByRole('dialog', { name: 'New Item' })
+    await expect(sheet).toBeVisible()
+    const handle = sheet.getByTestId('sheet-handle')
+    await expect(handle).toBeVisible()
+    const box = (await handle.boundingBox())!
+    const sheetBox = (await sheet.boundingBox())!
+    const x = box.x + box.width / 2
+
+    await page.mouse.move(x, box.y + 2)
+    await page.mouse.down()
+    await page.mouse.move(x, box.y + 40, { steps: 10 })
+    await page.mouse.up()
+    await expect(sheet).toBeVisible()
+
+    await page.mouse.move(x, box.y + 2)
+    await page.mouse.down()
+    await page.mouse.move(x, box.y + sheetBox.height * 0.7, { steps: 10 })
+    await page.mouse.up()
+    await expect(sheet).toBeHidden()
+  }
+})

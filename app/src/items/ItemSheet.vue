@@ -9,7 +9,6 @@ import {
   REMINDER_OFFSETS,
 } from '@oopsforgot/shared'
 import { Pencil, X } from '@lucide/vue'
-import { gsap } from 'gsap'
 import CategoryIcon from '../components/CategoryIcon.vue'
 import {
   AlertDialogAction,
@@ -29,7 +28,6 @@ import {
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatDate, formatMoney, formatTimes } from '../format'
-import { duration } from '../motion'
 import { currency, nowLocal, today } from '../today'
 import { useItemActions } from './actions'
 import { dueDateOf, handledNow, type Item, questionOf, recurrenceOf, useUpdateItem } from './api'
@@ -45,6 +43,7 @@ import { INPUT as input } from './ui'
 import DateTimeInput from '../components/DateTimeInput.vue'
 import { finishAfterStart } from './times'
 import TimeRange from './TimeRange.vue'
+import { useSheetDrag } from './sheetDrag'
 import CountdownText from './CountdownText.vue'
 
 const props = defineProps<{ item: Item | null }>()
@@ -249,39 +248,11 @@ function discard() {
   emit('close')
 }
 
-// Phone: the sheet follows the finger on its top bar, down freely and up with a little give;
-// past half the sheet or a quick flick down closes, otherwise it springs back.
-let panel: HTMLElement | null = null
-let drag: { y: number; t: number } | null = null
-function dragStart(e: PointerEvent) {
-  // Taps on the bar's buttons stay taps; only the bar itself drags.
-  if (window.matchMedia('(min-width: 768px)').matches || (e.target as HTMLElement).closest('button')) return
-  // the sheet itself, found fresh each time (it is a new element every time it opens)
-  panel = (e.currentTarget as HTMLElement).closest<HTMLElement>('[role="dialog"]')
-  if (!panel) return
-  gsap.killTweensOf(panel)
-  drag = { y: e.clientY - (Number(gsap.getProperty(panel, 'y')) || 0), t: e.timeStamp }
-  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-}
-function dragMove(e: PointerEvent) {
-  if (!drag || !panel) return
-  const dy = e.clientY - drag.y
-  gsap.set(panel, { y: dy >= 0 ? dy : Math.max(-40, dy / 4) })
-}
-function dragEnd(e: PointerEvent) {
-  if (!drag || !panel) return
-  const el = panel
-  const dy = e.clientY - drag.y
-  const speed = dy / Math.max(1, e.timeStamp - drag.t)
-  drag = null
-  const close = dy > el.offsetHeight / 2 || (speed > 0.8 && dy > 60)
-  if (close && !dirty.value) {
-    gsap.to(el, { y: '100%', duration: duration(0.2), ease: 'power2.out', onComplete: () => emit('close') })
-    return
-  }
-  gsap.to(el, { y: 0, duration: duration(0.2), ease: 'power2.out', clearProps: 'transform' })
-  if (close) requestClose()
-}
+const drag = useSheetDrag(
+  () => emit('close'),
+  () => dirty.value,
+  requestClose,
+)
 
 const lineText = {
   dueDate: () => (draft.due_date ? formatDate(draft.due_date, today.value) : t('itemSheet.none')),
@@ -319,14 +290,12 @@ const lineText = {
         class="sheet-panel fixed inset-x-0 bottom-0 z-40 flex max-h-[92dvh] flex-col rounded-t-3xl bg-surface text-text shadow-2xl md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[420px] md:rounded-none"
         @pointer-down-outside="onOutside"
       >
-        <header
-          class="flex touch-none flex-col border-b border-line px-4 pt-2 pb-3"
-          @pointerdown="dragStart"
-          @pointermove="dragMove"
-          @pointerup="dragEnd"
-          @pointercancel="dragEnd"
-        >
-          <span class="mx-auto mb-2 h-1.5 w-10 rounded-full bg-line md:hidden" aria-hidden="true" />
+        <header class="flex touch-none flex-col border-b border-line px-4 pt-2 pb-3" v-bind="drag">
+          <span
+            data-testid="sheet-handle"
+            class="mx-auto mb-2 h-1.5 w-10 rounded-full bg-line md:hidden"
+            aria-hidden="true"
+          />
           <div class="flex items-center gap-2">
             <button type="button" class="text-accent md:hidden" @click="requestClose">
               {{ $t('itemSheet.close') }}
