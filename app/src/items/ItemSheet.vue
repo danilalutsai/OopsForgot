@@ -237,7 +237,10 @@ function requestClose() {
   if (dirty.value) asking.value = true
   else emit('close')
 }
-/** Save from the leave question: the question stays open, with the reason, if saving fails. */
+/**
+ * Save (the top bar's, or the leave question's) saves and closes the sheet. If saving fails, everything
+ * stays open with the reason.
+ */
 async function saveAndClose() {
   if (!(await save())) return
   asking.value = false
@@ -315,7 +318,7 @@ const lineText = {
               type="button"
               :disabled="!dirty || update.isPending.value"
               class="rounded-full bg-accent px-4 py-1.5 font-semibold text-on-accent disabled:opacity-40"
-              @click="save"
+              @click="saveAndClose"
             >
               {{ $t('itemSheet.save') }}
             </button>

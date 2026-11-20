@@ -12,7 +12,7 @@ async function addGym(page: Page) {
   await expect(page.getByRole('dialog')).toBeHidden()
 }
 
-test('change an Item line by line and save', async ({ page }) => {
+test('change an Item line by line; Save saves and closes the sheet', async ({ page }) => {
   await logInAsNewPerson(page)
   await addGym(page)
   await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
@@ -26,10 +26,7 @@ test('change an Item line by line and save', async ({ page }) => {
   await sheet.getByLabel('Event date').fill(await inDays(page, 2))
   await expect(sheet.locator('header').getByRole('status')).toHaveText('Unsaved changes')
   await sheet.getByRole('button', { name: 'Save' }).click()
-  await expect(sheet.locator('header').getByRole('status')).toHaveText('Changes saved ✅')
-  await expect(sheet.getByText('In 2 days')).toBeVisible()
-
-  await sheet.getByRole('button', { name: 'Close' }).filter({ visible: true }).click()
+  await expect(sheet).toBeHidden()
   const row = page.getByRole('region', { name: 'This week' }).getByRole('listitem').filter({ hasText: 'Gym' })
   await expect(row).toContainText('€39.90')
   await expect(row).toContainText('In 2 days')
@@ -208,19 +205,24 @@ test('the Time row of an all-day Item says so, also when opened; Start and Finis
   await expect(sheet.getByLabel('Start time')).toHaveValue('')
   await expect(sheet.getByLabel('Start time').locator('..')).toContainText('All day')
 
+  const reopen = () => page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   await sheet.getByLabel('Start time').fill('18:00')
   await sheet.getByLabel('Finish time').fill('19:30')
   await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
-  await expect(sheet.locator('header').getByRole('status')).toHaveText('Changes saved ✅')
+  await expect(sheet).toBeHidden()
+  await reopen()
   await expect(line).toContainText('6:00 PM – 7:30 PM')
 
-  // a Finish that is not after Start is refused, and nothing is saved
+  // a Finish that is not after Start is refused: nothing is saved and the sheet stays open
+  await line.click()
   await sheet.getByLabel('Finish time').fill('17:00')
   await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
   await expect(sheet.getByRole('alert')).toContainText('Finish time must be later than Start time.')
+  await expect(sheet).toBeVisible()
 
   await sheet.getByRole('button', { name: 'All day' }).click()
   await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
-  await expect(sheet.locator('header').getByRole('status')).toHaveText('Changes saved ✅')
+  await expect(sheet).toBeHidden()
+  await reopen()
   await expect(line).toContainText('All day')
 })
