@@ -3,7 +3,7 @@ import { expectAccessible } from './axe'
 import { inDays, logInAsNewPerson } from './people'
 
 async function addItem(page: Page, name: string, category: string, days: number) {
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText(category, { exact: true }).click()
   await page.getByLabel('Event date').fill(await inDays(page, days))
@@ -14,7 +14,7 @@ const row = (page: Page, name: string) => page.getByRole('listitem').filter({ ha
 /** Expired Items wait above Today, hidden until asked for. */
 const showExpired = (page: Page) => page.getByRole('button', { name: 'Expired', exact: true }).click()
 
-test('an Expired Item asks "What now?"; a new Event date answers it', async ({ page }) => {
+test('an Expired Event asks "What now?"; a new Event date answers it', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'ID card', 'Documents', -3)
   await showExpired(page)
@@ -70,7 +70,7 @@ test('a free trial not kept stays, with no more question; Expired from the next 
   await expect(row(page, 'Duolingo').getByRole('button', { name: 'Kept it?' })).toHaveCount(0)
 })
 
-test('"Keep in Expired" closes the question; the Item stays in Expired', async ({ page }) => {
+test('"Keep in Expired" closes the question; the Event stays in Expired', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Old passport', 'Documents', -4)
   await showExpired(page)

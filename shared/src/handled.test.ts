@@ -8,7 +8,7 @@ describe('isHandled', () => {
     expect(isHandled({ ...monthly, handledDueDate: '2026-11-20' }, '2026-11-16')).toBe(true)
   })
 
-  it('is no longer Handled once a repeating Item moves on to its next Event date', () => {
+  it('is no longer Handled once a repeating Event moves on to its next Event date', () => {
     expect(isHandled({ ...monthly, handledDueDate: '2026-10-20' }, '2026-11-16')).toBe(false)
   })
 

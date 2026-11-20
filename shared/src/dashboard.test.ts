@@ -5,26 +5,26 @@ import { urgency } from './urgency.ts'
 const today = '2026-11-16'
 
 describe('dashboardGroup', () => {
-  it('puts an Item due today in Today', () => {
+  it('puts an Event due today in Today', () => {
     expect(dashboardGroup('2026-11-16', today)).toBe('today')
   })
 
-  it('puts an Expired Item in Today', () => {
+  it('puts an Expired Event in Today', () => {
     expect(dashboardGroup('2026-11-13', today)).toBe('today')
   })
 
-  it('puts Items due in the next 7 days in This week', () => {
+  it('puts Events due in the next 7 days in This week', () => {
     expect(dashboardGroup('2026-11-17', today)).toBe('thisWeek')
     expect(dashboardGroup('2026-11-23', today)).toBe('thisWeek')
   })
 
-  it('puts Items due after that in Later', () => {
+  it('puts Events due after that in Later', () => {
     expect(dashboardGroup('2026-11-24', today)).toBe('later')
   })
 })
 
 describe('countdown', () => {
-  it('says the Item is due today', () => {
+  it('says the Event is due today', () => {
     expect(countdown('2026-11-16', today)).toEqual({ kind: 'dueToday' })
   })
 
@@ -32,7 +32,7 @@ describe('countdown', () => {
     expect(countdown('2026-11-18', today)).toEqual({ kind: 'dueIn', days: 2 })
   })
 
-  it('counts the days since an Expired Item was due', () => {
+  it('counts the days since an Expired Event was due', () => {
     expect(countdown('2026-11-13', today)).toEqual({ kind: 'expired', days: 3 })
   })
 })

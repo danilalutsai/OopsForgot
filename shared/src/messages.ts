@@ -69,8 +69,8 @@ export function pushMessage(person: SenderPerson, all: MessageEntry[], today: st
     const attention = entries.some((e) => isQuestion(e.kind))
     return {
       title: attention
-        ? `${person.name}, ${entries.length} Items need your attention`
-        : `${person.name}, ${entries.length} Items need you soon 🔔`,
+        ? `${person.name}, ${entries.length} Events need your attention`
+        : `${person.name}, ${entries.length} Events need you soon 🔔`,
       body: entries.map((e) => e.item.name).join(', '),
       url: '/',
       tag: `bundle-${entries.map((e) => e.item.id).join('-')}`,

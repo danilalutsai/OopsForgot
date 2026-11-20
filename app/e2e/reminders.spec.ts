@@ -2,10 +2,10 @@ import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
 import { inDays, logInAsNewPerson } from './people'
 
-test('pick Reminders when adding an Item; only fitting ones are offered', async ({ page }) => {
+test('pick Reminders when adding an Event; only fitting ones are offered', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
-  const form = page.getByRole('dialog', { name: 'New Item' })
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
+  const form = page.getByRole('dialog', { name: 'New Event' })
   const chip = (name: string) =>
     form.getByRole('group', { name: 'Reminders' }).getByRole('button', { name, exact: true })
 
@@ -30,10 +30,10 @@ test('pick Reminders when adding an Item; only fitting ones are offered', async 
   )
 })
 
-test('an Item with a Start time tomorrow can have "1 day": it arrives at the Start time today', async ({ page }) => {
+test('an Event with a Start time tomorrow can have "1 day": it arrives at the Start time today', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
-  const form = page.getByRole('dialog', { name: 'New Item' })
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
+  const form = page.getByRole('dialog', { name: 'New Event' })
   const chip = (name: string) =>
     form.getByRole('group', { name: 'Reminders' }).getByRole('button', { name, exact: true })
   await form.getByLabel('Event date').fill(await inDays(page, 1))
@@ -44,10 +44,10 @@ test('an Item with a Start time tomorrow can have "1 day": it arrives at the Sta
   await expect(form.getByText('Day Reminders arrive at the Start time, 23:59.')).toBeVisible()
 })
 
-test('a weekly Item cannot have Reminders a week or more before', async ({ page }) => {
+test('a weekly Event cannot have Reminders a week or more before', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
-  const form = page.getByRole('dialog', { name: 'New Item' })
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
+  const form = page.getByRole('dialog', { name: 'New Event' })
   await form.getByLabel('Event date').fill(await inDays(page, 3))
   await form.getByRole('combobox', { name: 'Repeats' }).selectOption({ label: 'Every week' })
   const group = form.getByRole('group', { name: 'Reminders' })
@@ -58,8 +58,8 @@ test('a weekly Item cannot have Reminders a week or more before', async ({ page 
 
 test('change Reminders in the sheet; ones that no longer fit are dropped on save', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
-  const form = page.getByRole('dialog', { name: 'New Item' })
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
+  const form = page.getByRole('dialog', { name: 'New Event' })
   await form.getByLabel('Name').fill('Flight')
   await form.getByText('Travel').click()
   await form.getByLabel('Event date').fill(await inDays(page, 20))
@@ -81,8 +81,8 @@ test('change Reminders in the sheet; ones that no longer fit are dropped on save
 
 test('"Make it repeat" keeps only Reminders that fit the new repeat', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
-  const form = page.getByRole('dialog', { name: 'New Item' })
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
+  const form = page.getByRole('dialog', { name: 'New Event' })
   await form.getByLabel('Name').fill('Bins')
   await form.getByText('Home').click()
   await form.getByLabel('Event date').fill(await inDays(page, 30))
@@ -108,7 +108,7 @@ test('"Make it repeat" keeps only Reminders that fit the new repeat', async ({ p
 
 test('three quick taps on ✓ end up Handled', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Phone bill')
   await page.getByText('Other').click()
   await page.getByLabel('Event date').fill(await inDays(page, 5))

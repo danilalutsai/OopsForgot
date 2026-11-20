@@ -68,10 +68,10 @@ describe('Reminder sender', () => {
     ])
     const sent = forAna(await runSender('2030-03-09T09:45:00Z', '2030-03-09T10:00:00Z'), ana.id)
     expect(sent).toHaveLength(1)
-    expect(sent[0]!.message.title).toBe('Ana, 2 Items need you soon 🔔')
+    expect(sent[0]!.message.title).toBe('Ana, 2 Events need you soon 🔔')
   })
 
-  it('stops for Handled Items, and starts again on the next Event date', async () => {
+  it('stops for Handled Events, and starts again on the next Event date', async () => {
     const { ana, items } = await personWith([
       { ...base, name: 'Rent', due_date: '2030-04-10', recurrence_unit: 'month', recurrence_every: 1 },
     ])
@@ -82,7 +82,7 @@ describe('Reminder sender', () => {
     expect(next.map((s) => s.message.title)).toEqual(['Ana, Rent is tomorrow 🔔'])
   })
 
-  it('sends no "What now?" for an Item kept in Expired', async () => {
+  it('sends no "What now?" for an Event kept in Expired', async () => {
     const { ana, items } = await personWith([
       { ...base, name: 'Old gym', due_date: '2030-04-10', reminder_offsets: [] },
     ])
@@ -90,7 +90,7 @@ describe('Reminder sender', () => {
     expect(forAna(await runSender('2030-04-11T08:45:00Z', '2030-04-11T09:00:00Z'), ana.id)).toHaveLength(0)
   })
 
-  it('sends a day Reminder of an Item with a Start time at that time, the day before', async () => {
+  it('sends a day Reminder of an Event with a Start time at that time, the day before', async () => {
     const { ana } = await personWith([{ ...base, name: 'Dentist', due_date: '2030-03-10', due_time: '16:50' }])
     // March is winter time in Tallinn (UTC+2): 16:50 there is 14:50 UTC, not 12:00 local
     expect(forAna(await runSender('2030-03-09T09:45:00Z', '2030-03-09T10:00:00Z'), ana.id)).toHaveLength(0)
@@ -106,7 +106,7 @@ describe('Reminder sender', () => {
 })
 
 describe('automatic Expenses', () => {
-  it('a priced Item creates one Expense on its Event date; a deleted one never comes back', async () => {
+  it('a priced Event creates one Expense on its Event date; a deleted one never comes back', async () => {
     const { ana } = await personWith([{ ...base, name: 'Rent', due_date: '2030-07-10', price_cents: 75000 }])
     await runSender('2030-07-10T09:45:00Z', '2030-07-10T10:00:00Z')
     await runSender('2030-07-10T10:00:00Z', '2030-07-10T10:15:00Z')
@@ -119,7 +119,7 @@ describe('automatic Expenses', () => {
     expect((await ana.client.from('expenses').select('id')).data).toEqual([])
   })
 
-  it('free trials and Items without a price create none', async () => {
+  it('free trials and Events without a price create none', async () => {
     const { ana } = await personWith([
       { ...base, name: 'Trial', category: 'free_trials', due_date: '2030-08-10', price_cents: 999 },
       { ...base, name: 'Passport', category: 'documents', due_date: '2030-08-10' },

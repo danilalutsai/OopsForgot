@@ -16,7 +16,7 @@ describe('parseAmount', () => {
     expect(parseAmount('1,000.00')).toBeNull()
   })
 
-  it('refuses amounts above 999,999.99, which no Item or Expense should reach', () => {
+  it('refuses amounts above 999,999.99, which no Event or Expense should reach', () => {
     expect(parseAmount('999999.99')).toBe(99_999_999)
     expect(parseAmount('25000000')).toBeNull()
   })

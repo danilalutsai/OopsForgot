@@ -3,7 +3,7 @@ import { expectAccessible } from './axe'
 import { inDays, logInAsNewPerson } from './people'
 
 async function addItem(page: Page, name: string, days: number) {
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText('Other').click()
   await page.getByLabel('Event date').fill(await inDays(page, days))
@@ -23,7 +23,7 @@ async function swipe(page: Page, name: string, dx: number) {
   await page.mouse.up()
 }
 
-test('mark an Item Handled in place, then undo it', async ({ page }) => {
+test('mark an Event Handled in place, then undo it', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Netflix', 2)
   await page.getByRole('button', { name: 'Mark Netflix Handled' }).click()
@@ -87,7 +87,7 @@ test('swipe right for Handled; swipe left deletes, in red, with Undo', async ({ 
   await expect(page.getByText(/Archived/)).toHaveCount(0)
 })
 
-test('delete an Item from its sheet after confirming, and undo it', async ({ page }) => {
+test('delete an Event from its sheet after confirming, and undo it', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Old card', 40)
   await page
@@ -105,9 +105,9 @@ test('delete an Item from its sheet after confirming, and undo it', async ({ pag
   await expect(row(page, 'Old card')).toBeVisible()
 })
 
-test('a Handled repeating Item reminds again for its next Event date', async ({ page }) => {
+test('a Handled repeating Event reminds again for its next Event date', async ({ page }) => {
   await logInAsNewPerson(page)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Cleaning')
   await page.getByText('Home').click()
   await page.getByLabel('Event date').fill(await inDays(page, -7))

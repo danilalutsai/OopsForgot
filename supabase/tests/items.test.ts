@@ -3,8 +3,8 @@ import { signUpPerson } from './people.ts'
 
 const passport = { name: 'Passport', category: 'documents', due_date: '2027-03-02' }
 
-describe('Items', () => {
-  it('a person adds an Item and sees it', async () => {
+describe('Events', () => {
+  it('a person adds an Event and sees it', async () => {
     const ana = await signUpPerson('Ana')
     const added = await ana.client.from('items').insert(passport).select('name, category, due_date').single()
     expect(added.error).toBeNull()
@@ -12,7 +12,7 @@ describe('Items', () => {
     expect(data).toEqual([passport])
   })
 
-  it("Ben cannot read, change or delete Ana's Items", async () => {
+  it("Ben cannot read, change or delete Ana's Events", async () => {
     const ana = await signUpPerson('Ana')
     const ben = await signUpPerson('Ben')
     const { data: item } = await ana.client.from('items').insert(passport).select('id').single()
@@ -25,7 +25,7 @@ describe('Items', () => {
     expect(data).toEqual([{ name: 'Passport' }])
   })
 
-  it("Ben cannot add an Item into Ana's list", async () => {
+  it("Ben cannot add an Event into Ana's list", async () => {
     const ana = await signUpPerson('Ana')
     const ben = await signUpPerson('Ben')
     const { error } = await ben.client.from('items').insert({ ...passport, user_id: ana.id })
@@ -33,7 +33,7 @@ describe('Items', () => {
     expect((await ana.client.from('items').select('id')).data).toEqual([])
   })
 
-  it('an Item needs a name and a known Category', async () => {
+  it('an Event needs a name and a known Category', async () => {
     const ana = await signUpPerson('Ana')
     expect((await ana.client.from('items').insert({ ...passport, name: '  ' })).error).not.toBeNull()
     expect((await ana.client.from('items').insert({ ...passport, category: 'pets' })).error).not.toBeNull()
@@ -41,7 +41,7 @@ describe('Items', () => {
 })
 
 describe('Start and Finish time', () => {
-  it('an Item can have a Start time and a later Finish time on the same day', async () => {
+  it('an Event can have a Start time and a later Finish time on the same day', async () => {
     const ana = await signUpPerson('Ana')
     const dentist = { ...passport, name: 'Dentist', due_time: '09:00', finish_time: '10:30' }
     const { data, error } = await ana.client.from('items').insert(dentist).select('due_time, finish_time').single()
@@ -60,8 +60,8 @@ describe('Start and Finish time', () => {
   })
 })
 
-describe('repeating Items', () => {
-  it('stores how often an Item repeats', async () => {
+describe('repeating Events', () => {
+  it('stores how often an Event repeats', async () => {
     const ana = await signUpPerson('Ana')
     const rent = {
       name: 'Rent',
@@ -83,7 +83,7 @@ describe('repeating Items', () => {
 })
 
 describe('Handled, Keep in Expired and Delete', () => {
-  it('a person marks an Item Handled, or keeps it in Expired, for a Event date', async () => {
+  it('a person marks an Event Handled, or keeps it in Expired, for an Event date', async () => {
     const ana = await signUpPerson('Ana')
     const { data: item } = await ana.client.from('items').insert(passport).select('id').single()
     const set = (changes: object) => ana.client.from('items').update(changes).eq('id', item!.id).select('id')
@@ -91,12 +91,12 @@ describe('Handled, Keep in Expired and Delete', () => {
     expect((await set({ kept_expired_due_date: '2027-03-02' })).data).toHaveLength(1)
   })
 
-  it('Items are no longer archived: the column is gone', async () => {
+  it('Events are no longer archived: the column is gone', async () => {
     const ana = await signUpPerson('Ana')
     expect((await ana.client.from('items').select('archived_at')).error).not.toBeNull()
   })
 
-  it('a deleted Item can be put back with the same id (Undo)', async () => {
+  it('a deleted Event can be put back with the same id (Undo)', async () => {
     const ana = await signUpPerson('Ana')
     const { data: item } = await ana.client.from('items').insert(passport).select('*').single()
     await ana.client.from('items').delete().eq('id', item!.id)
@@ -106,8 +106,8 @@ describe('Handled, Keep in Expired and Delete', () => {
   })
 })
 
-describe('Reminders on Items', () => {
-  it('a new Item gets a Reminder 1 day before; the person can change them', async () => {
+describe('Reminders on Events', () => {
+  it('a new Event gets a Reminder 1 day before; the person can change them', async () => {
     const ana = await signUpPerson('Ana')
     const { data: item } = await ana.client.from('items').insert(passport).select('id, reminder_offsets').single()
     expect(item!.reminder_offsets).toEqual(['1d'])

@@ -5,7 +5,7 @@ const ana = { id: 'ana', name: 'Ana', timeZone: 'Europe/Tallinn', dayReminderTim
 const netflix = { id: 'n1', name: 'Netflix', category: 'subscriptions' as const, dueTime: null }
 
 describe('pushMessage', () => {
-  it('names the person and the Item, says when, and never shows price or notes', () => {
+  it('names the person and the Event, says when, and never shows price or notes', () => {
     expect(pushMessage(ana, [{ item: netflix, dueDate: '2026-11-20', kind: '1d' }], '2026-11-19')).toEqual({
       title: 'Ana, Netflix is tomorrow 🔔',
       body: 'Fri 20 Nov · Subscriptions. Tap to mark it Handled or change it.',
@@ -30,10 +30,10 @@ describe('pushMessage', () => {
       ],
       '2026-11-19',
     )
-    expect(msg).toEqual({ title: 'Ana, 2 Items need you soon 🔔', body: 'Netflix, Gym', url: '/', tag: 'bundle-n1-g' })
+    expect(msg).toEqual({ title: 'Ana, 2 Events need you soon 🔔', body: 'Netflix, Gym', url: '/', tag: 'bundle-n1-g' })
   })
 
-  it('asks plainly, with no emoji, about Expired Items and free trials', () => {
+  it('asks plainly, with no emoji, about Expired Events and free trials', () => {
     const passport = { id: 'p', name: 'Passport', category: 'documents' as const, dueTime: null }
     expect(pushMessage(ana, [{ item: passport, dueDate: '2026-11-18', kind: 'expired' }], '2026-11-19').title).toBe(
       'Passport expired yesterday. What now?',
@@ -44,7 +44,7 @@ describe('pushMessage', () => {
     )
   })
 
-  it('counts an Item with two Reminders in the same run once', () => {
+  it('counts an Event with two Reminders in the same run once', () => {
     const trial = { id: 't', name: 'Disney+ free trial', category: 'free_trials' as const, dueTime: '16:00' }
     const msg = pushMessage(
       ana,
@@ -58,7 +58,7 @@ describe('pushMessage', () => {
     expect(msg.url).toBe('/?item=t')
   })
 
-  it('a bundle with an Expired Item or a question asks for attention, without an emoji', () => {
+  it('a bundle with an Expired Event or a question asks for attention, without an emoji', () => {
     const passport = { id: 'p', name: 'Passport', category: 'documents' as const, dueTime: null }
     const msg = pushMessage(
       ana,
@@ -68,7 +68,7 @@ describe('pushMessage', () => {
       ],
       '2026-11-19',
     )
-    expect(msg.title).toBe('Ana, 2 Items need your attention')
+    expect(msg.title).toBe('Ana, 2 Events need your attention')
     expect(msg.body).toBe('Passport, Netflix')
   })
 })

@@ -25,7 +25,7 @@ test('the avatar menu has Account, Settings and Log out; the top bar has no gear
   await page
     .getByRole('navigation', { name: 'Main' })
     .filter({ visible: true })
-    .getByRole('link', { name: 'Items' })
+    .getByRole('link', { name: 'Events' })
     .click()
   await page.getByRole('button', { name: /Account menu/ }).click()
   await page.getByRole('menuitem', { name: 'Log out' }).click()

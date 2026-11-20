@@ -28,14 +28,14 @@ describe('dueReminders', () => {
     expect(dueReminders(ana, [item()], ...window('2026-11-19T10:00Z', '2026-11-19T10:15Z'))).toEqual([])
   })
 
-  it("sends hour Reminders that long before the Item's time", () => {
+  it("sends hour Reminders that long before the Event's time", () => {
     const dentist = item({ id: 'dentist', dueTime: '09:30', reminderOffsets: ['1h'] })
     expect(kinds(dueReminders(ana, [dentist], ...window('2026-11-20T06:15Z', '2026-11-20T06:30Z')))).toEqual([
       'dentist 2026-11-20 1h',
     ])
   })
 
-  it('sends nothing for a Event date marked Handled, and starts again for the next one', () => {
+  it('sends nothing for an Event date marked Handled, and starts again for the next one', () => {
     const rent = item({ id: 'rent', dueDate: '2026-10-20', recurrence: { unit: 'month', every: 1 } })
     const handled = { ...rent, handledDueDate: '2026-11-20' }
     expect(dueReminders(ana, [handled], ...window('2026-11-19T09:45Z', '2026-11-19T10:00Z'))).toEqual([])
@@ -53,12 +53,12 @@ describe('dueReminders', () => {
     expect(dueReminders(ana, [item()], ...window('2026-11-19T09:30Z', '2026-11-21T00:00Z'))).toEqual([])
   })
 
-  it('never sends a Reminder whose moment was before the Item was added', () => {
+  it('never sends a Reminder whose moment was before the Event was added', () => {
     const late = item({ createdAt: new Date('2026-11-19T11:00:00Z') })
     expect(dueReminders(ana, [late], ...window('2026-11-19T09:30Z', '2026-11-19T11:15Z'))).toEqual([])
   })
 
-  it('sends one "Expired" message the day after a one-time Item\'s Event date', () => {
+  it('sends one "Expired" message the day after a one-time Event\'s Event date', () => {
     const passport = item({ id: 'passport', category: 'documents', reminderOffsets: [] })
     expect(kinds(dueReminders(ana, [passport], ...window('2026-11-21T09:45Z', '2026-11-21T10:00Z')))).toEqual([
       'passport 2026-11-20 expired',
@@ -72,7 +72,7 @@ describe('dueReminders', () => {
     ).toEqual([])
   })
 
-  it('sends no "Expired" message or trial question once the person kept the Item in Expired', () => {
+  it('sends no "Expired" message or trial question once the person kept the Event in Expired', () => {
     const passport = item({ id: 'passport', category: 'documents', reminderOffsets: [], keptDueDate: '2026-11-20' })
     expect(dueReminders(ana, [passport], ...window('2026-11-21T09:45Z', '2026-11-21T10:00Z'))).toEqual([])
     const trial = item({ id: 'trial', category: 'free_trials', reminderOffsets: [], keptDueDate: '2026-11-20' })

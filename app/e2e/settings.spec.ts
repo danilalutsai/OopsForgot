@@ -81,7 +81,7 @@ test('section titles stand out: main text colour, bold', async ({ page }) => {
 })
 
 for (const scheme of ['light', 'dark'] as const)
-  test(`Settings and Account look like the opened Item sheet (${scheme})`, async ({ page }) => {
+  test(`Settings and Account look like the opened Event sheet (${scheme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme })
     await logInAsNewPerson(page)
     const colours = () =>
@@ -125,8 +125,8 @@ test('no emojis anywhere in the app: list, sheets, Money, Settings, Account', as
   const emoji = /\p{Extended_Pictographic}/u
   await logInAsNewPerson(page)
   await expect(page.locator('body')).not.toContainText(emoji)
-  await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
-  const form = page.getByRole('dialog', { name: 'New Item' })
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
+  const form = page.getByRole('dialog', { name: 'New Event' })
   await expect(form).not.toContainText(emoji)
   await form.getByLabel('Name').fill('Gym')
   await form.getByText('Health').click()

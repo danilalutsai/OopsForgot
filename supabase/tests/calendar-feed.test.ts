@@ -9,7 +9,7 @@ const fetchFeed = (token: string) => fetch(`${local.API_URL}/functions/v1/calend
 const inDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
 
 describe('Calendar feed', () => {
-  it("shows only the person's own Items, with no notes or price", async () => {
+  it("shows only the person's own Events, with no notes or price", async () => {
     const ana = await signUpPerson('Ana')
     const ben = await signUpPerson('Ben')
     await ana.client.from('items').insert({
