@@ -25,7 +25,7 @@ describe('Calendar feed', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/calendar')
     const text = await res.text()
-    expect(text).toContain('Ana passport — Due')
+    expect(text).toContain('Ana passport')
     expect(text).not.toContain('Ben car')
     expect(text).not.toContain('secret note')
     // a price shows as 43.21; random IDs never contain a dot

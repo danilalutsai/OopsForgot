@@ -35,7 +35,7 @@ describe('dueReminders', () => {
     ])
   })
 
-  it('sends nothing for a Due date marked Handled, and starts again for the next one', () => {
+  it('sends nothing for a Event date marked Handled, and starts again for the next one', () => {
     const rent = item({ id: 'rent', dueDate: '2026-10-20', recurrence: { unit: 'month', every: 1 } })
     const handled = { ...rent, handledDueDate: '2026-11-20' }
     expect(dueReminders(ana, [handled], ...window('2026-11-19T09:45Z', '2026-11-19T10:00Z'))).toEqual([])
@@ -44,12 +44,12 @@ describe('dueReminders', () => {
     ])
   })
 
-  it('catches up after a skipped run while the Due date has not passed', () => {
+  it('catches up after a skipped run while the Event date has not passed', () => {
     // runs failed from 09:30 to 13:00; the 10:00 UTC Reminder still goes out
     expect(kinds(dueReminders(ana, [item()], ...window('2026-11-19T09:30Z', '2026-11-19T13:00Z')))).toEqual([
       'netflix 2026-11-20 1d',
     ])
-    // ...but not once the Due date itself is over
+    // ...but not once the Event date itself is over
     expect(dueReminders(ana, [item()], ...window('2026-11-19T09:30Z', '2026-11-21T00:00Z'))).toEqual([])
   })
 
@@ -58,7 +58,7 @@ describe('dueReminders', () => {
     expect(dueReminders(ana, [late], ...window('2026-11-19T09:30Z', '2026-11-19T11:15Z'))).toEqual([])
   })
 
-  it('sends one "Expired" message the day after a one-time Item\'s Due date', () => {
+  it('sends one "Expired" message the day after a one-time Item\'s Event date', () => {
     const passport = item({ id: 'passport', category: 'documents', reminderOffsets: [] })
     expect(kinds(dueReminders(ana, [passport], ...window('2026-11-21T09:45Z', '2026-11-21T10:00Z')))).toEqual([
       'passport 2026-11-20 expired',
@@ -79,7 +79,7 @@ describe('dueReminders', () => {
     expect(dueReminders(ana, [trial], ...window('2026-11-20T09:45Z', '2026-11-20T10:00Z'))).toEqual([])
   })
 
-  it('asks "Did you keep it?" on a free trial\'s Due date instead of an Expired message', () => {
+  it('asks "Did you keep it?" on a free trial\'s Event date instead of an Expired message', () => {
     const trial = item({ id: 'trial', category: 'free_trials', reminderOffsets: [] })
     expect(kinds(dueReminders(ana, [trial], ...window('2026-11-20T09:45Z', '2026-11-20T10:00Z')))).toEqual([
       'trial 2026-11-20 trial',
@@ -97,7 +97,7 @@ describe('dueReminders', () => {
 
   it('sends the trial question and the Expired message only on their own day, never late', () => {
     const trial = item({ id: 'trial', category: 'free_trials', reminderOffsets: [] })
-    // runs failed all of the Due date; the next run (next morning) must not say "ends today"
+    // runs failed all of the Event date; the next run (next morning) must not say "ends today"
     expect(dueReminders(ana, [trial], ...window('2026-11-20T08:00Z', '2026-11-21T08:00Z'))).toEqual([])
     const passport = item({ id: 'passport', category: 'documents', reminderOffsets: [] })
     expect(dueReminders(ana, [passport], ...window('2026-11-21T08:00Z', '2026-11-23T08:00Z'))).toEqual([])

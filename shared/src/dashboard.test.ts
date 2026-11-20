@@ -28,7 +28,7 @@ describe('countdown', () => {
     expect(countdown('2026-11-16', today)).toEqual({ kind: 'dueToday' })
   })
 
-  it('counts the days until the Due date', () => {
+  it('counts the days until the Event date', () => {
     expect(countdown('2026-11-18', today)).toEqual({ kind: 'dueIn', days: 2 })
   })
 

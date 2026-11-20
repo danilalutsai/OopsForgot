@@ -83,7 +83,7 @@ describe('repeating Items', () => {
 })
 
 describe('Handled, Keep in Expired and Delete', () => {
-  it('a person marks an Item Handled, or keeps it in Expired, for a Due date', async () => {
+  it('a person marks an Item Handled, or keeps it in Expired, for a Event date', async () => {
     const ana = await signUpPerson('Ana')
     const { data: item } = await ana.client.from('items').insert(passport).select('id').single()
     const set = (changes: object) => ana.client.from('items').update(changes).eq('id', item!.id).select('id')

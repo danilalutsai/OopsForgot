@@ -6,7 +6,7 @@ async function addItem(page: Page, name: string, category: string, days: number)
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText(category, { exact: true }).click()
-  await page.getByLabel('Due date').fill(await inDays(page, days))
+  await page.getByLabel('Event date').fill(await inDays(page, days))
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
 }
@@ -14,7 +14,7 @@ const row = (page: Page, name: string) => page.getByRole('listitem').filter({ ha
 /** Expired Items wait above Today, hidden until asked for. */
 const showExpired = (page: Page) => page.getByRole('button', { name: 'Expired', exact: true }).click()
 
-test('an Expired Item asks "What now?"; a new Due date answers it', async ({ page }) => {
+test('an Expired Item asks "What now?"; a new Event date answers it', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'ID card', 'Documents', -3)
   await showExpired(page)
@@ -26,13 +26,13 @@ test('an Expired Item asks "What now?"; a new Due date answers it', async ({ pag
   await expect(sheet.getByRole('button', { name: 'Handled', exact: true })).toHaveCount(0)
   await expectAccessible(page)
 
-  await sheet.getByLabel('New Due date').fill(await inDays(page, 365))
+  await sheet.getByLabel('New Event date').fill(await inDays(page, 365))
   await sheet.getByRole('button', { name: 'Set date' }).click()
   await expect(sheet.getByRole('heading', { name: /What now/ })).toBeHidden()
-  await expect(sheet.getByText('Due in 365 days')).toBeVisible()
+  await expect(sheet.getByText('In 365 days')).toBeVisible()
 })
 
-test('"Make it repeat" counts the next Due date forward from the old one', async ({ page }) => {
+test('"Make it repeat" counts the next Event date forward from the old one', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Window cleaning', 'Home', -7)
   await showExpired(page)
@@ -40,7 +40,7 @@ test('"Make it repeat" counts the next Due date forward from the old one', async
   const sheet = page.getByRole('dialog', { name: 'Window cleaning' })
   await sheet.getByLabel('Repeat').selectOption({ label: 'Every week' })
   await sheet.getByRole('button', { name: 'Make it repeat' }).click()
-  await expect(sheet.getByText('Due today')).toBeVisible()
+  await expect(sheet.getByText('Today', { exact: true })).toBeVisible()
   await expect(sheet.getByRole('button', { name: /^Repeats/ })).toContainText('Every week')
 })
 
@@ -95,7 +95,7 @@ test('a past date cannot answer "What now?"', async ({ page }) => {
   await showExpired(page)
   await row(page, 'Visa').getByRole('button', { name: 'What now?' }).click()
   const sheet = page.getByRole('dialog', { name: 'Visa' })
-  await sheet.getByLabel('New Due date').fill(await inDays(page, -1))
+  await sheet.getByLabel('New Event date').fill(await inDays(page, -1))
   await expect(sheet.getByRole('button', { name: 'Set date' })).toBeDisabled()
 })
 

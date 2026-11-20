@@ -84,7 +84,7 @@ export function pushMessage(person: SenderPerson, all: MessageEntry[], today: st
     const since = ago <= 1 ? 'yesterday' : `${ago} days ago`
     return {
       title: `${item.name} expired ${since}. What now?`,
-      body: 'Set a new Due date, make it repeat, or keep it in Expired.',
+      body: 'Set a new Event date, make it repeat, or keep it in Expired.',
       url,
       tag,
     }
@@ -93,7 +93,7 @@ export function pushMessage(person: SenderPerson, all: MessageEntry[], today: st
     return { title: `Did you keep ${item.name}?`, body: 'Your free trial ends today.', url, tag }
   }
   return {
-    title: `${person.name}, ${item.name} is due ${when(dueDate, item.dueTime, today)} 🔔`,
+    title: `${person.name}, ${item.name} is ${when(dueDate, item.dueTime, today)} 🔔`,
     body: `${dayLabel(dueDate)} · ${CATEGORY_NAMES[item.category]}. Tap to mark it Handled or change it.`,
     url,
     tag,

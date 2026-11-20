@@ -1,6 +1,6 @@
 # OopsForgot
 
-OopsForgot: never miss an expiry, renewal or payment date. Track document expiries, card expiry dates, free trials, subscriptions and bills, get Reminders before they're due, follow them in your calendar, and see monthly spending by Category.
+OopsForgot: never miss an expiry, renewal or payment date. Track document expiries, card expiry dates, free trials, subscriptions and bills, get Reminders before their dates, follow them in your calendar, and see monthly spending by Category.
 
 ## Run it locally
 

@@ -6,7 +6,7 @@ async function addItem(page: Page, name: string, days: number, repeat?: string) 
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText('Other').click()
-  await page.getByLabel('Due date').fill(await inDays(page, days))
+  await page.getByLabel('Event date').fill(await inDays(page, days))
   if (repeat) await page.getByRole('combobox', { name: 'Repeats' }).selectOption({ label: repeat })
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
@@ -20,7 +20,7 @@ const dayName = (page: Page, days: number) =>
     return d.toLocaleDateString(navigator.language, { day: 'numeric', month: 'long' })
   }, days)
 
-test('the calendar shows Items on their Due dates; tapping a day lists them', async ({ page }) => {
+test('the calendar shows Items on their Event dates; tapping a day lists them', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Netflix', 0)
   await addItem(page, 'Cleaning', 0, 'Every week')
@@ -34,7 +34,7 @@ test('the calendar shows Items on their Due dates; tapping a day lists them', as
   const list = page.getByRole('region', { name: new RegExp(await dayName(page, 7)) })
   await expect(list.getByRole('listitem')).toHaveCount(1)
   await expect(list.getByText('Cleaning')).toBeVisible()
-  await expect(list.getByText('Due in 7 days')).toBeVisible()
+  await expect(list.getByText('In 7 days')).toBeVisible()
 })
 
 test('week view, moving between pages, and back to Today', async ({ page }) => {
@@ -62,7 +62,7 @@ test('Handled from the calendar day list', async ({ page }) => {
   await expect(page.getByRole('listitem').filter({ hasText: 'Gym' })).toContainText('Handled')
 })
 
-test('Handled is offered only for the Due date an Item is on now', async ({ page }) => {
+test('Handled is offered only for the Event date an Item is on now', async ({ page }) => {
   await logInAsNewPerson(page)
   await addItem(page, 'Cleaning', 0, 'Every week')
   await page.getByRole('tab', { name: 'Calendar' }).click()
@@ -113,7 +113,7 @@ for (const view of ['Week', 'Month'] as const)
     } else await day.dblclick()
     const sheet = page.getByRole('dialog', { name: 'New Item' })
     await expect(sheet).toBeVisible()
-    await expect(sheet.getByLabel('Due date')).toHaveValue(await inDays(page, offset))
+    await expect(sheet.getByLabel('Event date')).toHaveValue(await inDays(page, offset))
     await expect(sheet.getByLabel('Start time')).toHaveValue('')
     await expect(sheet.getByLabel('Finish time')).toHaveValue('')
 

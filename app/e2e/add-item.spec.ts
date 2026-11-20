@@ -14,19 +14,19 @@ test('add an Item and see it in the right group', async ({ page }) => {
 
   await page.getByLabel('Name').fill('Gym')
   await page.getByText('Health').click()
-  await page.getByLabel('Due date').fill(await inDays(page, 3))
+  await page.getByLabel('Event date').fill(await inDays(page, 3))
   await page.getByLabel('Price').fill('35,00')
   await page.getByRole('button', { name: 'Save' }).click()
 
   await expect(page.getByRole('status')).toHaveText('Item added')
   const thisWeek = page.getByRole('region', { name: 'This week' })
   await expect(thisWeek.getByText('Gym')).toBeVisible()
-  await expect(thisWeek.getByText('Due in 3 days')).toBeVisible()
+  await expect(thisWeek.getByText('In 3 days')).toBeVisible()
   await expect(thisWeek.getByText('€35.00')).toBeVisible()
   await expectAccessible(page)
 })
 
-test('an Item due today and an Item far ahead land in Today and Later', async ({ page }) => {
+test('an Item for today and an Item far ahead land in Today and Later', async ({ page }) => {
   await logInAsNewPerson(page)
   for (const [name, days] of [
     ['Netflix', 0],
@@ -35,11 +35,11 @@ test('an Item due today and an Item far ahead land in Today and Later', async ({
     await openAddSheet(page)
     await page.getByLabel('Name').fill(name)
     await page.getByText('Other').click()
-    await page.getByLabel('Due date').fill(await inDays(page, days))
+    await page.getByLabel('Event date').fill(await inDays(page, days))
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByRole('dialog')).toBeHidden()
   }
-  await expect(page.getByRole('region', { name: 'Today' }).getByText('Due today')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Today' }).getByRole('listitem')).toContainText(/^Netflix\s*Today/)
   await expect(page.getByRole('region', { name: 'Later' }).getByText('Passport')).toBeVisible()
   await expectAccessible(page)
 })
@@ -54,7 +54,7 @@ test('the add form explains what is missing and warns about long numbers', async
   const alert = page.getByRole('alert')
   await expect(alert).toContainText('Give the Item a name.')
   await expect(alert).toContainText('Pick a Category.')
-  await expect(alert).toContainText('Pick a Due date.')
+  await expect(alert).toContainText('Pick an Event date.')
   await expect(alert).toContainText('Type a price like 12.50')
 })
 
@@ -63,7 +63,7 @@ test("after Ana logs out, Ben never sees Ana's Items on the same device", async 
   await openAddSheet(page)
   await page.getByLabel('Name').fill('Ana passport')
   await page.getByText('Documents').click()
-  await page.getByLabel('Due date').fill(await inDays(page, 30))
+  await page.getByLabel('Event date').fill(await inDays(page, 30))
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByText('Ana passport')).toBeVisible()
 
@@ -77,7 +77,7 @@ test('on a phone, empty date and time fields look empty, not filled with an exam
   test.skip(!info.project.name.startsWith('phone'), 'touch screens show an example value in empty fields')
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
-  const date = page.getByLabel('Due date')
+  const date = page.getByLabel('Event date')
   const time = page.getByLabel('Start time')
   const textColor = (field: typeof date) => field.evaluate((el) => getComputedStyle(el).color)
 
@@ -94,14 +94,16 @@ test('on a phone, empty date and time fields look empty, not filled with an exam
   expect(await textColor(time)).not.toBe('rgba(0, 0, 0, 0)')
 })
 
-test('New Item sheet: Due date, Start time and Finish time, stacked; empty Start reads "All day"', async ({ page }) => {
+test('New Item sheet: Event date, Start time and Finish time, stacked; empty Start reads "All day"', async ({
+  page,
+}) => {
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   const sheet = page.getByRole('dialog')
-  const date = (await sheet.getByLabel('Due date').boundingBox())!
+  const date = (await sheet.getByLabel('Event date').boundingBox())!
   const start = (await sheet.getByLabel('Start time').boundingBox())!
   const finish = (await sheet.getByLabel('Finish time').boundingBox())!
-  // stacked, same width: Due date, then Start, then Finish
+  // stacked, same width: Event date, then Start, then Finish
   expect(start.y).toBeGreaterThanOrEqual(date.y + date.height)
   expect(finish.y).toBeGreaterThanOrEqual(start.y + start.height)
   for (const box of [start, finish]) {
@@ -119,7 +121,7 @@ test('New Item sheet: Due date, Start time and Finish time, stacked; empty Start
   await expect(sheet.getByText('Set a Start time first')).toBeVisible()
   await expect(sheet.getByRole('button', { name: 'All day' })).toBeHidden()
 
-  await sheet.getByLabel('Due date').fill(await inDays(page, 3))
+  await sheet.getByLabel('Event date').fill(await inDays(page, 3))
   await sheet.getByLabel('Start time').fill('09:30')
   await expect(sheet.getByLabel('Finish time')).toBeEnabled()
   await sheet.getByLabel('Finish time').fill('10:45')
@@ -139,7 +141,7 @@ test('a Finish time must be later than the Start time', async ({ page }) => {
   const sheet = page.getByRole('dialog', { name: 'New Item' })
   await sheet.getByLabel('Name').fill('Dentist')
   await sheet.getByText('Health').click()
-  await sheet.getByLabel('Due date').fill(await inDays(page, 3))
+  await sheet.getByLabel('Event date').fill(await inDays(page, 3))
   await sheet.getByLabel('Start time').fill('10:00')
   await sheet.getByLabel('Finish time').fill('09:00')
   await sheet.getByRole('button', { name: 'Save' }).click()
@@ -165,4 +167,32 @@ test('Category chips show line icons, muted until picked, then in the chip’s o
 
   await health.click()
   expect(await colour(health.locator('svg'))).toBe(await colour(health))
+})
+
+test('Event wording: rows say Today, Tomorrow, In 5 days; nothing on screen says "Due"', async ({ page }) => {
+  await logInAsNewPerson(page)
+  for (const [name, days] of [
+    ['Gym', 0],
+    ['Dentist', 1],
+    ['Rent', 5],
+  ] as const) {
+    await openAddSheet(page)
+    const sheet = page.getByRole('dialog', { name: 'New Item' })
+    await expect(sheet).not.toContainText(/\bdue\b/i)
+    await sheet.getByLabel('Name').fill(name)
+    await sheet.getByText('Other').click()
+    await sheet.getByLabel('Event date').fill(await inDays(page, days))
+    await sheet.getByRole('button', { name: 'Save' }).click()
+    await expect(sheet).toBeHidden()
+  }
+  const row = (name: string) => page.getByRole('listitem').filter({ hasText: name })
+  await expect(row('Gym')).toContainText(/^Gym\s*Today/)
+  await expect(row('Dentist')).toContainText(/^Dentist\s*Tomorrow/)
+  await expect(row('Rent')).toContainText(/^Rent\s*In 5 days/)
+  await expect(page.locator('body')).not.toContainText(/\bdue\b/i)
+
+  await row('Rent').getByRole('button').first().click()
+  const sheet = page.getByRole('dialog', { name: 'Rent' })
+  await expect(sheet.getByRole('button', { name: /^Event date/ })).toBeVisible()
+  await expect(sheet).not.toContainText(/\bdue\b/i)
 })

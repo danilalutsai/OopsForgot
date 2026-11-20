@@ -14,7 +14,7 @@
   "items": {
     "list": "List",
     "calendar": "Calendar",
-    "empty": "Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before it is due.",
+    "empty": "Nothing to track yet. Add your first Item, like a passport or a subscription, and we will remind you before its date.",
     "welcome": "Welcome, {name} 👋",
     "groups": {
       "expired": "Expired",
@@ -23,8 +23,9 @@
       "later": "Later"
     },
     "countdown": {
-      "dueToday": "Due today",
-      "dueIn": "Due in {days} day | Due in {days} days",
+      "dueToday": "Today",
+      "tomorrow": "Tomorrow",
+      "dueIn": "In {days} day | In {days} days",
       "expired": "Expired {days} day ago | Expired {days} days ago"
     },
     "add": "Add Item",
@@ -51,7 +52,7 @@
     "spent": "spent",
     "total": "{amount} spent in {month}",
     "empty": "No Expenses this month",
-    "emptyHint": "Add what you spend by hand, or give Items a price and they’ll appear here on their Due date.",
+    "emptyHint": "Add what you spend by hand, or give Items a price and they’ll appear here on their Event date.",
     "showing": "Showing {category} only",
     "showAll": "Show all",
     "loadError": "Could not load your Expenses. Check your connection and try again.",
@@ -152,7 +153,7 @@
     "whatTitle": "What we store",
     "what": "Your email, Name, Surname, profile photo if you add one, time zone, currency, your Items, Reminders, Expenses and the devices you allow to get push. We never ask for full card or document numbers.",
     "whyTitle": "Why",
-    "why": "Only to remind you before things are due and to show your spending. Nothing else.",
+    "why": "Only to remind you before your Items’ dates and to show your spending. Nothing else.",
     "whereTitle": "Where",
     "where": "Your data is kept by Supabase in Frankfurt (EU). The app is served by Cloudflare. Login emails are sent through Gmail. Push messages pass through your browser's push service (Google, Apple or Mozilla). Encrypted backups may be stored outside the EU.",
     "howLongTitle": "How long",
@@ -178,7 +179,7 @@
     "name": "Name",
     "namePlaceholder": "Passport, Netflix, car insurance…",
     "category": "Category",
-    "dueDate": "Due date",
+    "dueDate": "Event date",
     "time": "Time",
     "startTime": "Start time",
     "finishTime": "Finish time",
@@ -196,7 +197,7 @@
     "errors": {
       "name": "Give the Item a name.",
       "category": "Pick a Category.",
-      "dueDate": "Pick a Due date.",
+      "dueDate": "Pick an Event date.",
       "price": "Type a price like 12.50, or leave it empty.",
       "save": "Could not save. Check your connection and try again.",
       "every": "Repeat every 1 to 365.",
@@ -217,7 +218,7 @@
       "month": "month | months",
       "year": "year | years"
     },
-    "repeatHint": "Each next Due date is counted from this one.",
+    "repeatHint": "Each next Event date is counted from this one.",
     "repeatUnit": "Repeat unit",
     "chooseDate": "Choose a date"
   },
@@ -305,7 +306,7 @@
     "whatNow": "What now?",
     "keptIt": "Kept it?",
     "expiredTitle": "Expired {days} day ago. What now? | Expired {days} days ago. What now?",
-    "newDueDate": "New Due date",
+    "newDueDate": "New Event date",
     "setDate": "Set date",
     "makeRepeat": "Make it repeat",
     "repeatEvery": "Repeat",
@@ -329,7 +330,7 @@
     "next": "Next",
     "day": "{date}, {n} Item | {date}, {n} Items",
     "dayEmpty": "{date}, no Items",
-    "nothingDue": "Nothing due on {date}.",
+    "nothingDue": "Nothing on {date}.",
     "more": "+{n}"
   },
   "reminders": {
@@ -393,12 +394,12 @@
     "line": "Calendar feed",
     "on": "On",
     "off": "Off",
-    "intro": "See your Due dates in Google, Apple or Outlook Calendar. It updates by itself.",
+    "intro": "See your Event dates in Google, Apple or Outlook Calendar. It updates by itself.",
     "setUp": "Set up Calendar feed",
     "link": "Your Calendar feed link",
     "copy": "Copy link",
     "copied": "Link copied",
-    "warning": "Anyone with this link can see your Item names and Due dates. Don’t share it.",
+    "warning": "Anyone with this link can see your Item names and Event dates. Don’t share it.",
     "guidesTitle": "Add it to your calendar",
     "google": "Google Calendar (on a computer): Other calendars → + → From URL → paste the link.",
     "apple": "Apple Calendar: on iPhone, Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar; on Mac, File → New Calendar Subscription.",

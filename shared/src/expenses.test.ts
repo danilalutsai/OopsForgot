@@ -48,16 +48,16 @@ describe('automaticExpenseDates', () => {
     addedOn: '2026-09-05',
   } as const
 
-  it('creates an Expense on each Due date since the last time, up to today', () => {
+  it('creates an Expense on each Event date since the last time, up to today', () => {
     expect(automaticExpenseDates(rent, '2026-10-01', '2026-11-16')).toEqual(['2026-11-01'])
     expect(automaticExpenseDates(rent, null, '2026-11-16')).toEqual(['2026-10-01', '2026-11-01'])
   })
 
-  it('never back-fills Due dates from before the Item was added', () => {
+  it('never back-fills Event dates from before the Item was added', () => {
     expect(automaticExpenseDates(rent, null, '2026-09-30')).toEqual([])
   })
 
-  it('includes a Due date that is today', () => {
+  it('includes a Event date that is today', () => {
     expect(automaticExpenseDates(rent, '2026-10-01', '2026-11-01')).toEqual(['2026-11-01'])
   })
 
@@ -66,7 +66,7 @@ describe('automaticExpenseDates', () => {
     expect(automaticExpenseDates({ ...rent, category: 'free_trials' }, null, '2026-11-16')).toEqual([])
   })
 
-  it('a one-time priced Item creates one Expense on its Due date', () => {
+  it('a one-time priced Item creates one Expense on its Event date', () => {
     const repair = { ...rent, recurrence: null, dueDate: '2026-11-10', addedOn: '2026-11-01' }
     expect(automaticExpenseDates(repair, null, '2026-11-16')).toEqual(['2026-11-10'])
     expect(automaticExpenseDates(repair, '2026-11-10', '2026-11-16')).toEqual([])
@@ -117,7 +117,7 @@ describe('stillComing', () => {
     ])
   })
 
-  it('leaves out a bill already marked Handled for that Due date', () => {
+  it('leaves out a bill already marked Handled for that Event date', () => {
     const gym = {
       id: 'gym',
       name: 'Gym',

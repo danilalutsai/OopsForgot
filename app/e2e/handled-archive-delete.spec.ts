@@ -6,7 +6,7 @@ async function addItem(page: Page, name: string, days: number) {
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText('Other').click()
-  await page.getByLabel('Due date').fill(await inDays(page, days))
+  await page.getByLabel('Event date').fill(await inDays(page, days))
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
 }
@@ -49,7 +49,7 @@ test('mark an Item Handled in place, then undo it', async ({ page }) => {
   expect(look.underline).toBe('none')
 
   await toast.getByRole('button', { name: 'Undo' }).click()
-  await expect(row(page, 'Netflix')).toContainText('Due in 2 days')
+  await expect(row(page, 'Netflix')).toContainText('In 2 days')
 })
 
 test('swipe right for Handled; swipe left deletes, in red, with Undo', async ({ page }) => {
@@ -105,16 +105,16 @@ test('delete an Item from its sheet after confirming, and undo it', async ({ pag
   await expect(row(page, 'Old card')).toBeVisible()
 })
 
-test('a Handled repeating Item reminds again for its next Due date', async ({ page }) => {
+test('a Handled repeating Item reminds again for its next Event date', async ({ page }) => {
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Item' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Cleaning')
   await page.getByText('Home').click()
-  await page.getByLabel('Due date').fill(await inDays(page, -7))
+  await page.getByLabel('Event date').fill(await inDays(page, -7))
   await page.getByRole('combobox', { name: 'Repeats' }).selectOption({ label: 'Every week' })
   await page.getByRole('button', { name: 'Save' }).click()
-  // Handled for last week's Due date does not carry over to today's
-  await expect(row(page, 'Cleaning')).toContainText('Due today')
+  // Handled for last week's Event date does not carry over to today's
+  await expect(row(page, 'Cleaning')).toContainText(/^Cleaning\s*Today/)
   await page.getByRole('button', { name: 'Mark Cleaning Handled' }).click()
   await expect(row(page, 'Cleaning')).toContainText('Handled')
 })
@@ -136,7 +136,7 @@ test('tapping ✓ twice quickly ends up not Handled', async ({ page }) => {
   await addItem(page, 'Spotify', 4)
   await page.getByRole('button', { name: 'Mark Spotify Handled' }).click()
   await page.getByRole('button', { name: 'Undo Handled for Spotify' }).click()
-  await expect(row(page, 'Spotify')).toContainText('Due in 4 days')
+  await expect(row(page, 'Spotify')).toContainText('In 4 days')
   await page.reload()
-  await expect(row(page, 'Spotify')).toContainText('Due in 4 days')
+  await expect(row(page, 'Spotify')).toContainText('In 4 days')
 })

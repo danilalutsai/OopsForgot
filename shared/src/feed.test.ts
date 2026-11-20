@@ -23,13 +23,13 @@ const feed = (items: FeedItem[]) =>
 const events = (text: string) => text.split('BEGIN:VEVENT').slice(1)
 
 describe('calendarFeed', () => {
-  it('makes an all-day event on the Due date, with a link to the Item and no alarm', () => {
+  it('makes an all-day event on the Event date, with a link to the Item and no alarm', () => {
     const text = feed([item()])
     expect(text.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true)
     const [e] = events(text)
     expect(e).toContain('DTSTART;VALUE=DATE:20261202\r\n')
     expect(e).toContain('DTEND;VALUE=DATE:20261203\r\n')
-    expect(e).toContain('SUMMARY:Passport — Due\r\n')
+    expect(e).toContain('SUMMARY:Passport\r\n')
     expect(e).toContain(`URL:${APP_URL}/?item=i1\r\n`)
     expect(e).not.toContain('VALARM')
   })
@@ -54,18 +54,18 @@ describe('calendarFeed', () => {
     expect(starts).toHaveLength(15)
   })
 
-  it('marks a Handled Due date with ✓', () => {
+  it('marks a Handled Event date with ✓', () => {
     const [e] = events(feed([item({ handledDueDate: '2026-12-02' })]))
-    expect(e).toContain('SUMMARY:✓ Passport — Due\r\n')
+    expect(e).toContain('SUMMARY:✓ Passport\r\n')
   })
 
   it('escapes text the calendar format treats specially', () => {
     const [e] = events(feed([item({ name: 'Car; insurance, renew\\now' })]))
-    expect(e).toContain('SUMMARY:Car\\; insurance\\, renew\\\\now — Due\r\n')
+    expect(e).toContain('SUMMARY:Car\\; insurance\\, renew\\\\now\r\n')
   })
 
   it('never lets a line break inside a name split the event', () => {
     const [e] = events(feed([item({ name: 'Old\rMac\r\nname' })]))
-    expect(e).toContain('SUMMARY:Old\\nMac\\nname — Due\r\n')
+    expect(e).toContain('SUMMARY:Old\\nMac\\nname\r\n')
   })
 })
