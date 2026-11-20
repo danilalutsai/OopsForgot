@@ -150,7 +150,7 @@ test('a Finish time must be later than the Start time', async ({ page }) => {
   await sheet.getByLabel('Finish time').fill('11:30')
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
-  await expect(page.getByRole('listitem').filter({ hasText: 'Dentist' })).toContainText('10:00 AM – 11:30 AM')
+  await expect(page.getByRole('listitem').filter({ hasText: 'Dentist' })).toContainText('10:00 – 11:30')
 })
 
 test('Category chips show line icons, muted until picked, then in the chip’s own colour', async ({ page }) => {
@@ -231,4 +231,22 @@ test('on a phone, New Item has a grab line; dragging it down closes, a short dra
     await page.mouse.up()
     await expect(sheet).toBeHidden()
   }
+})
+
+test('times read on the 24-hour clock: 17:45, never 5:45 PM', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await openAddSheet(page)
+  const sheet = page.getByRole('dialog', { name: 'New Item' })
+  await sheet.getByLabel('Name').fill('Test')
+  await sheet.getByText('Cards').click()
+  await sheet.getByLabel('Event date').fill(await inDays(page, 5))
+  await sheet.getByLabel('Start time').fill('17:45')
+  await expect(sheet.getByLabel('Start time')).toHaveAttribute('lang', 'en-GB')
+  await sheet.getByRole('button', { name: 'Save' }).click()
+  const row = page.getByRole('listitem').filter({ hasText: 'Test' })
+  await expect(row).toContainText('17:45')
+  await expect(row).not.toContainText(/[AP]M/)
+  await page.goto('/settings')
+  await expect(page.getByRole('button', { name: /^Day Reminders at/ })).toContainText('12:00')
+  await expect(page.getByRole('button', { name: /^Day Reminders at/ })).not.toContainText(/[AP]M/)
 })

@@ -13,6 +13,8 @@ defineProps<{ type: 'date' | 'time'; placeholder: string }>()
 const value = defineModel<string>({ default: '' })
 const attrs = useAttrs()
 const inputAttrs = computed(() => ({ ...attrs, class: undefined }))
+/** A language with a 24-hour clock: browsers that format the field by the page's language show 17:45. */
+const TIME_LANG = 'en-GB'
 </script>
 
 <template>
@@ -20,6 +22,7 @@ const inputAttrs = computed(() => ({ ...attrs, class: undefined }))
     <input
       v-model="value"
       :type="type"
+      :lang="type === 'time' ? TIME_LANG : undefined"
       v-bind="inputAttrs"
       :data-empty="!value || undefined"
       :class="[INPUT, 'peer']"
