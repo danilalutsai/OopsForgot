@@ -29,7 +29,7 @@ The state of a one-time Item whose time is over: right after its Finish time, or
 _Avoid_: Overdue, late, past due, archived (there is no Archived state any more)
 
 **Reminder**:
-An alert sent to a person a set time before an Item's Event date. An Item can have several: 30 minutes, 1, 2 or 4 hours before (only for Items with a time), or 1 day, 2 days, 1 week, 2 weeks or 1 month before, sent at the person's chosen time of day (12:00 unless they change it). A Reminder must fit inside the time the Item covers: shorter than one repeat for a repeating Item, still ahead of now for a one-time Item. A repeating Item's Reminders repeat every time it comes round.
+An alert sent to a person a set time before an Item's Event date. An Item can have several: 30 minutes, 1, 2 or 4 hours before (only for Items with a time), or 1 day, 2 days, 1 week, 2 weeks or 1 month before, sent at the Item's Start time that many days before, or, for an All-day Item, at the person's chosen time of day (12:00 unless they change it). A Reminder must fit inside the time the Item covers: shorter than one repeat for a repeating Item, still ahead of now for a one-time Item. A repeating Item's Reminders repeat every time it comes round.
 _Avoid_: Notification, alarm, alert
 
 **Handled**:
