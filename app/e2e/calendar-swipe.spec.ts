@@ -128,3 +128,18 @@ test('phone: while dragging, the calendar follows the finger', async ({ page }, 
   await expect.poll(() => grid(page).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m41)).toBe(0)
   await expect(title).toHaveText(before!)
 })
+
+test('phone: a tap, a swipe there and back, then a tap on the same day only selects it', async ({ page }, info) => {
+  test.skip(!info.project.name.startsWith('phone'), 'finger swipe')
+  await openCalendar(page)
+  await page.getByRole('button', { name: 'Week', exact: true }).click()
+  await expect(grid(page).getByRole('button')).toHaveCount(7)
+  const day = grid(page).getByRole('button').nth(3)
+  const label = (await day.getAttribute('aria-label'))!
+  await day.tap()
+  await swipe(grid(page), -160)
+  await swipe(grid(page), 160)
+  await grid(page).getByRole('button', { name: label }).tap()
+  await page.waitForTimeout(400)
+  await expect(page.getByRole('dialog')).toBeHidden()
+})

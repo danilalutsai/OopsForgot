@@ -81,3 +81,57 @@ test('arrow keys move between List and Calendar', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'Calendar' })).toBeFocused()
   await expect(page.getByRole('tabpanel', { name: 'Calendar' })).toBeVisible()
 })
+
+for (const view of ['Week', 'Month'] as const)
+  test(`${view.toLowerCase()} view: double-tap a day to add an Item on it; one tap only selects`, async ({
+    page,
+  }, info) => {
+    await logInAsNewPerson(page)
+    await page.getByRole('tab', { name: 'Calendar' }).click()
+    // a neighbour of today in the same week, so it shows in both views
+    await page.getByRole('button', { name: 'Week', exact: true }).click()
+    const todayAt = await page
+      .getByTestId('calendar-days')
+      .getByRole('button')
+      .evaluateAll((cells) => cells.findIndex((c) => c.getAttribute('aria-pressed') === 'true'))
+    const offset = todayAt < 6 ? 1 : -1
+    await page.getByRole('button', { name: view, exact: true }).click()
+    const day = page.getByRole('button', { name: `${await dayName(page, offset)}, no Items` })
+    const touch = !info.project.name.startsWith('computer')
+    const tap = () => (touch ? day.tap() : day.click())
+
+    // one tap selects the day and opens nothing
+    await tap()
+    await expect(day).toHaveAttribute('aria-pressed', 'true')
+    await page.waitForTimeout(500)
+    await expect(page.getByRole('dialog')).toBeHidden()
+
+    // a double tap opens New Item on that date, with no time
+    if (touch) {
+      await day.tap()
+      await day.tap()
+    } else await day.dblclick()
+    const sheet = page.getByRole('dialog', { name: 'New Item' })
+    await expect(sheet).toBeVisible()
+    await expect(sheet.getByLabel('Due date')).toHaveValue(await inDays(page, offset))
+    await expect(sheet.getByLabel('Time', { exact: true })).toHaveValue('')
+
+    await sheet.getByLabel('Name').fill('Dentist')
+    await sheet.getByText('Health').click()
+    await sheet.getByRole('button', { name: 'Save' }).click()
+    await expect(sheet).toBeHidden()
+    await expect(page.getByRole('button', { name: `${await dayName(page, offset)}, 1 Item` })).toBeVisible()
+  })
+
+test('on a phone, a double tap on the calendar cannot zoom the page', async ({ page }, info) => {
+  test.skip(info.project.name.startsWith('computer'), 'phone only')
+  await logInAsNewPerson(page)
+  await page.getByRole('tab', { name: 'Calendar' }).click()
+  // pan-y or manipulation: the browser keeps scrolling but drops double-tap zoom
+  const touchAction = await page
+    .getByTestId('calendar-days')
+    .getByRole('button')
+    .first()
+    .evaluate((el) => getComputedStyle(el.closest('[data-testid="calendar-days"]')!).touchAction)
+  expect(['pan-y', 'manipulation']).toContain(touchAction)
+})

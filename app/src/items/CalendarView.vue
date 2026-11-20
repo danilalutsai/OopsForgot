@@ -14,7 +14,7 @@ import { URGENCY_BG } from './urgencyClasses'
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
 
 const props = defineProps<{ items: Item[] }>()
-defineEmits<{ open: [id: string] }>()
+const emit = defineEmits<{ open: [id: string]; add: [day: string] }>()
 const actions = useItemActions()
 const { t } = useI18n()
 
@@ -99,7 +99,13 @@ const title = computed(() =>
 )
 const weekdays = computed(() => days.value.slice(0, 7).map((d) => fmt(formats.weekday, d)))
 
+/** How soon a second tap on the same day must follow to count as a double tap. */
+const DOUBLE_TAP_MS = 350
+let lastTap = { day: '', at: 0 }
+
 function move(step: number) {
+  // a tap, a swipe and a tap are no double tap
+  lastTap = { day: '', at: 0 }
   anchor.value =
     view.value === 'week' ? addDays(anchor.value, 7 * step) : addMonths(`${anchor.value.slice(0, 7)}-01`, step)
 }
@@ -147,6 +153,20 @@ const periodTransition = {
       },
     )
   },
+}
+
+/**
+ * A tap selects the day; a second tap on it right after asks to add an Item on it. Counted by hand, as
+ * iPhones send no dblclick for a double tap; a mouse double-click arrives as the same two clicks.
+ * Keyboard presses (detail 0) only select.
+ */
+function tapDay(day: string, e: MouseEvent) {
+  selected.value = day
+  const now = e.timeStamp
+  if (e.detail > 0 && lastTap.day === day && now - lastTap.at < DOUBLE_TAP_MS) {
+    lastTap = { day: '', at: 0 }
+    emit('add', day)
+  } else lastTap = { day, at: now }
 }
 
 const selectedItems = computed(() => byDay.value.get(selected.value) ?? [])
@@ -205,7 +225,7 @@ const selectedLabel = computed(() => fmt(formats.long, selected.value))
                 cell.outside && 'text-muted',
                 cell.day === today && 'font-bold text-accent',
               ]"
-              @click="selected = cell.day"
+              @click="tapDay(cell.day, $event)"
             >
               {{ cell.number }}
               <span class="mt-1 flex gap-0.5" aria-hidden="true">
