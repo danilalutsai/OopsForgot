@@ -96,30 +96,6 @@ body {
   @apply bg-bg font-sans text-text antialiased;
 }
 
-/* An empty date or time field (DateTimeInput) shows its own placeholder instead of the browser's
-   example value (iOS: today's date, the time now) or "--:--"; while edited, the browser's shows. */
-input:is([type='date'], [type='time'])[data-empty]:not(:focus) {
-  color: transparent;
-  /* Safari paints a disabled field's text with this instead of color */
-  -webkit-text-fill-color: transparent;
-}
-
-/* iOS Safari gives date and time fields a look and a minimum width of their own: they stuck out of
-   the sheet. Drop both so they fit their box like the other inputs, at the same height (iOS lets
-   an empty one shrink), with the value on the left (iOS centres it). */
-input:is([type='date'], [type='time']) {
-  -webkit-appearance: none;
-  appearance: none;
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  min-height: 2.875rem;
-}
-input:is([type='date'], [type='time'])::-webkit-date-and-time-value {
-  text-align: left;
-}
-
 /* Selects draw their own arrow, set in from the right edge like the other inputs' icons. */
 select {
   appearance: none;

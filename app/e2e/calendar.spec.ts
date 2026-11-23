@@ -1,12 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { inDays, logInAsNewPerson } from './people'
+import { inDays, logInAsNewPerson, pick } from './people'
 
 async function addItem(page: Page, name: string, days: number, repeat?: string) {
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText('Other').click()
-  await page.getByLabel('Event date').fill(await inDays(page, days))
+  await pick(page.getByLabel('Event date'), await inDays(page, days))
   if (repeat) await page.getByRole('combobox', { name: 'Repeats' }).selectOption({ label: repeat })
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
@@ -113,9 +113,9 @@ for (const view of ['Week', 'Month'] as const)
     } else await day.dblclick()
     const sheet = page.getByRole('dialog', { name: 'New Event' })
     await expect(sheet).toBeVisible()
-    await expect(sheet.getByLabel('Event date')).toHaveValue(await inDays(page, offset))
-    await expect(sheet.getByLabel('Start time')).toHaveValue('')
-    await expect(sheet.getByLabel('Finish time')).toHaveValue('')
+    await expect(sheet.getByLabel('Event date')).toHaveAttribute('data-value', await inDays(page, offset))
+    await expect(sheet.getByLabel(/^Start time/)).toHaveAttribute('data-value', '')
+    await expect(sheet.getByLabel('Finish time')).toHaveAttribute('data-value', '')
 
     await sheet.getByLabel('Name').fill('Dentist')
     await sheet.getByText('Health').click()

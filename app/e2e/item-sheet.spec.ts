@@ -1,12 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { inDays, logInAsNewPerson } from './people'
+import { inDays, logInAsNewPerson, pick } from './people'
 
 async function addGym(page: Page) {
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Gym')
   await page.getByText('Health').click()
-  await page.getByLabel('Event date').fill(await inDays(page, 10))
+  await pick(page.getByLabel('Event date'), await inDays(page, 10))
   await page.getByLabel('Price').fill('35')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
@@ -23,7 +23,7 @@ test('change an Event line by line; Save saves and closes the sheet', async ({ p
   await sheet.getByRole('button', { name: /^Price/ }).click()
   await sheet.getByLabel('Price').fill('39.90')
   await sheet.getByRole('button', { name: /^Event date/ }).click()
-  await sheet.getByLabel('Event date').fill(await inDays(page, 2))
+  await pick(sheet.getByLabel('Event date'), await inDays(page, 2))
   await expect(sheet.locator('header').getByRole('status')).toHaveText('Unsaved changes')
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
@@ -202,12 +202,12 @@ test('the Time row of an all-day Event says so, also when opened; Start and Fini
   const line = sheet.getByRole('button', { name: /^Time/ })
   await expect(line).toContainText('All day')
   await line.click()
-  await expect(sheet.getByLabel('Start time')).toHaveValue('')
-  await expect(sheet.getByLabel('Start time').locator('..')).toContainText('All day')
+  await expect(sheet.getByLabel(/^Start time/)).toHaveAttribute('data-value', '')
+  await expect(sheet.getByLabel(/^Start time/).locator('..')).toContainText('All day')
 
   const reopen = () => page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
-  await sheet.getByLabel('Start time').fill('18:00')
-  await sheet.getByLabel('Finish time').fill('19:30')
+  await pick(sheet.getByLabel(/^Start time/), '18:00')
+  await pick(sheet.getByLabel('Finish time'), '19:30')
   await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
   await reopen()
@@ -215,12 +215,12 @@ test('the Time row of an all-day Event says so, also when opened; Start and Fini
 
   // a Finish that is not after Start is refused: nothing is saved and the sheet stays open
   await line.click()
-  await sheet.getByLabel('Finish time').fill('17:00')
+  await pick(sheet.getByLabel('Finish time'), '17:00')
   await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
   await expect(sheet.getByRole('alert')).toContainText('Finish time must be later than Start time.')
   await expect(sheet).toBeVisible()
 
-  await sheet.getByRole('button', { name: 'All day' }).click()
+  await sheet.getByRole('button', { name: 'All day', exact: true }).click()
   await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
   await reopen()

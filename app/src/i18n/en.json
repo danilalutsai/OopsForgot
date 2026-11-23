@@ -484,6 +484,15 @@
     },
     "googleStays": "Your account was made with Google, so Google stays one of your ways in. You can still add a password above."
   },
+  "picker": {
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "today": "Today",
+    "clear": "Clear",
+    "done": "Done",
+    "hours": "Hours",
+    "minutes": "Minutes"
+  },
   "swipe": {
     "handled": "Handled",
     "undo": "Undo",

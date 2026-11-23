@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { inDays, logInAsNewPerson } from './people'
+import { inDays, logInAsNewPerson, pick } from './people'
 
 test('pick Reminders when adding an Event; only fitting ones are offered', async ({ page }) => {
   await logInAsNewPerson(page)
@@ -16,8 +16,8 @@ test('pick Reminders when adding an Event; only fitting ones are offered', async
 
   await form.getByLabel('Name').fill('Dentist')
   await form.getByText('Health').click()
-  await form.getByLabel('Event date').fill(await inDays(page, 30))
-  await form.getByLabel('Start time').fill('09:30')
+  await pick(form.getByLabel('Event date'), await inDays(page, 30))
+  await pick(form.getByLabel(/^Start time/), '09:30')
   await expect(chip('1 hour')).toBeEnabled()
   await chip('1 hour').click()
   await chip('1 week').click()
@@ -36,19 +36,19 @@ test('an Event with a Start time tomorrow can have "1 day": it arrives at the St
   const form = page.getByRole('dialog', { name: 'New Event' })
   const chip = (name: string) =>
     form.getByRole('group', { name: 'Reminders' }).getByRole('button', { name, exact: true })
-  await form.getByLabel('Event date').fill(await inDays(page, 1))
+  await pick(form.getByLabel('Event date'), await inDays(page, 1))
   // late enough that "today at the Start time" is still ahead, whatever the clock says now
-  await form.getByLabel('Start time').fill('23:59')
+  await pick(form.getByLabel(/^Start time/), '23:55')
   await expect(chip('1 day')).toBeEnabled()
   await expect(chip('2 days')).toBeDisabled()
-  await expect(form.getByText('Day Reminders arrive at the Start time, 23:59.')).toBeVisible()
+  await expect(form.getByText('Day Reminders arrive at the Start time, 23:55.')).toBeVisible()
 })
 
 test('a weekly Event cannot have Reminders a week or more before', async ({ page }) => {
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   const form = page.getByRole('dialog', { name: 'New Event' })
-  await form.getByLabel('Event date').fill(await inDays(page, 3))
+  await pick(form.getByLabel('Event date'), await inDays(page, 3))
   await form.getByRole('combobox', { name: 'Repeats' }).selectOption({ label: 'Every week' })
   const group = form.getByRole('group', { name: 'Reminders' })
   await expect(group.getByRole('button', { name: '2 days', exact: true })).toBeEnabled()
@@ -62,8 +62,8 @@ test('change Reminders in the sheet; ones that no longer fit are dropped on save
   const form = page.getByRole('dialog', { name: 'New Event' })
   await form.getByLabel('Name').fill('Flight')
   await form.getByText('Travel').click()
-  await form.getByLabel('Event date').fill(await inDays(page, 20))
-  await form.getByLabel('Start time').fill('07:00')
+  await pick(form.getByLabel('Event date'), await inDays(page, 20))
+  await pick(form.getByLabel(/^Start time/), '07:00')
   await form.getByRole('group', { name: 'Reminders' }).getByRole('button', { name: '4 hours', exact: true }).click()
   await form.getByRole('button', { name: 'Save' }).click()
   await expect(form).toBeHidden()
@@ -71,7 +71,7 @@ test('change Reminders in the sheet; ones that no longer fit are dropped on save
   await page.getByRole('listitem').filter({ hasText: 'Flight' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Flight' })
   await sheet.getByRole('button', { name: /^Time/ }).click()
-  await sheet.getByRole('button', { name: 'All day' }).click()
+  await sheet.getByRole('button', { name: 'All day', exact: true }).click()
   await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
   await page.getByRole('listitem').filter({ hasText: 'Flight' }).getByRole('button').first().click()
@@ -85,7 +85,7 @@ test('"Make it repeat" keeps only Reminders that fit the new repeat', async ({ p
   const form = page.getByRole('dialog', { name: 'New Event' })
   await form.getByLabel('Name').fill('Bins')
   await form.getByText('Home').click()
-  await form.getByLabel('Event date').fill(await inDays(page, 30))
+  await pick(form.getByLabel('Event date'), await inDays(page, 30))
   await form.getByRole('group', { name: 'Reminders' }).getByRole('button', { name: '2 weeks', exact: true }).click()
   await form.getByRole('button', { name: 'Save' }).click()
   await expect(form).toBeHidden()
@@ -94,7 +94,7 @@ test('"Make it repeat" keeps only Reminders that fit the new repeat', async ({ p
   await page.getByRole('listitem').filter({ hasText: 'Bins' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Bins' })
   await sheet.getByRole('button', { name: /^Event date/ }).click()
-  await sheet.getByLabel('Event date').fill(await inDays(page, -2))
+  await pick(sheet.getByLabel('Event date'), await inDays(page, -2))
   await sheet.locator('header').getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
   // now Expired: it waits above Today
@@ -111,7 +111,7 @@ test('three quick taps on ✓ end up Handled', async ({ page }) => {
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Phone bill')
   await page.getByText('Other').click()
-  await page.getByLabel('Event date').fill(await inDays(page, 5))
+  await pick(page.getByLabel('Event date'), await inDays(page, 5))
   await page.getByRole('button', { name: 'Save' }).click()
   const tick = page.getByRole('listitem').filter({ hasText: 'Phone bill' }).getByRole('button').nth(1)
   // the three saves go out one after another; reload only once all have reached the server

@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import pg from 'pg'
 
@@ -122,4 +122,35 @@ export async function openFromAvatar(page: Page, name: 'Account' | 'Settings') {
   await page.getByRole('button', { name: /Account menu/ }).click()
   await page.getByRole('menuitem', { name }).click()
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible()
+}
+
+/**
+ * Sets one of the app's date or time fields the way a person does: through its calendar, or its
+ * hour and minute columns. An empty value clears the field.
+ */
+export async function pick(field: Locator, value: string) {
+  if (!value && !(await field.getAttribute('data-value'))) return
+  const kind = await field.getAttribute('data-kind')
+  const name = (await field.getAttribute('data-label'))!
+  await field.click()
+  // the picker is named after its field: "Event date, Choose a date"
+  const panel = field.page().getByRole('dialog', { name: `${name}, ` })
+  if (!value) {
+    await panel.getByRole('button', { name: 'Clear' }).click()
+  } else if (kind === 'time') {
+    const [hour, minute] = value.split(':')
+    await panel.getByRole('listbox', { name: 'Hours' }).getByRole('option', { name: hour, exact: true }).click()
+    await panel.getByRole('listbox', { name: 'Minutes' }).getByRole('option', { name: minute, exact: true }).click()
+  } else {
+    // to the month the date is in, then the day
+    const inMonth = '[data-value]:not([data-outside-view])'
+    for (let i = 0; i < 240; i++) {
+      const day = panel.locator(`[data-value="${value}"]:not([data-outside-view])`)
+      if (await day.count()) break
+      const shown = (await panel.locator(inMonth).first().getAttribute('data-value'))!
+      await panel.getByRole('button', { name: value < shown ? 'Previous month' : 'Next month' }).click()
+    }
+    await panel.locator(`[data-value="${value}"]:not([data-outside-view])`).click()
+  }
+  await expect(panel).toBeHidden()
 }

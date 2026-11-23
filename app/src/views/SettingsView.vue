@@ -9,6 +9,7 @@ import { INPUT, SECTION_TITLE } from '../items/ui'
 import { keepSavedTimeZone, timeZoneDiffers } from '../settings/timeZoneCheck'
 import { browserTimeZone, useAuth } from '../stores/auth'
 import { useProfileSave } from '../settings/profileSave'
+import DateTimeInput from '../components/DateTimeInput.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { dayReminderTime } from '../today'
 import { setTheme, theme, THEMES } from '../theme'
@@ -104,14 +105,15 @@ const lines = {
         :open="openLine === 'dayTime'"
         @toggle="toggle('dayTime')"
       >
-        <input
+        <DateTimeInput
           :key="`time-${redraw}`"
           type="time"
-          step="900"
-          :value="dayTime"
+          :step="900"
+          :clearable="false"
+          :model-value="dayTime"
           :aria-label="$t('settings.dayTime')"
-          :class="INPUT"
-          @change="setDayTime(($event.target as HTMLInputElement).value)"
+          :placeholder="$t('settings.dayTime')"
+          @update:model-value="setDayTime"
         />
         <p class="mt-2 text-sm text-muted">{{ $t('settings.dayTimeHint') }}</p>
         <button

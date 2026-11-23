@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { inDays, logInAsNewPerson } from './people'
+import { inDays, logInAsNewPerson, pick } from './people'
 
 async function openAddSheet(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
@@ -14,7 +14,7 @@ test('add an Event and see it in the right group', async ({ page }) => {
 
   await page.getByLabel('Name').fill('Gym')
   await page.getByText('Health').click()
-  await page.getByLabel('Event date').fill(await inDays(page, 3))
+  await pick(page.getByLabel('Event date'), await inDays(page, 3))
   await page.getByLabel('Price').fill('35,00')
   await page.getByRole('button', { name: 'Save' }).click()
 
@@ -35,7 +35,7 @@ test('an Event for today and an Event far ahead land in Today and Later', async 
     await openAddSheet(page)
     await page.getByLabel('Name').fill(name)
     await page.getByText('Other').click()
-    await page.getByLabel('Event date').fill(await inDays(page, days))
+    await pick(page.getByLabel('Event date'), await inDays(page, days))
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByRole('dialog')).toBeHidden()
   }
@@ -63,7 +63,7 @@ test("after Ana logs out, Ben never sees Ana's Events on the same device", async
   await openAddSheet(page)
   await page.getByLabel('Name').fill('Ana passport')
   await page.getByText('Documents').click()
-  await page.getByLabel('Event date').fill(await inDays(page, 30))
+  await pick(page.getByLabel('Event date'), await inDays(page, 30))
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByText('Ana passport')).toBeVisible()
 
@@ -73,25 +73,34 @@ test("after Ana logs out, Ben never sees Ana's Events on the same device", async
   await expect(page.getByText('Ana passport')).toHaveCount(0)
 })
 
-test('on a phone, empty date and time fields look empty, not filled with an example', async ({ page }, info) => {
-  test.skip(!info.project.name.startsWith('phone'), 'touch screens show an example value in empty fields')
+test("date and time fields use the app's own pickers: empty ones show a placeholder", async ({ page }) => {
   await logInAsNewPerson(page)
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   const date = page.getByLabel('Event date')
-  const time = page.getByLabel('Start time')
-  const textColor = (field: typeof date) => field.evaluate((el) => getComputedStyle(el).color)
+  const time = page.getByLabel(/^Start time/)
+  await expect(date).toHaveText('Choose a date')
+  await expect(time).toHaveText('All day')
 
-  await date.fill('')
-  await date.blur()
-  expect(await textColor(date)).toBe('rgba(0, 0, 0, 0)')
-  expect(await textColor(time)).toBe('rgba(0, 0, 0, 0)')
-  // still a full-height field, like the others
-  expect((await date.boundingBox())!.height).toBeGreaterThanOrEqual(40)
+  // a month calendar: today is marked, Today picks it and closes
+  await date.click()
+  const calendar = page.getByRole('dialog', { name: 'Event date' })
+  await expect(calendar.getByRole('button', { name: 'Next month' })).toBeVisible()
+  await expectAccessible(page)
+  await calendar.getByRole('button', { name: 'Today' }).click()
+  await expect(calendar).toBeHidden()
+  await expect(date).toHaveAttribute('data-value', await inDays(page, 0))
 
-  await date.fill(await inDays(page, 3))
-  await time.fill('09:30')
-  expect(await textColor(date)).not.toBe('rgba(0, 0, 0, 0)')
-  expect(await textColor(time)).not.toBe('rgba(0, 0, 0, 0)')
+  // hour and minute columns: the hour alone is not saved yet, the minutes finish it
+  await time.click()
+  const clock = page.getByRole('dialog', { name: 'Start time' })
+  await clock.getByRole('listbox', { name: 'Hours' }).getByRole('option', { name: '09', exact: true }).click()
+  await expect(time).toHaveAttribute('data-value', '')
+  await clock.getByRole('listbox', { name: 'Minutes' }).getByRole('option', { name: '30', exact: true }).click()
+  await expect(clock).toBeHidden()
+  await expect(time).toHaveText('09:30')
+
+  await pick(time, '')
+  await expect(time).toHaveText('All day')
 })
 
 test('New Event sheet: Event date, Start time and Finish time, stacked; empty Start reads "All day"', async ({
@@ -101,7 +110,7 @@ test('New Event sheet: Event date, Start time and Finish time, stacked; empty St
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   const sheet = page.getByRole('dialog')
   const date = (await sheet.getByLabel('Event date').boundingBox())!
-  const start = (await sheet.getByLabel('Start time').boundingBox())!
+  const start = (await sheet.getByLabel(/^Start time/).boundingBox())!
   const finish = (await sheet.getByLabel('Finish time').boundingBox())!
   // stacked, same width: Event date, then Start, then Finish
   expect(start.y).toBeGreaterThanOrEqual(date.y + date.height)
@@ -119,19 +128,19 @@ test('New Event sheet: Event date, Start time and Finish time, stacked; empty St
   // no Finish without a Start
   await expect(sheet.getByLabel('Finish time')).toBeDisabled()
   await expect(sheet.getByText('Set a Start time first')).toBeVisible()
-  await expect(sheet.getByRole('button', { name: 'All day' })).toBeHidden()
+  await expect(sheet.getByRole('button', { name: 'All day', exact: true })).toBeHidden()
 
-  await sheet.getByLabel('Event date').fill(await inDays(page, 3))
-  await sheet.getByLabel('Start time').fill('09:30')
+  await pick(sheet.getByLabel('Event date'), await inDays(page, 3))
+  await pick(sheet.getByLabel(/^Start time/), '09:30')
   await expect(sheet.getByLabel('Finish time')).toBeEnabled()
-  await sheet.getByLabel('Finish time').fill('10:45')
+  await pick(sheet.getByLabel('Finish time'), '10:45')
   await sheet.getByLabel('Name').click()
   await expect(sheet.getByText('Choose a date')).toBeHidden()
 
   // "All day" takes both times away again
-  await sheet.getByRole('button', { name: 'All day' }).click()
-  await expect(sheet.getByLabel('Start time')).toHaveValue('')
-  await expect(sheet.getByLabel('Finish time')).toHaveValue('')
+  await sheet.getByRole('button', { name: 'All day', exact: true }).click()
+  await expect(sheet.getByLabel(/^Start time/)).toHaveAttribute('data-value', '')
+  await expect(sheet.getByLabel('Finish time')).toHaveAttribute('data-value', '')
   await expect(sheet.getByLabel('Finish time')).toBeDisabled()
 })
 
@@ -141,13 +150,13 @@ test('a Finish time must be later than the Start time', async ({ page }) => {
   const sheet = page.getByRole('dialog', { name: 'New Event' })
   await sheet.getByLabel('Name').fill('Dentist')
   await sheet.getByText('Health').click()
-  await sheet.getByLabel('Event date').fill(await inDays(page, 3))
-  await sheet.getByLabel('Start time').fill('10:00')
-  await sheet.getByLabel('Finish time').fill('09:00')
+  await pick(sheet.getByLabel('Event date'), await inDays(page, 3))
+  await pick(sheet.getByLabel(/^Start time/), '10:00')
+  await pick(sheet.getByLabel('Finish time'), '09:00')
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet.getByRole('alert')).toHaveText('Finish time must be later than Start time.')
 
-  await sheet.getByLabel('Finish time').fill('11:30')
+  await pick(sheet.getByLabel('Finish time'), '11:30')
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
   await expect(page.getByRole('listitem').filter({ hasText: 'Dentist' })).toContainText('10:00 – 11:30')
@@ -181,7 +190,7 @@ test('Event wording: rows say Today, Tomorrow, In 5 days; nothing on screen says
     await expect(sheet).not.toContainText(/\bdue\b/i)
     await sheet.getByLabel('Name').fill(name)
     await sheet.getByText('Other').click()
-    await sheet.getByLabel('Event date').fill(await inDays(page, days))
+    await pick(sheet.getByLabel('Event date'), await inDays(page, days))
     await sheet.getByRole('button', { name: 'Save' }).click()
     await expect(sheet).toBeHidden()
   }
@@ -239,9 +248,9 @@ test('times read on the 24-hour clock: 17:45, never 5:45 PM', async ({ page }) =
   const sheet = page.getByRole('dialog', { name: 'New Event' })
   await sheet.getByLabel('Name').fill('Test')
   await sheet.getByText('Cards').click()
-  await sheet.getByLabel('Event date').fill(await inDays(page, 5))
-  await sheet.getByLabel('Start time').fill('17:45')
-  await expect(sheet.getByLabel('Start time')).toHaveAttribute('lang', 'en-GB')
+  await pick(sheet.getByLabel('Event date'), await inDays(page, 5))
+  await pick(sheet.getByLabel(/^Start time/), '17:45')
+  await expect(sheet.getByLabel(/^Start time/)).toHaveText('17:45')
   await sheet.getByRole('button', { name: 'Save' }).click()
   const row = page.getByRole('listitem').filter({ hasText: 'Test' })
   await expect(row).toContainText('17:45')

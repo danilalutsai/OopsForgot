@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { logInAsNewPerson } from './people'
+import { logInAsNewPerson, pick } from './people'
 
 async function addExpense(page: Page, amount: string, category: string, description = '') {
   await page.getByRole('button', { name: 'Add Expense' }).first().click()
@@ -70,7 +70,7 @@ test('priced Events due later this month show as still coming; tapping one opens
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Gym')
   await page.getByText('Health').click()
-  await page.getByLabel('Event date').fill(tomorrow!)
+  await pick(page.getByLabel('Event date'), tomorrow!)
   await page.getByLabel('Price').fill('35')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
@@ -94,7 +94,7 @@ test('a long Event name in still coming stays on screen instead of widening the 
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill('Gym membership with a very long name that would not fit on a phone screen at all')
   await page.getByText('Health').click()
-  await page.getByLabel('Event date').fill(tomorrow!)
+  await pick(page.getByLabel('Event date'), tomorrow!)
   await page.getByLabel('Price').fill('35')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()

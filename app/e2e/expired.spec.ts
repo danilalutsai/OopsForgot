@@ -1,15 +1,15 @@
 import { expect, test, type Page } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { addEvents, inDays, logInAsNewPerson } from './people'
+import { addEvents, inDays, logInAsNewPerson, pick } from './people'
 
 async function addItem(page: Page, name: string, days: number, times?: [string, string]) {
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText('Documents').click()
-  await page.getByLabel('Event date').fill(await inDays(page, days))
+  await pick(page.getByLabel('Event date'), await inDays(page, days))
   if (times) {
-    await page.getByLabel('Start time').fill(times[0])
-    await page.getByLabel('Finish time').fill(times[1])
+    await pick(page.getByLabel(/^Start time/), times[0])
+    await pick(page.getByLabel('Finish time'), times[1])
   }
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
@@ -101,8 +101,8 @@ test('no Expired Events: no "Expired" button', async ({ page }) => {
 
 test('an Event with a Finish time is Expired right after it, on the same day', async ({ page }) => {
   await logInAsNewPerson(page)
-  await addItem(page, 'Early call', 0, ['00:00', '00:01'])
-  await addItem(page, 'Late call', 0, ['23:58', '23:59'])
+  await addItem(page, 'Early call', 0, ['00:00', '00:05'])
+  await addItem(page, 'Late call', 0, ['23:50', '23:55'])
   await expect(page.getByRole('region', { name: 'Today' }).getByText('Late call')).toBeVisible()
   await expiredButton(page).click()
   await expect(expired(page).getByText('Early call')).toBeVisible()

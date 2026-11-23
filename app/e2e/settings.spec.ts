@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { inDays, logInAsNewPerson, openFromAvatar } from './people'
+import { inDays, logInAsNewPerson, openFromAvatar, pick } from './people'
 
 test('change the day Reminder time in Settings', async ({ page }) => {
   await logInAsNewPerson(page)
@@ -9,16 +9,18 @@ test('change the day Reminder time in Settings', async ({ page }) => {
 
   const line = page.getByRole('button', { name: /^Day Reminders at/ })
   await line.click()
-  await page.getByLabel('Day Reminders at').fill('08:07')
-  await page.getByLabel('Day Reminders at').blur()
+  const field = page.getByLabel('Day Reminders at')
+  // only quarter hours to pick from
+  await field.click()
+  const minutes = page.getByRole('listbox', { name: 'Minutes' }).getByRole('option')
+  await expect(minutes).toHaveText(['00', '15', '30', '45'])
+  await page.keyboard.press('Escape')
+  await pick(field, '08:15')
   await expect(page.getByRole('status')).toHaveText('Saved')
-  await expect(page.getByLabel('Day Reminders at')).toHaveValue('08:00')
-  await page.getByLabel('Day Reminders at').fill('08:10')
-  await page.getByLabel('Day Reminders at').blur()
-  await expect(page.getByLabel('Day Reminders at')).toHaveValue('08:00')
+  await expect(field).toHaveAttribute('data-value', '08:15')
 
   await page.getByRole('button', { name: 'Back to 12:00' }).click()
-  await expect(page.getByLabel('Day Reminders at')).toHaveValue('12:00')
+  await expect(page.getByLabel('Day Reminders at')).toHaveAttribute('data-value', '12:00')
 })
 
 test('a device in another time zone gets an amber dot and an "Update time zone?" question', async ({ page }) => {
@@ -53,7 +55,7 @@ test('change currency and name; the avatar follows', async ({ page }) => {
 test('add and remove a profile photo', async ({ page }) => {
   await logInAsNewPerson(page)
   await openFromAvatar(page, 'Account')
-  await page.getByRole('button', { name: /^Profile/ }).click()
+  await page.getByRole('button', { name: /^Photo/ }).click()
   // any real image will do: a small screenshot of the page itself
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 60, height: 40 } })
   await page.getByLabel('Photo').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: png })
@@ -130,7 +132,7 @@ test('no emojis anywhere in the app: list, sheets, Money, Settings, Account', as
   await expect(form).not.toContainText(emoji)
   await form.getByLabel('Name').fill('Gym')
   await form.getByText('Health').click()
-  await form.getByLabel('Event date').fill(await inDays(page, 3))
+  await pick(form.getByLabel('Event date'), await inDays(page, 3))
   await form.getByRole('button', { name: 'Save' }).click()
   await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
