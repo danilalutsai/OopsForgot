@@ -104,3 +104,30 @@ test('a long Event name in still coming stays on screen instead of widening the 
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(sideways).toBeLessThanOrEqual(0)
 })
+
+test('on a phone, New Expense has a grab line; dragging it down closes, a short drag springs back', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name.startsWith('computer'), 'phone only')
+  await logInAsNewPerson(page)
+  await page.getByRole('link', { name: 'Money' }).filter({ visible: true }).click()
+  await page.getByRole('button', { name: 'Add Expense' }).first().click()
+  const sheet = page.getByRole('dialog', { name: 'New Expense' })
+  const handle = sheet.getByTestId('sheet-handle')
+  await expect(handle).toBeVisible()
+  const box = (await handle.boundingBox())!
+  const sheetBox = (await sheet.boundingBox())!
+  const x = box.x + box.width / 2
+
+  await page.mouse.move(x, box.y + 2)
+  await page.mouse.down()
+  await page.mouse.move(x, box.y + 40, { steps: 10 })
+  await page.mouse.up()
+  await expect(sheet).toBeVisible()
+
+  await page.mouse.move(x, box.y + 2)
+  await page.mouse.down()
+  await page.mouse.move(x, box.y + sheetBox.height * 0.7, { steps: 10 })
+  await page.mouse.up()
+  await expect(sheet).toBeHidden()
+})

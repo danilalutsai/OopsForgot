@@ -27,16 +27,46 @@ async function fakePush(page: import('@playwright/test').Page, { serviceBlocked 
 
 test('with no device getting push, the app says so and the avatar shows a dot', async ({ page }) => {
   await logInAsNewPerson(page)
-  await expect(page.getByText('Notifications are off, so Reminders can’t reach you yet.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Reminders can’t reach you' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Account menu/ }).getByTitle('Needs your attention')).toBeVisible()
+})
+
+test('Settings says why the dot is there; Keep off makes the dot and the notes go away', async ({ page }) => {
+  await logInAsNewPerson(page)
+  const dot = page.getByRole('button', { name: /Account menu/ }).getByTitle('Needs your attention')
+  await openFromAvatar(page, 'Settings')
+  const card = page.getByRole('region', { name: 'Reminders can’t reach you' })
+  await expect(card).toContainText('That’s why the avatar has an amber dot.')
+  await expect(page.getByRole('button', { name: /^Notifications/ }).getByTitle('Needs your attention')).toBeVisible()
+  await expectAccessible(page)
+
+  // Turn on notifications opens the line where that happens
+  await card.getByRole('button', { name: 'Turn on notifications' }).click()
+  await expect(page.getByRole('button', { name: /^Notifications/ })).toHaveAttribute('aria-expanded', 'true')
+
+  await card.getByRole('button', { name: 'Keep off' }).click()
+  await expect(card).toBeHidden()
+  await expect(dot).toBeHidden()
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Reminders can’t reach you' })).toBeHidden()
+  await expect(dot).toBeHidden()
+})
+
+test('the note above the Events offers Keep off too', async ({ page }) => {
+  await logInAsNewPerson(page)
+  const note = page.getByRole('region', { name: 'Reminders can’t reach you' })
+  await expectAccessible(page)
+  await note.getByRole('button', { name: 'Keep off' }).click()
+  await expect(note).toBeHidden()
+  await expect(page.getByRole('button', { name: /Account menu/ }).getByTitle('Needs your attention')).toBeHidden()
 })
 
 test('turn on push on this device, then remove it', async ({ page }, info) => {
   test.skip(info.project.name === 'phone-webkit', 'iPhone needs the Home Screen app first (next test)')
   await fakePush(page)
   await logInAsNewPerson(page)
-  await page.getByRole('link', { name: 'Turn it on' }).click()
-  await page.getByRole('button', { name: /^Notifications/ }).click()
+  // straight to Settings, with the Notifications line open
+  await page.getByRole('link', { name: 'Turn on notifications' }).click()
   await expectAccessible(page)
   await page.getByRole('button', { name: 'Turn on here' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'This device will get Reminders.' })).toBeVisible()
@@ -65,8 +95,8 @@ test("logging out removes this device from the person's push list", async ({ pag
   test.skip(info.project.name === 'phone-webkit', 'iPhone needs the Home Screen app first')
   await fakePush(page)
   const person = await logInAsNewPerson(page)
-  await page.getByRole('link', { name: 'Turn it on' }).click()
-  await page.getByRole('button', { name: /^Notifications/ }).click()
+  // straight to Settings, with the Notifications line open
+  await page.getByRole('link', { name: 'Turn on notifications' }).click()
   await page.getByRole('button', { name: 'Turn on here' }).click()
   await expect(page.getByRole('button', { name: /^Notifications/ })).toContainText('On, 1 device')
   await page.goto('/')
@@ -78,7 +108,7 @@ test("logging out removes this device from the person's push list", async ({ pag
   await page.getByLabel('Email').fill(person.email)
   await page.getByLabel('Password').fill(person.password)
   await page.getByRole('button', { name: 'Log in' }).click()
-  await expect(page.getByText('Notifications are off, so Reminders can’t reach you yet.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Reminders can’t reach you' })).toBeVisible()
 })
 
 test('a browser that blocks push (Brave) says what to do, and nothing is saved', async ({ page }, info) => {

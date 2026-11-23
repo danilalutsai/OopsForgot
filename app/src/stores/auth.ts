@@ -25,7 +25,7 @@ export interface Profile {
   calendar_token: string | null
   /** null for a Google signup that has not yet said they are 16 or older */
   confirmed_16_plus_at: string | null
-  /** days an Expired Item stays before it is deleted: 7, 30 or 90; null = never */
+  /** days an Expired Item stays before it is deleted: 7, 30, 90, 180 or 365; null = never */
   expired_cleanup_days: number | null
 }
 

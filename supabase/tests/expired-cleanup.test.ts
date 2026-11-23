@@ -63,7 +63,11 @@ describe('Expired clean-up', () => {
     expect(await ana.names()).toEqual([])
     expect(await ben.names()).toEqual(['Fifty days', 'Ten days'])
 
-    expect((await ana.client.from('profiles').update({ expired_cleanup_days: 90 }).eq('id', ana.id)).error).toBeNull()
+    for (const days of [90, 180, 365]) {
+      expect(
+        (await ana.client.from('profiles').update({ expired_cleanup_days: days }).eq('id', ana.id)).error,
+      ).toBeNull()
+    }
     expect(
       (await ana.client.from('profiles').update({ expired_cleanup_days: 5 }).eq('id', ana.id)).error,
     ).not.toBeNull()

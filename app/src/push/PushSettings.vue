@@ -12,6 +12,7 @@ import {
   usePushDevices,
   useTurnOnPush,
 } from './devices'
+import { forgetKeepPushOff } from './pushOff'
 
 const devices = usePushDevices()
 const turnOn = useTurnOnPush()
@@ -38,6 +39,7 @@ async function enable() {
   problem.value = news.value = null
   try {
     await turnOn.mutateAsync()
+    forgetKeepPushOff()
     here.value = await thisDeviceEndpoint()
     news.value = 'push.on'
   } catch (e) {

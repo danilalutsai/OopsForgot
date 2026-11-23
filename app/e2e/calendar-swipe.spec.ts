@@ -94,7 +94,7 @@ test('computer: drag with the mouse or swipe the trackpad sideways', async ({ pa
   test.skip(info.project.name !== 'computer-chromium', 'mouse and trackpad')
   const title = await openCalendar(page)
   const t = await titles(page, title)
-  const picked = await page.locator('section h2').textContent()
+  const picked = await page.locator('section[aria-label] h2').textContent()
   const box = (await grid(page).boundingBox())!
   const y = box.y + box.height / 2
   await page.mouse.move(box.x + box.width * 0.7, y)
@@ -103,7 +103,7 @@ test('computer: drag with the mouse or swipe the trackpad sideways', async ({ pa
   await page.mouse.up()
   await expect(title).toHaveText(t.next)
   // the drag doesn't count as a click on the day under the mouse: the picked day stays
-  await expect(page.locator('section h2')).toHaveText(picked!)
+  await expect(page.locator('section[aria-label] h2')).toHaveText(picked!)
 
   await page.getByRole('button', { name: 'Previous' }).click()
   await expect(title).toHaveText(t.now)

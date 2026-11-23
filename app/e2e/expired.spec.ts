@@ -171,6 +171,25 @@ test('Settings: choose how long Expired Events stay', async ({ page }) => {
   await expect(page.getByRole('button', { name: /^Delete Expired Events after/ })).toContainText('1 week')
 })
 
+test('Settings: Expired Events can also stay 6 months or 1 year', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await page.goto('/settings')
+  const line = page.getByRole('button', { name: /^Delete Expired Events after/ })
+  await line.click()
+  const choices = page.getByRole('radio')
+  await expect(choices).toHaveCount(6)
+  for (const choice of ['6 months', '1 year']) {
+    await page
+      .locator('label')
+      .filter({ hasText: new RegExp(`^\\s*${choice}\\s*$`) })
+      .click()
+    await expect(page.getByRole('radio', { name: choice })).toBeChecked()
+    await expect(line).toContainText(choice)
+  }
+  await page.reload()
+  await expect(page.getByRole('button', { name: /^Delete Expired Events after/ })).toContainText('1 year')
+})
+
 test.describe('Expired: open at the newest, HIDE back to the top', () => {
   /** 20 Expired Events, oldest first (E01 … E20), and enough upcoming ones to fill the screen. */
   async function longList(page: Page) {

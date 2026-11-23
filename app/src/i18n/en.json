@@ -292,6 +292,8 @@
       "d7": "1 week",
       "d30": "1 month",
       "d90": "3 months",
+      "d180": "6 months",
+      "d365": "1 year",
       "never": "Never",
       "hint": "One-time Events that have been Expired this long are deleted by themselves. Their Expenses stay."
     }
@@ -377,8 +379,11 @@
       "Open OopsForgot from your Home Screen and turn on Notifications in Settings."
     ],
     "iphoneLater": "Until then, Reminders can’t reach this iPhone.",
-    "offBanner": "Notifications are off, so Reminders can’t reach you yet.",
-    "offBannerLink": "Turn it on",
+    "offTitle": "Reminders can’t reach you",
+    "offBody": "Notifications are off on all your devices, so you won’t hear about Events before their dates.",
+    "offTurnOn": "Turn on notifications",
+    "keepOff": "Keep off",
+    "offSettingsBody": "That’s why the avatar has an amber dot. Turn notifications on below so Reminders reach this device, or choose Keep off if you don’t want them: the dot goes away.",
     "failed": "Could not turn on notifications. Check your connection and try again.",
     "on": "This device will get Reminders.",
     "serviceBlocked": "This browser didn’t let OopsForgot sign up for notifications. In Brave, turn on “Use Google services for push messaging” (Settings → Privacy and security), then try again. In other browsers, check that notifications are allowed for this site.",

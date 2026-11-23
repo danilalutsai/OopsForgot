@@ -17,10 +17,21 @@ import PushSettings from '../push/PushSettings.vue'
 import CalendarFeed from '../settings/CalendarFeed.vue'
 import { CONTACT_EMAIL } from '../contact'
 import { usePushDevices } from '../push/devices'
+import { keepPushOff, usePushOff } from '../push/pushOff'
+import { useRoute } from 'vue-router'
+import { BellOff } from '@lucide/vue'
 
 const auth = useAuth()
 const { t } = useI18n()
-const openLine = ref<string | null>(null)
+const route = useRoute()
+// "Turn on notifications" elsewhere opens this page with the Notifications line open
+const openLine = ref<string | null>(route.query.open === 'push' ? 'push' : null)
+const pushOff = usePushOff()
+const pushLine = ref<HTMLElement>()
+function showPush() {
+  openLine.value = 'push'
+  pushLine.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 const here = browserTimeZone()
 // The saved zone is always offered, even when the browser's list lacks it (Chrome has no plain "UTC").
 const timeZones = computed(() => {
@@ -39,8 +50,8 @@ function setDayTime(value: string) {
   if (value) void save({ day_reminder_time: roundToQuarterHour(value) })
 }
 
-/** How long Expired Items stay: 1 week, 1 month (the default), 3 months, or never deleted. */
-const CLEANUP = [7, 30, 90, null] as const
+/** How long Expired Items stay: 1 week, 1 month (the default), 3 or 6 months, 1 year, or never deleted. */
+const CLEANUP = [7, 30, 90, 180, 365, null] as const
 const cleanupKey = (days: number | null) => (days === null ? 'never' : `d${days}`)
 // a profile saved on the device before this setting existed: the default
 const cleanupDays = computed(() =>
@@ -87,6 +98,34 @@ const lines = {
         </div>
       </section>
 
+      <section
+        v-if="pushOff"
+        class="mx-3 mt-2 flex gap-3 rounded-2xl border border-urgent-yellow bg-urgent-yellow/10 p-4"
+        aria-labelledby="push-off-heading"
+      >
+        <BellOff :size="20" class="mt-0.5 shrink-0 text-urgent-yellow-text" aria-hidden="true" />
+        <div class="min-w-0 flex-1">
+          <h2 id="push-off-heading" class="font-semibold">{{ $t('push.offTitle') }}</h2>
+          <p class="mt-1 text-sm">{{ $t('push.offSettingsBody') }}</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="rounded-full bg-accent px-4 py-1.5 font-semibold text-on-accent"
+              @click="showPush"
+            >
+              {{ $t('push.offTurnOn') }}
+            </button>
+            <button
+              type="button"
+              class="rounded-full border border-line px-4 py-1.5 font-semibold"
+              @click="keepPushOff"
+            >
+              {{ $t('push.keepOff') }}
+            </button>
+          </div>
+        </div>
+      </section>
+
       <p
         v-if="error"
         role="alert"
@@ -96,9 +135,23 @@ const lines = {
       </p>
 
       <h2 :class="SECTION_TITLE">{{ $t('settings.sections.reminders') }}</h2>
-      <SheetLine :label="$t('push.section')" :value="lines.push()" :open="openLine === 'push'" @toggle="toggle('push')">
-        <PushSettings />
-      </SheetLine>
+      <div ref="pushLine" class="scroll-mt-4">
+        <SheetLine
+          :label="$t('push.section')"
+          :value="lines.push()"
+          :open="openLine === 'push'"
+          @toggle="toggle('push')"
+        >
+          <template #value>
+            <span class="inline-flex items-center gap-2">
+              <span v-if="pushOff" class="h-2 w-2 rounded-full bg-urgent-yellow" :title="$t('settings.problem')" />{{
+                lines.push()
+              }}
+            </span>
+          </template>
+          <PushSettings />
+        </SheetLine>
+      </div>
       <SheetLine
         :label="$t('settings.dayTime')"
         :value="lines.dayTime()"
