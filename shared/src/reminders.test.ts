@@ -23,6 +23,8 @@ describe('reminderSendAt', () => {
   it("sends hour Reminders that long before the Event's time", () => {
     expect(reminderSendAt('2026-11-20', '09:30', '30m', '12:00')).toBe('2026-11-20T09:00')
     expect(reminderSendAt('2026-11-20', '01:00', '2h', '12:00')).toBe('2026-11-19T23:00')
+    expect(reminderSendAt('2026-11-20', '09:30', '15m', '12:00')).toBe('2026-11-20T09:15')
+    expect(reminderSendAt('2026-11-20', '00:00', '5m', '12:00')).toBe('2026-11-19T23:55')
   })
 })
 
@@ -47,9 +49,9 @@ describe('reminderChoices', () => {
 
   it('offers "1 day" for tomorrow at 16:50 when it is 15:43 today (past the 12:00 day Reminder time)', () => {
     const tomorrow = { dueDate: '2026-11-21', dueTime: '16:50', recurrence: null }
-    expect(offsetsAllowed(tomorrow, '2026-11-20T15:43')).toEqual(['30m', '1h', '2h', '4h', '1d'])
+    expect(offsetsAllowed(tomorrow, '2026-11-20T15:43')).toEqual(['5m', '15m', '30m', '1h', '2h', '4h', '1d'])
     // a minute after the Start time the day before, it is gone
-    expect(offsetsAllowed(tomorrow, '2026-11-20T16:50')).toEqual(['30m', '1h', '2h', '4h'])
+    expect(offsetsAllowed(tomorrow, '2026-11-20T16:50')).toEqual(['5m', '15m', '30m', '1h', '2h', '4h'])
   })
 
   it('offers a one-time Event only Reminders still ahead of now', () => {

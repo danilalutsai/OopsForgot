@@ -1,4 +1,4 @@
-// Reminder sender. Supabase Cron calls it every 15 minutes. It works out, with the shared rules,
+// Reminder sender. Supabase Cron calls it every 5 minutes. It works out, with the shared rules,
 // which Reminders fell due since the last run that worked, claims each one so it goes out only once,
 // bundles them per person and sends one push to each of that person's devices.
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0'

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { inDays, logInAsNewPerson, pick } from './people'
+import { choose, inDays, logInAsNewPerson, pick } from './people'
 
 test('pick Reminders when adding an Event; only fitting ones are offered', async ({ page }) => {
   await logInAsNewPerson(page)
@@ -49,7 +49,7 @@ test('a weekly Event cannot have Reminders a week or more before', async ({ page
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   const form = page.getByRole('dialog', { name: 'New Event' })
   await pick(form.getByLabel('Event date'), await inDays(page, 3))
-  await form.getByRole('combobox', { name: 'Repeats' }).selectOption({ label: 'Every week' })
+  await choose(form.getByRole('combobox', { name: 'Repeats' }), 'Every week')
   const group = form.getByRole('group', { name: 'Reminders' })
   await expect(group.getByRole('button', { name: '2 days', exact: true })).toBeEnabled()
   await expect(group.getByRole('button', { name: '1 week', exact: true })).toBeDisabled()
@@ -101,7 +101,7 @@ test('"Make it repeat" keeps only Reminders that fit the new repeat', async ({ p
   await page.getByRole('button', { name: 'Expired', exact: true }).click()
   await page.getByRole('listitem').filter({ hasText: 'Bins' }).getByRole('button').first().click()
   await expect(sheet.getByRole('button', { name: /^Reminders/ })).toContainText('1 day before, 2 weeks before')
-  await sheet.getByLabel('Repeat', { exact: true }).selectOption({ label: 'Every week' })
+  await choose(sheet.getByLabel('Repeat', { exact: true }), 'Every week')
   await sheet.getByRole('button', { name: 'Make it repeat' }).click()
   await expect(sheet.getByRole('button', { name: /^Reminders/ })).toHaveText(/1 day before$/)
 })
@@ -128,4 +128,25 @@ test('three quick taps on ✓ end up Handled', async ({ page }) => {
   await allSaved
   await page.reload()
   await expect(page.getByRole('listitem').filter({ hasText: 'Phone bill' })).toContainText('Handled')
+})
+
+test('Reminders 5 and 15 minutes before the Start time', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
+  const form = page.getByRole('dialog', { name: 'New Event' })
+  const chip = (name: string) =>
+    form.getByRole('group', { name: 'Reminders' }).getByRole('button', { name, exact: true })
+  await expect(chip('5 min')).toBeDisabled()
+  await expect(chip('15 min')).toBeDisabled()
+  await form.getByLabel('Name').fill('Call')
+  await form.getByText('Other').click()
+  await pick(form.getByLabel('Event date'), await inDays(page, 3))
+  await pick(form.getByLabel(/^Start time/), '10:00')
+  await chip('5 min').click()
+  await chip('15 min').click()
+  await form.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('listitem').filter({ hasText: 'Call' }).getByRole('button').first().click()
+  await expect(page.getByRole('dialog', { name: 'Call' }).getByRole('button', { name: /^Reminders/ })).toContainText(
+    '5 min before, 15 min before, 1 day before',
+  )
 })

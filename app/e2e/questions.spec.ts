@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { inDays, logInAsNewPerson, pick } from './people'
+import { choose, inDays, logInAsNewPerson, pick } from './people'
 
 async function addItem(page: Page, name: string, category: string, days: number) {
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
@@ -38,7 +38,7 @@ test('"Make it repeat" counts the next Event date forward from the old one', asy
   await showExpired(page)
   await row(page, 'Window cleaning').getByRole('button', { name: 'What now?' }).click()
   const sheet = page.getByRole('dialog', { name: 'Window cleaning' })
-  await sheet.getByLabel('Repeat').selectOption({ label: 'Every week' })
+  await choose(sheet.getByLabel('Repeat', { exact: true }), 'Every week')
   await sheet.getByRole('button', { name: 'Make it repeat' }).click()
   await expect(sheet.getByText('Today', { exact: true })).toBeVisible()
   await expect(sheet.getByRole('button', { name: /^Repeats/ })).toContainText('Every week')

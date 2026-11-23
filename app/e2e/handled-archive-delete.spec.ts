@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { inDays, logInAsNewPerson, pick } from './people'
+import { choose, inDays, logInAsNewPerson, pick } from './people'
 
 async function addItem(page: Page, name: string, days: number) {
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
@@ -111,7 +111,7 @@ test('a Handled repeating Event reminds again for its next Event date', async ({
   await page.getByLabel('Name').fill('Cleaning')
   await page.getByText('Home').click()
   await pick(page.getByLabel('Event date'), await inDays(page, -7))
-  await page.getByRole('combobox', { name: 'Repeats' }).selectOption({ label: 'Every week' })
+  await choose(page.getByRole('combobox', { name: 'Repeats' }), 'Every week')
   await page.getByRole('button', { name: 'Save' }).click()
   // Handled for last week's Event date does not carry over to today's
   await expect(row(page, 'Cleaning')).toContainText(/^Cleaning\s*Today/)

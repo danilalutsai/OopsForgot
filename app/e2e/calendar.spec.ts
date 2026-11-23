@@ -1,13 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { inDays, logInAsNewPerson, pick } from './people'
+import { choose, inDays, logInAsNewPerson, pick } from './people'
 
 async function addItem(page: Page, name: string, days: number, repeat?: string) {
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
   await page.getByLabel('Name').fill(name)
   await page.getByText('Other').click()
   await pick(page.getByLabel('Event date'), await inDays(page, days))
-  if (repeat) await page.getByRole('combobox', { name: 'Repeats' }).selectOption({ label: repeat })
+  if (repeat) await choose(page.getByRole('combobox', { name: 'Repeats' }), repeat)
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
 }

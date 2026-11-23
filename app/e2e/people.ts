@@ -154,3 +154,10 @@ export async function pick(field: Locator, value: string) {
   }
   await expect(panel).toBeHidden()
 }
+
+/** Picks from one of the app's lists (Repeats and the like) the way a person does: open it, tap the choice. */
+export async function choose(field: Locator, label: string) {
+  await field.click()
+  await field.page().getByRole('option', { name: label, exact: true }).click()
+  await expect(field).toHaveText(label)
+}

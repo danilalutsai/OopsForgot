@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { expectAccessible } from './axe'
-import { inDays, logInAsNewPerson, pick } from './people'
+import { choose, inDays, logInAsNewPerson, pick } from './people'
 
 async function addGym(page: Page) {
   await page.getByRole('button', { name: 'Add Event' }).filter({ visible: true }).first().click()
@@ -109,12 +109,12 @@ test('an unfinished custom repeat is never saved as "doesn\'t repeat"', async ({
   await page.getByRole('listitem').filter({ hasText: 'Gym' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog', { name: 'Gym' })
   await sheet.getByRole('button', { name: /^Repeats/ }).click()
-  await sheet.getByRole('combobox', { name: 'Repeats' }).selectOption({ label: 'Custom…' })
+  await choose(sheet.getByRole('combobox', { name: 'Repeats' }), 'Custom…')
   await sheet.getByLabel('Every', { exact: true }).fill('0')
   await sheet.getByRole('button', { name: /^Repeats/ }).click()
   await expect(sheet.getByRole('button', { name: /^Repeats/ })).toContainText('Custom: type how often')
   await sheet.getByRole('button', { name: /^Repeats/ }).click()
-  await expect(sheet.getByRole('combobox', { name: 'Repeats' })).toHaveValue('custom')
+  await expect(sheet.getByRole('combobox', { name: 'Repeats' })).toHaveText('Custom…')
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet.getByRole('alert')).toContainText('Repeat every 1 to 365.')
 })

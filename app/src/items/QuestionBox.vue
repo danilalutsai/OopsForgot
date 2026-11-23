@@ -4,13 +4,18 @@ import { computed, ref } from 'vue'
 import { today } from '../today'
 import { useItemActions } from './actions'
 import type { Item } from './api'
-import { INPUT } from './ui'
 import DateTimeInput from '../components/DateTimeInput.vue'
+import AppSelect from '../components/AppSelect.vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{ item: Item; question: OpenQuestion; disabled: boolean }>()
 const actions = useItemActions()
 const newDate = ref('')
 const unit = ref<'week' | 'month' | 'year'>('year')
+const { t } = useI18n()
+const units = computed(() =>
+  (['week', 'month', 'year'] as const).map((u) => ({ value: u, label: t(`questions.every.${u}`) })),
+)
 const daysAgo = computed(() => {
   const left = countdown(props.item.due_date, today.value)
   return left.kind === 'expired' ? left.days : 0
@@ -41,11 +46,7 @@ const daysAgo = computed(() => {
           </button>
         </div>
         <div class="flex gap-2">
-          <select v-model="unit" :aria-label="$t('questions.repeatEvery')" :class="INPUT">
-            <option v-for="u in ['week', 'month', 'year'] as const" :key="u" :value="u">
-              {{ $t(`questions.every.${u}`) }}
-            </option>
-          </select>
+          <AppSelect v-model="unit" class="min-w-0 flex-1" :options="units" :aria-label="$t('questions.repeatEvery')" />
           <button
             type="button"
             class="shrink-0 rounded-xl border border-line bg-surface px-3 font-semibold disabled:opacity-40"

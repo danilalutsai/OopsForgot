@@ -2,20 +2,28 @@ import { addDays, addMonths } from './dates.ts'
 import type { Recurrence } from './due-date.ts'
 
 /** Every Reminder a person can pick, shortest first. Hour ones need the Item to have a time. */
-export const REMINDER_OFFSETS = ['30m', '1h', '2h', '4h', '1d', '2d', '1w', '2w', '1M'] as const
+export const REMINDER_OFFSETS = ['5m', '15m', '30m', '1h', '2h', '4h', '1d', '2d', '1w', '2w', '1M'] as const
 export type ReminderOffset = (typeof REMINDER_OFFSETS)[number]
 
 /** A new Item starts with one Reminder, the day before. */
 export const DEFAULT_REMINDERS: ReminderOffset[] = ['1d']
 
-const HOURS: Partial<Record<ReminderOffset, number>> = { '30m': 0.5, '1h': 1, '2h': 2, '4h': 4 }
+/** Reminders before the Start time, in minutes. */
+const MINUTES: Partial<Record<ReminderOffset, number>> = {
+  '5m': 5,
+  '15m': 15,
+  '30m': 30,
+  '1h': 60,
+  '2h': 120,
+  '4h': 240,
+}
 const DAYS: Partial<Record<ReminderOffset, number>> = { '1d': 1, '2d': 2, '1w': 7, '2w': 14 }
 
-export const isHourReminder = (offset: ReminderOffset) => offset in HOURS
+export const isHourReminder = (offset: ReminderOffset) => offset in MINUTES
 
 /** Roughly how long before the Due date a Reminder is, in days (a month counts as 30). */
 function lengthInDays(offset: ReminderOffset): number {
-  return HOURS[offset] !== undefined ? HOURS[offset] / 24 : (DAYS[offset] ?? 30)
+  return MINUTES[offset] !== undefined ? MINUTES[offset] / 1440 : (DAYS[offset] ?? 30)
 }
 
 /** The shortest a repeat can be, in days (a month counts as 28). */
@@ -44,8 +52,8 @@ export function reminderSendAt(
   offset: ReminderOffset,
   dayReminderTime: string,
 ): string {
-  const hours = HOURS[offset]
-  if (hours !== undefined) return minusMinutes(dueDate, (dueTime ?? '00:00').slice(0, 5), hours * 60)
+  const minutes = MINUTES[offset]
+  if (minutes !== undefined) return minusMinutes(dueDate, (dueTime ?? '00:00').slice(0, 5), minutes)
   const day = offset === '1M' ? addMonths(dueDate, -1) : addDays(dueDate, -(DAYS[offset] ?? 0))
   return `${day}T${(dueTime ?? dayReminderTime).slice(0, 5)}`
 }
