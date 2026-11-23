@@ -16,6 +16,14 @@ describe('settings on the profile', () => {
     expect(data).toEqual({ time_zone: 'UTC', currency: 'EUR' })
   })
 
+  it('the Google photo shows until the person hides it', async () => {
+    const ana = await signUpPerson('Ana')
+    const read = async () => (await ana.client.from('profiles').select('google_photo_hidden').single()).data
+    expect(await read()).toEqual({ google_photo_hidden: false })
+    expect((await ana.client.from('profiles').update({ google_photo_hidden: true }).eq('id', ana.id)).error).toBeNull()
+    expect(await read()).toEqual({ google_photo_hidden: true })
+  })
+
   it("a photo path must be in the person's own folder", async () => {
     const ana = await signUpPerson('Ana')
     const ben = await signUpPerson('Ben')

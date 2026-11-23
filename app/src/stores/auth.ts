@@ -19,6 +19,8 @@ export interface Profile {
   /** "12:00:00" */
   day_reminder_time: string
   photo_path: string | null
+  /** set once they remove a photo: the Google one is not shown again, the initials are */
+  google_photo_hidden: boolean
   /** the Calendar feed's secret, or null when the feed is off */
   calendar_token: string | null
   /** null for a Google signup that has not yet said they are 16 or older */
@@ -28,7 +30,7 @@ export interface Profile {
 }
 
 const PROFILE_COLUMNS =
-  'name, surname, time_zone, currency, day_reminder_time, photo_path, calendar_token, confirmed_16_plus_at, expired_cleanup_days'
+  'name, surname, time_zone, currency, day_reminder_time, photo_path, google_photo_hidden, calendar_token, confirmed_16_plus_at, expired_cleanup_days'
 
 /** The profile is saved on the device next to the offline copy, so dates and money stay right offline. */
 const PROFILE_KEY = 'oopsforgot-profile'
@@ -66,9 +68,10 @@ export const useAuth = defineStore('auth', () => {
 
   /** A short-lived link to the profile photo, renewed before it expires; a late answer for an older photo is dropped. */
   const ownPhotoUrl = ref<string | null>(null)
-  /** The person's own photo, or their Google one until they add their own. */
+  /** The person's own photo, or their Google one until they add their own or remove it. */
   const photoUrl = computed(() => {
     if (profile.value?.photo_path) return ownPhotoUrl.value
+    if (profile.value?.google_photo_hidden) return null
     const google = session.value?.user.user_metadata?.avatar_url
     return typeof google === 'string' && google.startsWith('https://') ? google : null
   })

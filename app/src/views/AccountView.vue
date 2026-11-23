@@ -57,11 +57,13 @@ async function pickPhoto(e: Event) {
     if (photoInput.value) photoInput.value.value = ''
   }
 }
+/** Removing any photo, their own or Google's, leaves the initials. */
 async function dropPhoto() {
   if (blockedOffline()) return
   const path = profile.value?.photo_path
-  if (!path) return
-  if (await save({ photo_path: null })) await removePhoto(path)
+  if (await save({ photo_path: null, google_photo_hidden: true })) {
+    if (path) await removePhoto(path)
+  }
 }
 </script>
 
@@ -80,12 +82,8 @@ async function dropPhoto() {
       </p>
 
       <h2 :class="SECTION_TITLE">{{ $t('settings.sections.account') }}</h2>
-      <SheetLine
-        :label="$t('settings.profile')"
-        :value="`${profile.name} ${profile.surname}`"
-        :open="openLine === 'profile'"
-        @toggle="toggle('profile')"
-      >
+      <SheetLine :label="$t('settings.photo')" value="" :open="openLine === 'photo'" @toggle="toggle('photo')">
+        <template #value><AvatarImage size="xs" /></template>
         <div class="flex items-center gap-3">
           <AvatarImage size="lg" />
           <div class="flex flex-wrap gap-2 text-sm">
@@ -95,10 +93,10 @@ async function dropPhoto() {
               :disabled="busy"
               @click="photoInput?.click()"
             >
-              {{ profile.photo_path ? $t('settings.changePhoto') : $t('settings.addPhoto') }}
+              {{ auth.photoUrl ? $t('settings.changePhoto') : $t('settings.addPhoto') }}
             </button>
             <button
-              v-if="profile.photo_path"
+              v-if="auth.photoUrl"
               type="button"
               class="rounded-full border border-line px-3 py-1.5 font-semibold text-urgent-red"
               :disabled="busy"
@@ -116,7 +114,14 @@ async function dropPhoto() {
             @change="pickPhoto"
           />
         </div>
-        <div class="mt-3 grid grid-cols-2 gap-3">
+      </SheetLine>
+      <SheetLine
+        :label="$t('settings.profile')"
+        :value="`${profile.name} ${profile.surname}`"
+        :open="openLine === 'profile'"
+        @toggle="toggle('profile')"
+      >
+        <div class="grid grid-cols-2 gap-3">
           <label class="flex flex-col gap-1 text-sm">
             <span class="font-medium">{{ $t('auth.name') }}</span>
             <input v-model="name" :class="INPUT" autocomplete="given-name" @change="saveName" />

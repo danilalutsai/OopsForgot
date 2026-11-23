@@ -53,3 +53,38 @@ test('someone under 16 removes their Google signup straight away', async ({ page
   await page.getByRole('button', { name: 'Log in' }).click()
   await expect(page.getByRole('alert')).toHaveText("That email and password don't match an account.")
 })
+
+test('a Google photo can be replaced, and removing a photo leaves the initials', async ({ page }) => {
+  // the Google photo itself never loads in tests; only where the picture comes from matters here
+  await logInAsNewGooglePerson(page, { full_name: 'Greg Krohon', avatar_url: 'https://example.test/greg.jpg' })
+  await page.getByLabel('I am 16 or older').check()
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await openFromAvatar(page, 'Account')
+  await page.getByRole('button', { name: /^Photo/ }).click()
+  await expect(page.locator('img').first()).toHaveAttribute('src', 'https://example.test/greg.jpg')
+
+  const png = await page.screenshot({ clip: { x: 0, y: 0, width: 60, height: 40 } })
+  await page.getByLabel('Photo').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: png })
+  await expect(page.getByRole('button', { name: 'Change photo' })).toBeVisible()
+  await expect(page.locator('img').first()).toHaveAttribute('src', /avatars/)
+
+  await page.getByRole('button', { name: 'Remove photo' }).click()
+  await expect(page.getByRole('button', { name: 'Add photo' })).toBeVisible()
+  // not back to the Google photo: the initials, after a reload too
+  await expect(page.locator('img')).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByRole('button', { name: /Account menu/ })).toContainText('GK')
+  await expect(page.locator('img')).toHaveCount(0)
+})
+
+test('the Google photo can be removed straight away', async ({ page }) => {
+  await logInAsNewGooglePerson(page, { full_name: 'Greg Krohon', avatar_url: 'https://example.test/greg.jpg' })
+  await page.getByLabel('I am 16 or older').check()
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await openFromAvatar(page, 'Account')
+  await page.getByRole('button', { name: /^Photo/ }).click()
+  await page.getByRole('button', { name: 'Remove photo' }).click()
+  await expect(page.getByRole('button', { name: 'Add photo' })).toBeVisible()
+  await expect(page.locator('img')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Account menu/ })).toContainText('GK')
+})
