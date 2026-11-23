@@ -37,14 +37,17 @@ function switchMode() {
 const openId = ref<string | null>(null)
 const openItem = computed(() => items.data.value?.find((i) => i.id === openId.value) ?? null)
 
-// A push Reminder opens the app at /?item=<id>: show that Item, then tidy the address.
+// A push Reminder opens the app at /?item=<id>: show that Item, then tidy the address. The copy saved
+// on the device may be older than the Item: until the fresh list is in, keep waiting for it.
 const route = useRoute()
 const router = useRouter()
 watch(
-  () => [route.query.item, items.data.value] as const,
-  ([id, list]) => {
+  () => [route.query.item, items.data.value, items.isFetching.value] as const,
+  ([id, list, fetching]) => {
     if (typeof id !== 'string' || !list) return
-    if (list.some((i) => i.id === id)) openId.value = id
+    const found = list.some((i) => i.id === id)
+    if (!found && fetching) return
+    if (found) openId.value = id
     const { item: _opened, ...rest } = route.query
     void router.replace({ query: rest })
   },
