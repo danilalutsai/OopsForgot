@@ -226,3 +226,54 @@ test('the Time row of an all-day Event says so, also when opened; Start and Fini
   await reopen()
   await expect(line).toContainText('All day')
 })
+
+/** The id of the person's Event with this name, read with their own session the way the app reads it. */
+async function eventId(page: import('@playwright/test').Page, name: string): Promise<string> {
+  return page.evaluate(async (name) => {
+    const key = Object.keys(localStorage).find((k) => k.endsWith('-auth-token'))!
+    const { access_token } = JSON.parse(localStorage.getItem(key)!)
+    const res = await fetch(`http://127.0.0.1:54321/rest/v1/items?select=id&name=eq.${name}`, {
+      headers: { apikey: 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH', Authorization: `Bearer ${access_token}` },
+    })
+    return ((await res.json()) as { id: string }[])[0]!.id
+  }, name)
+}
+
+test("tapping a Reminder while the app is open, on any page, opens that Event's details", async ({ page }) => {
+  await logInAsNewPerson(page)
+  await addGym(page)
+  const id = await eventId(page, 'Gym')
+  await page.goto('/settings')
+  await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
+  // what the service worker tells the open app when its Reminder is tapped
+  await page.evaluate((path) => {
+    navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { type: 'open', path } }))
+  }, `/?item=${id}`)
+  await expect(page.getByRole('dialog', { name: 'Gym' })).toBeVisible()
+})
+
+test('a Reminder tap that starts the app at its first page still opens that Event', async ({ page }) => {
+  await logInAsNewPerson(page)
+  await addGym(page)
+  const id = await eventId(page, 'Gym')
+  // what the service worker leaves behind as the tap starts the app (the iPhone opens it at "/")
+  await page.evaluate(async (path) => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const open = indexedDB.open('keyval-store')
+      open.onupgradeneeded = () => open.result.createObjectStore('keyval')
+      open.onsuccess = () => resolve(open.result)
+      open.onerror = () => reject(open.error)
+    })
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('keyval', 'readwrite')
+      tx.objectStore('keyval').put({ path, at: Date.now() }, 'oopsforgot.openFromNotification')
+      tx.oncomplete = resolve
+      tx.onerror = () => reject(tx.error)
+    })
+  }, `/?item=${id}`)
+  await page.goto('/')
+  await expect(page.getByRole('dialog', { name: 'Gym' })).toBeVisible()
+  // used once: a later start opens the list as usual
+  await page.goto('/')
+  await expect(page.getByRole('dialog', { name: 'Gym' })).toBeHidden()
+})

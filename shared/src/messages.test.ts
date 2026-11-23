@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { pushMessage } from './messages.ts'
+import { type MessageEntry, pushMessages } from './messages.ts'
 
 const ana = { id: 'ana', name: 'Ana', timeZone: 'Europe/Tallinn', dayReminderTime: '12:00' }
 const netflix = { id: 'n1', name: 'Netflix', category: 'subscriptions' as const, dueTime: null }
 
-describe('pushMessage', () => {
+/** The one push for a single Event's Reminders. */
+const pushMessage = (...args: [typeof ana, MessageEntry[], string]) => {
+  const all = pushMessages(...args)
+  expect(all).toHaveLength(1)
+  return all[0]!
+}
+
+describe('pushMessages', () => {
   it('names the person and the Event, says when, and never shows price or notes', () => {
     expect(
       pushMessage(
@@ -31,8 +38,8 @@ describe('pushMessage', () => {
     expect(one('2026-11-26', '1w')).toBe('Ana, Netflix is in 7 days 🔔')
   })
 
-  it('bundles several Reminders into one message that opens the dashboard', () => {
-    const msg = pushMessage(
+  it('sends several Events due at once as separate pushes, each opening its own Event', () => {
+    const msgs = pushMessages(
       ana,
       [
         { item: netflix, dueDate: '2026-11-20', kind: '1d', sendAt: '2026-11-19T10:00:00.000Z' },
@@ -45,12 +52,11 @@ describe('pushMessage', () => {
       ],
       '2026-11-19',
     )
-    expect(msg).toEqual({
-      title: 'Ana, 2 Events need you soon 🔔',
-      body: 'Netflix, Gym',
-      url: '/',
-      tag: 'bundle-n1-2026-11-20-1d-20261119T1000_g-2026-11-21-2d-20261119T1000',
-    })
+    expect(msgs.map((m) => [m.title, m.url])).toEqual([
+      ['Ana, Netflix is tomorrow 🔔', '/?item=n1'],
+      ['Ana, Gym is in 2 days 🔔', '/?item=g'],
+    ])
+    expect(msgs[0]!.tag).not.toBe(msgs[1]!.tag)
   })
 
   it('asks plainly, with no emoji, about Expired Events and free trials', () => {
@@ -86,9 +92,9 @@ describe('pushMessage', () => {
     expect(msg.url).toBe('/?item=t')
   })
 
-  it('a bundle with an Expired Event or a question asks for attention, without an emoji', () => {
+  it('an Expired Event due with another still gets its own question', () => {
     const passport = { id: 'p', name: 'Passport', category: 'documents' as const, dueTime: null }
-    const msg = pushMessage(
+    const msgs = pushMessages(
       ana,
       [
         { item: passport, dueDate: '2026-11-18', kind: 'expired', sendAt: '2026-11-19T10:00:00.000Z' },
@@ -96,7 +102,7 @@ describe('pushMessage', () => {
       ],
       '2026-11-19',
     )
-    expect(msg.title).toBe('Ana, 2 Events need your attention')
-    expect(msg.body).toBe('Passport, Netflix')
+    expect(msgs.map((m) => m.title)).toEqual(['Passport expired yesterday. What now?', 'Ana, Netflix is tomorrow 🔔'])
+    expect(msgs.map((m) => m.url)).toEqual(['/?item=p', '/?item=n1'])
   })
 })

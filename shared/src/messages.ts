@@ -29,7 +29,7 @@ export interface MessageEntry {
 export interface PushMessage {
   title: string
   body: string
-  /** where tapping opens: the Item, or the dashboard for a bundle */
+  /** where tapping opens: that Event's details */
   url: string
   /**
    * One per Reminder (Event, date, kind and moment), so a new Reminder never silently replaces an
@@ -69,25 +69,18 @@ function perItem(entries: MessageEntry[]): MessageEntry[] {
 }
 
 /**
- * One push for everything due for a person in one run. `today` is their local date.
- * Each Item has its own tag, so a later push never hides an earlier one the person hasn't seen.
+ * The pushes for everything due for a person in one run: one per Event, so tapping any of them
+ * opens that Event's details. `today` is their local date. Each Reminder has its own tag, so a
+ * later push never hides an earlier one the person hasn't seen.
  */
-export function pushMessage(person: SenderPerson, all: MessageEntry[], today: string): PushMessage {
-  const entries = perItem(all)
-  if (entries.length > 1) {
-    const attention = entries.some((e) => isQuestion(e.kind))
-    return {
-      title: attention
-        ? `${person.name}, ${entries.length} Events need your attention`
-        : `${person.name}, ${entries.length} Events need you soon 🔔`,
-      body: entries.map((e) => e.item.name).join(', '),
-      url: '/',
-      tag: `bundle-${entries.map(reminderTag).join('_')}`,
-    }
-  }
-  const { item, dueDate, kind } = entries[0]!
+export function pushMessages(person: SenderPerson, all: MessageEntry[], today: string): PushMessage[] {
+  return perItem(all).map((entry) => messageFor(person, entry, today))
+}
+
+function messageFor(person: SenderPerson, entry: MessageEntry, today: string): PushMessage {
+  const { item, dueDate, kind } = entry
   const url = `/?item=${item.id}`
-  const tag = `item-${reminderTag(entries[0]!)}`
+  const tag = `item-${reminderTag(entry)}`
   if (kind === 'expired') {
     const ago = daysBetween(dueDate, today)
     const since = ago <= 1 ? 'yesterday' : `${ago} days ago`

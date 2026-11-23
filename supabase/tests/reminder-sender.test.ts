@@ -8,9 +8,16 @@ const local = JSON.parse(
   execSync('pnpm exec supabase status -o json', { stdio: ['ignore', 'pipe', 'ignore'] }).toString(),
 )
 
+interface Message {
+  title: string
+  body: string
+  url: string
+  tag: string
+}
 interface Sent {
   userId: string
-  message: { title: string; body: string; url: string; tag: string }
+  /** one push per Event */
+  messages: Message[]
   entries: { item_id: string; due_date: string; kind: string }[]
   delivered: string[]
 }
@@ -48,8 +55,8 @@ describe('Reminder sender', () => {
     const { ana } = await personWith([{ ...base, name: 'Netflix', due_date: '2030-01-10', price_cents: 1399 }])
     const sent = forAna(await runSender('2030-01-09T09:45:00Z', '2030-01-09T10:00:00Z'), ana.id)
     expect(sent).toHaveLength(1)
-    expect(sent[0]!.message.title).toBe('Ana, Netflix is tomorrow 🔔')
-    expect(sent[0]!.message.body).not.toContain('13.99')
+    expect(sent[0]!.messages.map((m) => m.title)).toEqual(['Ana, Netflix is tomorrow 🔔'])
+    expect(sent[0]!.messages[0]!.body).not.toContain('13.99')
     expect(sent[0]!.delivered).toHaveLength(1)
   })
 
@@ -61,14 +68,17 @@ describe('Reminder sender', () => {
     expect(again).toHaveLength(0)
   })
 
-  it("bundles a person's Reminders into one message", async () => {
+  it('sends each Event due at once as its own push, opening that Event', async () => {
     const { ana } = await personWith([
       { ...base, name: 'Netflix', due_date: '2030-03-10' },
       { ...base, name: 'Spotify', due_date: '2030-03-10' },
     ])
     const sent = forAna(await runSender('2030-03-09T09:45:00Z', '2030-03-09T10:00:00Z'), ana.id)
     expect(sent).toHaveLength(1)
-    expect(sent[0]!.message.title).toBe('Ana, 2 Events need you soon 🔔')
+    const messages = sent[0]!.messages
+    expect(messages.map((m) => m.title).sort()).toEqual(['Ana, Netflix is tomorrow 🔔', 'Ana, Spotify is tomorrow 🔔'])
+    expect(messages.every((m) => /^\/\?item=[0-9a-f-]{36}$/.test(m.url))).toBe(true)
+    expect(new Set(messages.map((m) => m.url)).size).toBe(2)
   })
 
   it('stops for Handled Events, and starts again on the next Event date', async () => {
@@ -79,7 +89,7 @@ describe('Reminder sender', () => {
     expect(forAna(await runSender('2030-04-09T09:45:00Z', '2030-04-09T10:00:00Z'), ana.id)).toHaveLength(0)
     // May is summer time in Tallinn (UTC+3): 12:00 there is 09:00 UTC
     const next = forAna(await runSender('2030-05-09T08:45:00Z', '2030-05-09T09:00:00Z'), ana.id)
-    expect(next.map((s) => s.message.title)).toEqual(['Ana, Rent is tomorrow 🔔'])
+    expect(next.flatMap((s) => s.messages.map((m) => m.title))).toEqual(['Ana, Rent is tomorrow 🔔'])
   })
 
   it('sends no "What now?" for an Event kept in Expired', async () => {
@@ -95,13 +105,13 @@ describe('Reminder sender', () => {
     // March is winter time in Tallinn (UTC+2): 16:50 there is 14:50 UTC, not 12:00 local
     expect(forAna(await runSender('2030-03-09T09:45:00Z', '2030-03-09T10:00:00Z'), ana.id)).toHaveLength(0)
     const sent = forAna(await runSender('2030-03-09T14:45:00Z', '2030-03-09T15:00:00Z'), ana.id)
-    expect(sent.map((s) => s.message.title)).toEqual(['Ana, Dentist is tomorrow at 16:50 🔔'])
+    expect(sent.flatMap((s) => s.messages.map((m) => m.title))).toEqual(['Ana, Dentist is tomorrow at 16:50 🔔'])
   })
 
   it("still sends a late Reminder after skipped runs, while the Event date hasn't passed", async () => {
     const { ana } = await personWith([{ ...base, name: 'Car insurance', due_date: '2030-06-10' }])
     const late = forAna(await runSender('2030-06-09T08:00:00Z', '2030-06-09T15:00:00Z'), ana.id)
-    expect(late.map((s) => s.message.title)).toEqual(['Ana, Car insurance is tomorrow 🔔'])
+    expect(late.flatMap((s) => s.messages.map((m) => m.title))).toEqual(['Ana, Car insurance is tomorrow 🔔'])
   })
 })
 
@@ -145,7 +155,7 @@ describe('automatic Expenses never fill in the past', () => {
 // March 2030 is winter time in Tallinn (UTC+2): 14:30 there is 12:30 UTC.
 describe('Reminders are re-armed when an Event moves', () => {
   const dentist = { ...base, name: 'Dentist', due_date: '2030-03-20', due_time: '15:00', reminder_offsets: ['30m'] }
-  const titles = (sent: Sent[], id: string) => forAna(sent, id).map((s) => s.message.title)
+  const titles = (sent: Sent[], id: string) => forAna(sent, id).flatMap((s) => s.messages.map((m) => m.title))
 
   it('moving the Start time later the same day sends the Reminder again at the new moment', async () => {
     const { ana, items } = await personWith([dentist])
@@ -194,7 +204,7 @@ describe('Reminders are re-armed when an Event moves', () => {
     const [first] = forAna(await runSender('2030-03-20T12:15:00Z', '2030-03-20T12:30:00Z'), ana.id)
     await ana.client.from('items').update({ due_time: '17:35' }).eq('id', items[0]!.id)
     const [second] = forAna(await runSender('2030-03-20T15:00:00Z', '2030-03-20T15:15:00Z'), ana.id)
-    const tag = (s: Sent) => s.message.tag
+    const tag = (s: Sent) => s.messages[0]!.tag
     expect(tag(first!)).toContain(items[0]!.id)
     expect(tag(first!)).toContain('2030-03-20')
     expect(tag(first!)).toContain('30m')

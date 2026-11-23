@@ -1,6 +1,6 @@
 // Reminder sender. Supabase Cron calls it every 5 minutes. It works out, with the shared rules,
 // which Reminders fell due since the last run that worked, claims each one so it goes out only once,
-// bundles them per person and sends one push to each of that person's devices.
+// and sends each of that person's devices one push per Event (tapping it opens that Event).
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0'
 import { type Device, pushProblem, send, testing } from '../_shared/push.ts'
 import { isServerCaller } from '../_shared/serverCaller.ts'
@@ -8,7 +8,7 @@ import {
   automaticExpenseDates,
   dueReminders,
   type MessageEntry,
-  pushMessage,
+  pushMessages,
   type SenderItem,
   type SenderPerson,
   todayIn,
@@ -102,7 +102,10 @@ async function createAutomaticExpenses(
   }
 }
 
-/** Claims, bundles and sends one person's due Reminders. Returns what was sent, or null for nothing. */
+/**
+ * Claims and sends one person's due Reminders: one push per Event, so tapping it opens that Event.
+ * Returns what was sent, or null for nothing.
+ */
 async function remind(person: SenderPerson, items: SenderItem[], targets: Device[], from: Date, to: Date) {
   const due = dueReminders(person, items, from, to)
   if (!due.length) return null
@@ -138,8 +141,19 @@ async function remind(person: SenderPerson, items: SenderItem[], targets: Device
       sendAt: c.send_at,
     }
   })
-  const message = pushMessage(person, entries, todayIn(person.timeZone, to))
-  const outcomes = await Promise.all(targets.map((d) => send(d, JSON.stringify(message))))
+  const messages = pushMessages(person, entries, todayIn(person.timeZone, to))
+  // per device: gone as soon as the push service says so, delivered if any push got through
+  const outcomes = await Promise.all(
+    targets.map(async (d) => {
+      let delivered = false
+      for (const m of messages) {
+        const outcome = await send(d, JSON.stringify(m))
+        if (outcome === 'gone') return 'gone' as const
+        if (outcome === 'delivered') delivered = true
+      }
+      return delivered ? ('delivered' as const) : ('failed' as const)
+    }),
+  )
   const gone = targets.filter((_, n) => outcomes[n] === 'gone').map((d) => d.id)
   if (gone.length) await db.from('push_devices').delete().in('id', gone)
 
@@ -156,7 +170,7 @@ async function remind(person: SenderPerson, items: SenderItem[], targets: Device
   }
   return {
     userId: person.id,
-    message,
+    messages,
     entries: claimed,
     delivered: targets.filter((_, n) => outcomes[n] === 'delivered').map((d) => d.endpoint),
     failed,
